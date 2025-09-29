@@ -9,6 +9,7 @@ import {
   Briefcase,
   Leaf,
   Star,
+  ExternalLink,
 } from "lucide-react";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { useToast } from "@/hooks/use-toast";
@@ -473,6 +474,20 @@ export default function SignDetail({ sign }: SignDetailProps) {
                   <p className="text-card-foreground leading-relaxed mb-4">
                     {horoscope.summary}
                   </p>
+
+                  {/* Read More Link */}
+                  <div className="mb-4">
+                    <a
+                      href={horoscope.original_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+                      data-testid={`link-read-more-${horoscope.source.id}`}
+                    >
+                      Leggi tutto
+                      <ExternalLink className="w-3 h-3 ml-1" />
+                    </a>
+                  </div>
 
                   {/* Ratings */}
                   <div className="grid grid-cols-3 gap-4">
