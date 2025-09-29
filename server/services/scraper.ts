@@ -152,10 +152,10 @@ function buildHoroscopeUrl(input: ScraperInput): string | string[] {
       const slug1 = `${baseSlug}-previsioni-per-12-i-segni`;
       const slug2 = `${baseSlug}-previsioni-per-tutti-i-segni`;
       
-      const url1 = `${input.baseUrl}oroscopo/storie/${prevDateFormatted}/${slug1}/${gazzettaSignSlug}.shtml`;
-      const url2 = `${input.baseUrl}oroscopo/storie/${prevDateFormatted}/${slug2}/${gazzettaSignSlug}.shtml`;
-      const url3 = `${input.baseUrl}oroscopo/storie/${currentDateFormatted}/${slug1}/${gazzettaSignSlug}.shtml`;
-      const url4 = `${input.baseUrl}oroscopo/storie/${currentDateFormatted}/${slug2}/${gazzettaSignSlug}.shtml`;
+      const url1 = `${input.baseUrl}/oroscopo/storie/${prevDateFormatted}/${slug1}/${gazzettaSignSlug}.shtml`;
+      const url2 = `${input.baseUrl}/oroscopo/storie/${prevDateFormatted}/${slug2}/${gazzettaSignSlug}.shtml`;
+      const url3 = `${input.baseUrl}/oroscopo/storie/${currentDateFormatted}/${slug1}/${gazzettaSignSlug}.shtml`;
+      const url4 = `${input.baseUrl}/oroscopo/storie/${currentDateFormatted}/${slug2}/${gazzettaSignSlug}.shtml`;
       
       return [url1, url2, url3, url4];
     }
@@ -543,14 +543,54 @@ async function scrapeHoroscopeText(url: string, input: ScraperInput): Promise<Sc
     const selectors = [
       '.content p', '.article-content p', '.entry-content p',
       '.text p', '.oroscopo p', '.article p', 'main p',
-      '.post-content p', '.story p'
+      '.post-content p', '.story p', '.description p',
+      '[class*="horoscope"] p', '[class*="oroscopo"] p',
+      '.body p', '.inner p', '.main-content p'
     ];
     
+    let bestText = '';
+    let bestScore = 0;
+    
     for (const selector of selectors) {
-      const text = $(selector).first().text().trim();
-      if (text && text.length > 50) {
-        extractedText = text;
-        break;
+      const elements = $(selector);
+      elements.each((_, element) => {
+        const text = $(element).text().trim();
+        if (text && text.length > 30) {
+          const score = scoreHoroscopeContent(text, zodiacName, domain);
+          if (score > bestScore) {
+            bestScore = score;
+            bestText = text;
+          }
+        }
+      });
+    }
+    
+    // If no good content found with selectors, try extracting all paragraphs
+    if (!bestText || bestScore < 20) {
+      const allParagraphs = $('p');
+      allParagraphs.each((_, element) => {
+        const text = $(element).text().trim();
+        if (text && text.length > 30) {
+          const score = scoreHoroscopeContent(text, zodiacName, domain);
+          if (score > bestScore) {
+            bestScore = score;
+            bestText = text;
+          }
+        }
+      });
+    }
+    
+    extractedText = bestText;
+
+    // Final attempt: extract any text that mentions the zodiac sign
+    if (!extractedText || extractedText.length < 20) {
+      const $ = cheerio.load(cleanHtml);
+      const allText = $('body').text();
+      const zodiacRegex = new RegExp(`\\b${zodiacName}\\b[\\s\\S]{50,500}`, 'i');
+      const match = allText.match(zodiacRegex);
+      
+      if (match && match[0]) {
+        extractedText = match[0].trim();
       }
     }
 
@@ -563,7 +603,8 @@ async function scrapeHoroscopeText(url: string, input: ScraperInput): Promise<Sc
     
     const finalScore = scoreHoroscopeContent(extractedText, zodiacName, domain);
     
-    if (finalScore < 15 && extractedText.length < 100) {
+    // Lower the threshold for acceptance to capture more content
+    if (finalScore < 10 && extractedText.length < 50) {
       return {
         success: false,
         error: `Extracted content quality too low (score: ${finalScore}) for ${input.signSlugIt} on ${domain}`
