@@ -50,13 +50,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
       }
 
-      // Validate sign
-      if (!(sign as string in ZODIAC_SIGNS_IT_EN)) {
+      // Validate sign and convert to English if needed
+      const signString = sign as string;
+      let englishSign = signString;
+      
+      // Check if it's Italian sign and convert to English
+      if (signString in ZODIAC_SIGNS_IT_EN) {
+        englishSign = ZODIAC_SIGNS_IT_EN[signString as keyof typeof ZODIAC_SIGNS_IT_EN];
+      } 
+      // Check if it's already English
+      else if (!Object.values(ZODIAC_SIGNS_IT_EN).includes(signString as any)) {
         return res.status(400).json({ error: 'Invalid zodiac sign' });
       }
 
       const zodiacSign = await prisma.zodiacSign.findFirst({
-        where: { name_english: sign as string }
+        where: { name_english: englishSign }
       });
 
       if (!zodiacSign) {
@@ -92,8 +100,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Date and sign parameters are required' });
       }
 
+      // Validate sign and convert to English if needed
+      const signString = sign as string;
+      let englishSign = signString;
+      
+      // Check if it's Italian sign and convert to English
+      if (signString in ZODIAC_SIGNS_IT_EN) {
+        englishSign = ZODIAC_SIGNS_IT_EN[signString as keyof typeof ZODIAC_SIGNS_IT_EN];
+      } 
+      // Check if it's already English
+      else if (!Object.values(ZODIAC_SIGNS_IT_EN).includes(signString as any)) {
+        return res.status(400).json({ error: 'Invalid zodiac sign' });
+      }
+
       const zodiacSign = await prisma.zodiacSign.findFirst({
-        where: { name_english: sign as string }
+        where: { name_english: englishSign }
       });
 
       if (!zodiacSign) {
@@ -200,13 +221,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { date } = req.query;
       const targetDate = date as string || new Date().toISOString().split('T')[0];
 
-      // Validate sign
-      if (!(sign as string in ZODIAC_SIGNS_IT_EN)) {
+      // Validate sign and convert to English if needed
+      const signString = sign as string;
+      let englishSign = signString;
+      
+      // Check if it's Italian sign and convert to English
+      if (signString in ZODIAC_SIGNS_IT_EN) {
+        englishSign = ZODIAC_SIGNS_IT_EN[signString as keyof typeof ZODIAC_SIGNS_IT_EN];
+      } 
+      // Check if it's already English
+      else if (!Object.values(ZODIAC_SIGNS_IT_EN).includes(signString as any)) {
         return res.status(400).json({ error: 'Invalid zodiac sign' });
       }
 
       const zodiacSign = await prisma.zodiacSign.findFirst({
-        where: { name_english: ZODIAC_SIGNS_IT_EN[sign as keyof typeof ZODIAC_SIGNS_IT_EN] }
+        where: { name_english: englishSign }
       });
 
       if (!zodiacSign) {

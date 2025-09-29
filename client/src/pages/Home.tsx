@@ -218,6 +218,7 @@ export default function Home() {
         message="Scaricamento dati da 14 fonti"
         progress={refreshProgress.current}
         total={refreshProgress.total}
+        onDismiss={() => setRefreshProgress({ current: 0, total: 0 })}
       />
 
       {/* Bottom spacing for mobile navigation */}

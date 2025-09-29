@@ -8,6 +8,7 @@ import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
+import { ZODIAC_SIGNS_EN_IT } from "@shared/constants";
 
 interface SignDetailProps {
   sign: string;
@@ -102,7 +103,8 @@ export default function SignDetail({ sign }: SignDetailProps) {
   // Refresh this sign mutation
   const refreshSignMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest('POST', `/api/refresh/sign/${sign}?date=${today}`);
+      const italianSign = ZODIAC_SIGNS_EN_IT[sign] || sign;
+      const response = await apiRequest('POST', `/api/refresh/sign/${italianSign}?date=${today}`);
       return response.json();
     },
     onSuccess: (data) => {
@@ -356,6 +358,7 @@ export default function SignDetail({ sign }: SignDetailProps) {
         message="Scaricamento da tutte le fonti"
         progress={refreshProgress.current}
         total={refreshProgress.total}
+        onDismiss={() => setRefreshProgress({ current: 0, total: 0 })}
       />
 
       {/* Bottom spacing for mobile navigation */}
