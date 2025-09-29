@@ -1,0 +1,167 @@
+Build a Progressive Web App that compares Italian horoscopes from multiple sources, extracts the text, produces a copyright-safe summary in Italian (max 300 characters), extracts three integer ratings 1–5 (Relazioni, Lavoro, Benessere), and determines the overall tone: positive, neutral, or negative. Compute category averages and an overall average for all 12 zodiac signs daily.
+Stack: React (frontend PWA), Node.js/Express (backend), MySQL (database), OpenAI API for summaries, category ratings, and tone classification. Fetch pages via HTTP scraping (fetch/axios + cheerio); headless browser only if strictly necessary.
+Important: I already built a similar app and have partial/incomplete code files to reuse. After the initial scaffold, stop and ask me to upload those files so you can integrate/refactor them.
+Key requirements
+
+PWA: manifest.json, service worker (cache app shell and safe read-only GETs), icons, offline strategy for zodiac list and recent daily data.
+Frontend: React + Vite, client-side routing, Italian UI, star rating and tone badge components, source cards, state/query cache via React Query (or similar), light theme.
+Backend: Node.js + Express, modular (routes, controllers, services, db), input validation, basic logging, secure CORS to the same app’s frontend.
+Database: MySQL using Prisma (migrations + seed). Constraints to avoid daily duplicates per source/sign.
+OpenAI:
+Summary: server-side, Italian, max 300 chars, paraphrased and copyright-safe.
+Structured extraction: integer ratings 1–5 for Relazioni, Lavoro, Benessere, plus tone: positive | neutral | negative. Strict JSON output, retries, and rate-limit handling.
+Use OpenAI only for text processing; never for fetching URLs.
+Scraping:
+One adapter per source using base_url and url_pattern.
+Respect robots.txt and T&Cs, custom user-agent, backoff on errors, de-dup URLs.
+Extract main horoscope text with cheerio; fallback to Playwright/Puppeteer only if strictly needed.
+Security: secrets only server-side, .env, basic rate limiting, input sanitization, non-open CORS.
+Testing: unit tests for parsing/transforms; integration tests for main endpoints. Seed 12 zodiac signs and initial sources.
+Manual refresh (no cron jobs)
+
+Provide two UI buttons calling dedicated endpoints that always bypass caches:
+“Refresh all data” (Home) → POST /api/refresh/all?date=YYYY-MM-DD (date optional; default today).
+“Refresh this sign” (Sign detail) → POST /api/refresh/sign/:sign?date=YYYY-MM-DD.
+UI shows progress (spinner/toast) and a final summary (successes, errors).
+Service worker must never cache POST /api/refresh/* calls.
+Two workers (TypeScript)
+
+Create two dedicated workers under /server/workers and orchestrate them via a simple in-process job queue:
+/server/workers/scraper.ts
+Responsibility: build URL from base_url + url_pattern, fetch HTML, extract and clean the horoscope text for a given sign/date/source.
+Input type: { sourceId, sourceName, domain, baseUrl, urlPattern, signSlugIt, dateISO, weekdayItNoAccent, gazzettaDatePath, userAgent }
+Output type: { sourceId, signSlugIt, dateISO, original_url, scraped_at, extracted_text }
+/server/workers/openai.ts
+Responsibility: given extracted_text (+metadata), call OpenAI to produce summary (<=300 chars, IT), ratings (relazioni, lavoro, benessere: 1–5), and tone (“positive” | “neutral” | “negative”).
+Input type: { sourceId, sourceName, signSlugIt, dateISO, extracted_text }
+Output type: { summary, ratings: { relazioni, lavoro, benessere }, tone: "positive"|"neutral"|"negative" }
+Orchestration:
+Implement /server/jobs/index.ts with two queues (e.g., using p-queue):
+scrapeQueue: concurrency ~3, per-domain backoff (e.g., 1–2s), retries with exponential backoff.
+nlpQueue: concurrency ~2, global rate limit for OpenAI calls, retries on 429/5xx.
+Flow: refresh endpoint enqueues one scrape job per (source, sign, date). On success, enqueue the corresponding NLP job. After NLP completes, persist to DB with upsert.
+Provide minimal job status logging; optionally expose GET /api/refresh/status/:jobId for progress (OK to omit if time-constrained).
+Implementation details:
+Workers can be simple TypeScript modules consumed by the queues (no need for worker_threads unless desired).
+Ensure strong typing of inputs/outputs and centralize validation.
+Sources and url_pattern (seed and scraping adapters)
+
+https://www.repubblica.it pattern: /oroscopo/
+https://www.iodonna.it pattern: /oroscopo/giorno/{sign}-{dd}-{mm}-{yyyy}/
+https://www.alfemminile.com pattern: /astrologia/oroscopo/oroscopo-di-oggi-{weekday}-{day}-{month}-{year}/
+https://www.gazzetta.it pattern: /oroscopo/storie/{date}/{weekday}-{day}-{month}-{year}-previsioni-per-tutti-i-segni/{sign}.shtml
+https://www.oggi.it pattern: /oroscopo/oroscopo-di-oggi/{sign}-oggi.shtml
+https://www.virgilio.it pattern: /oroscopo/oggi/{sign}/
+https://www.onlyoroscopo.it pattern: /oroscopo-{sign}/
+https://tg24.sky.it pattern: /lifestyle/oroscopo/{sign}/oggi/
+https://www.corriere.it pattern: /oroscopo/oggi/{sign}/
+https://www.amica.it pattern: /oroscopo/oggi/{sign}/
+https://www.quotidiano.net pattern: /oroscopo
+https://style.corriere.it pattern: /oroscopo/oggi/{sign}/
+https://www.vogue.it pattern: /oroscopo/article/oroscopo-oggi-{sign}/
+https://oroscopo.grazia.it pattern: /oroscopo-del-giorno/{sign}/
+Placeholders:
+{sign}: Italian slug, lowercase, no accents: ariete, toro, gemelli, cancro, leone, vergine, bilancia, scorpione, sagittario, capricorno, acquario, pesci. Provide IT↔EN mapping in /shared if needed.
+{dd}/{day}: two-digit day (01–31).
+{mm}/{month}: two-digit month (01–12).
+{yyyy}/{year}: four-digit year.
+{weekday}: Italian lowercase, no accents: lunedi, martedi, mercoledi, giovedi, venerdi, sabato, domenica.
+{date}: for Gazzetta use YYYY/MM/DD.
+Notes:
+Some sources (e.g., repubblica, quotidiano) publish a single page for all signs; extract the correct block.
+Database schema (create migrations with exactly these columns)
+
+users (id, email, last_signed_in_at, updated_at, created_at)
+horoscope_data (id, source_id, zodiac_sign_id, date, original_text, summary, relazioni_rating, lavoro_rating, salute_rating, tone_analysis, original_url, scraped_at, created_at, updated_at)
+sources (id, name, domain, logo_url, base_url, url_pattern, reliability_score, is_active, created_at, updated_at)
+zodiac_signs (id, name_italian, name_english, date_range, symbol, created_at, updated_at)
+Constraints and types:
+Unique: (source_id, zodiac_sign_id, date) on horoscope_data; domain on sources; name_english on zodiac_signs.
+Index: horoscope_data.date.
+Suggested types: id INT AUTO_INCREMENT; email VARCHAR UNIQUE; date DATE; ratings TINYINT UNSIGNED (1–5); reliability_score DECIMAL(3,2) or TINYINT; is_active TINYINT(1); original_text/summary LONGTEXT; *_at DATETIME/TIMESTAMP.
+Tone field: tone_analysis ENUM('positive','neutral','negative') or validated VARCHAR. Map to Italian UI labels.
+Project structure (Replit monorepo)
+
+/server
+/routes (API routes)
+/controllers (request handlers)
+/services (db, scraping adapters, openai client)
+/workers (scraper.ts, openai.ts)
+/jobs (index.ts queues/orchestration)
+app.ts, server.ts
+/client (Vite + React PWA)
+/shared (constants, types, sign/weekday mappings)
+/prisma (schema.prisma, migrations, seed)
+/scripts (seed/utilities)
+Key files: .env.example, README, manifest.json, service-worker.js, vite.config.
+Environment variables (.env)
+
+DATABASE_URL=mysql://user:pass@host:port/dbname
+OPENAI_API_KEY=...
+SCRAPE_USER_AGENT=ItalianHoroscopeComparatorBot/1.0 (+contact)
+NODE_ENV=development
+BASE_URL_BACKEND=http://localhost:3000
+BASE_URL_FRONTEND=http://localhost:5173
+TZ=Europe/Rome
+API endpoints (prefix /api)
+
+GET /api/zodiac-signs
+GET /api/sources
+GET /api/horoscopes?date=YYYY-MM-DD&sign=ariete|toro|...
+Returns per-source: summary, relazioni_rating, lavoro_rating, salute_rating, tone_analysis, original_url, scraped_at.
+GET /api/horoscopes/aggregate?date=YYYY-MM-DD&sign=...
+Returns averages for Relazioni/Lavoro/Benessere and overall average; optionally tone distribution and majority tone.
+POST /api/refresh/all?date=YYYY-MM-DD → enqueue scraping+NLP for all active sources across 12 signs.
+POST /api/refresh/sign/:sign?date=YYYY-MM-DD → enqueue scraping+NLP for a single sign across all active sources.
+GET /health
+Notes:
+Refresh endpoints should be rate-limited and optionally authenticated (simple token). Batch with per-source error handling and upsert each (source, sign, date).
+Core logic
+
+Scraping per source:
+buildUrl(date, sign), fetchHtml(), extractText($, sign); return original_url + scraped_at + extracted_text.
+Clean boilerplate; handle sources with a single page for all signs.
+OpenAI summary + ratings + tone (structured):
+System: “Extract a paraphrased, copyright-safe Italian summary (<=300 chars), integer ratings 1–5 for Relazioni, Lavoro, Benessere, and the overall tone (positive, neutral, negative). Return only valid JSON.”
+Expected JSON: { "summary": "...", "relazioni": 1-5, "lavoro": 1-5, "benessere": 1-5, "tone": "positive|neutral|negative" }
+Validate: clamp ratings to 1–5; default tone to "neutral" if missing.
+Persistence:
+Upsert by (source_id, zodiac_sign_id, date). Store original_text, summary, ratings, tone_analysis, original_url, scraped_at.
+Aggregation:
+Category averages and overall average = round((relazioni + lavoro + benessere)/3, 1).
+Frontend PWA
+
+Pages:
+Home: grid of 12 signs with today’s summary and category averages; “Refresh all data” button.
+Sign detail: list per source with summary, 3 star ratings, and a tone badge; header shows averages (and optional majority tone); “Refresh this sign” button.
+Sources (optional admin): active state, reliability score.
+Info/Methodology.
+Components: StarRating, ToneBadge (positive/neutral/negative), SourceCard, CategoryBadge, Loader, Error, Toast.
+Service worker: cache app shell; cache-first for recent read-only GETs; never cache POST /api/refresh/* and bypass SW for those routes.
+Seed data
+
+Insert 12 rows into zodiac_signs (name_italian, name_english, date_range, symbol).
+Insert the sources above into sources with url_pattern and is_active=true; reliability_score placeholders; optional logo_url.
+Optional demo user.
+Quality and maintenance
+
+ESLint + Prettier; npm scripts: dev, build, start, test.
+README with Replit setup, env vars, migrations, seed, how to run client/server, and how to use refresh buttons.
+Error-handling middleware; meaningful logging for scraping and OpenAI calls (no sensitive content). All OpenAI calls go through the backend.
+Workflow
+
+Scaffold the full monorepo (server, client, prisma, pwa).
+Implement migrations and seed (zodiac_signs + sources with url_pattern).
+Implement workers (/server/workers/scraper.ts and /server/workers/openai.ts) and the job orchestrator (/server/jobs/index.ts) with queues and retries.
+Implement API endpoints, at least 2–3 source adapters, and the manual refresh flow (POST /api/refresh/*).
+Implement the PWA frontend with key pages/components and the two refresh buttons with progress feedback.
+Provide run/test instructions and an example fetch.
+Stop and ask me to upload my existing partial code files so you can integrate/reuse them (refactor if helpful).
+After integration, run minimal end-to-end tests and deliver.
+Questions to ask me before proceeding if needed
+
+Confirm Prisma for MySQL, or do you prefer Knex?
+Enable headless fallback (Playwright/Puppeteer) from the start, or only if a source requires it?
+Averages rounded to 1 decimal or integers?
+Should refresh POST endpoints require a simple token?
+Is using a lightweight queue (p-queue) acceptable for workers, or do you prefer worker_threads?
