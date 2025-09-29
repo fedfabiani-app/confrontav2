@@ -34,6 +34,7 @@ interface HoroscopeData {
     id: number;
     name: string;
     domain: string;
+    logo_url: string | null;
     reliability_score: number;
   };
 }
@@ -60,6 +61,102 @@ const signColors = {
   acquario: 'from-blue-400 to-cyan-400',
   pesci: 'from-blue-500 to-purple-500',
 };
+
+interface SourceIconProps {
+  source: {
+    id: number;
+    name: string;
+    domain: string;
+    logo_url: string | null;
+  };
+  'data-testid'?: string;
+}
+
+function SourceIcon({ source, 'data-testid': dataTestId }: SourceIconProps) {
+  const [imgFailed, setImgFailed] = useState(false);
+  const [currentSrc, setCurrentSrc] = useState<string | null>(null);
+
+  // Initialize source URL with HTTPS normalization
+  const getInitialSrc = () => {
+    if (!source.logo_url) return null;
+    try {
+      const url = new URL(source.logo_url, 'https://');
+      return url.toString().replace(/^http:/, 'https:');
+    } catch {
+      return null;
+    }
+  };
+
+  const initialSrc = currentSrc || getInitialSrc();
+
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.target as HTMLImageElement;
+    const currentUrl = img.src;
+    
+    // Remove error handler to prevent loops
+    img.onError = null;
+    
+    if (currentUrl.includes('favicon.ico')) {
+      // If favicon also failed, try Google's favicon service
+      const googleFaviconUrl = `https://www.google.com/s2/favicons?sz=64&domain=${source.domain}`;
+      if (currentUrl !== googleFaviconUrl) {
+        img.src = googleFaviconUrl;
+        img.onError = () => setImgFailed(true);
+        return;
+      }
+    } else if (currentUrl !== `https://${source.domain}/favicon.ico`) {
+      // First fallback: try domain favicon
+      img.src = `https://${source.domain}/favicon.ico`;
+      img.onError = handleImageError;
+      return;
+    }
+    
+    // All image sources failed
+    setImgFailed(true);
+  };
+
+  // Show letter placeholder if no logo_url or all images failed
+  if (!initialSrc || imgFailed) {
+    return (
+      <div className="relative group">
+        <div 
+          className="w-6 h-6 bg-gradient-to-br from-orange-100 to-red-100 rounded flex items-center justify-center border border-border hover:border-orange-300 transition-colors"
+          data-testid={dataTestId}
+        >
+          <span className="text-orange-600 font-bold text-xs">
+            {source.name.charAt(0)}
+          </span>
+        </div>
+        
+        {/* Tooltip */}
+        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+          {source.name}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative group">
+      <img
+        src={initialSrc}
+        alt={source.name}
+        className="w-6 h-6 rounded object-contain bg-white p-0.5 border border-border hover:border-orange-300 transition-colors"
+        data-testid={dataTestId}
+        onError={handleImageError}
+        referrerPolicy="no-referrer"
+        loading="lazy"
+        width={24}
+        height={24}
+      />
+      
+      {/* Tooltip */}
+      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+        {source.name}
+      </div>
+    </div>
+  );
+}
 
 export default function SignDetail({ sign }: SignDetailProps) {
   const [, navigate] = useLocation();
@@ -291,9 +388,23 @@ export default function SignDetail({ sign }: SignDetailProps) {
           <Card className="mb-6">
             <CardContent className="p-6">
               <h2 className="text-xl font-semibold text-card-foreground mb-4">La Tua Previsione di Oggi</h2>
-              <p className="text-card-foreground leading-relaxed text-lg">
+              <p className="text-card-foreground leading-relaxed text-lg mb-4">
                 {horoscopes[0]?.summary || "Le stelle stanno preparando qualcosa di speciale per te oggi."}
               </p>
+              
+              {/* Source Icons */}
+              <div className="flex items-center space-x-2 pt-4 border-t border-border">
+                <span className="text-sm text-muted-foreground">Fonti:</span>
+                <div className="flex items-center space-x-2">
+                  {horoscopes.map((horoscope) => (
+                    <SourceIcon
+                      key={horoscope.id}
+                      source={horoscope.source}
+                      data-testid={`source-icon-${horoscope.source.id}`}
+                    />
+                  ))}
+                </div>
+              </div>
             </CardContent>
           </Card>
         )}
