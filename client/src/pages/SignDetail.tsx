@@ -469,6 +469,76 @@ export default function SignDetail({ sign }: SignDetailProps) {
           </Card>
         )}
 
+        {/* Individual Source Cards */}
+        {!horoscopesLoading && horoscopes.length > 0 && (
+          <div className="space-y-4 mb-8">
+            <h2 className="text-xl font-semibold text-card-foreground mb-4">Previsioni per Fonte</h2>
+            {horoscopes.map((horoscope) => (
+              <Card key={horoscope.id} className="relative">
+                <CardContent className="p-6">
+                  {/* Source Header */}
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center space-x-3">
+                      <SourceIcon
+                        source={horoscope.source}
+                        data-testid={`individual-source-icon-${horoscope.source.id}`}
+                      />
+                      <div>
+                        <h3 className="font-semibold text-card-foreground">{horoscope.source.name}</h3>
+                        <p className="text-xs text-muted-foreground">{horoscope.source.domain}</p>
+                      </div>
+                    </div>
+                    <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      horoscope.tone_analysis === 'positive' ? 'bg-green-100 text-green-800' :
+                      horoscope.tone_analysis === 'negative' ? 'bg-red-100 text-red-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {horoscope.tone_analysis === 'positive' ? 'Positivo' :
+                       horoscope.tone_analysis === 'negative' ? 'Negativo' : 'Neutrale'}
+                    </div>
+                  </div>
+
+                  {/* Horoscope Content */}
+                  <p className="text-card-foreground leading-relaxed mb-4">
+                    {horoscope.summary}
+                  </p>
+
+                  {/* Ratings */}
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="text-center">
+                      <div className="flex items-center justify-center space-x-2 mb-1">
+                        <Heart className="w-4 h-4 text-pink-500" />
+                        <span className="text-sm text-muted-foreground">Relazioni</span>
+                      </div>
+                      <div className="text-lg font-bold text-card-foreground">
+                        {horoscope.relazioni_rating}/5
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <div className="flex items-center justify-center space-x-2 mb-1">
+                        <Briefcase className="w-4 h-4 text-blue-500" />
+                        <span className="text-sm text-muted-foreground">Lavoro</span>
+                      </div>
+                      <div className="text-lg font-bold text-card-foreground">
+                        {horoscope.lavoro_rating}/5
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <div className="flex items-center justify-center space-x-2 mb-1">
+                        <Leaf className="w-4 h-4 text-green-500" />
+                        <span className="text-sm text-muted-foreground">Benessere</span>
+                      </div>
+                      <div className="text-lg font-bold text-card-foreground">
+                        {horoscope.salute_rating}/5
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
         {/* No data state */}
         {!horoscopesLoading && horoscopes.length === 0 && (
           <Card>
