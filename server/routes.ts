@@ -66,7 +66,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const horoscopes = await prisma.horoscopeData.findMany({
         where: {
           zodiac_sign_id: zodiacSign.id,
-          date: date as string,
+          date: new Date(date as string),
         },
         include: {
           source: true,
@@ -103,7 +103,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const horoscopes = await prisma.horoscopeData.findMany({
         where: {
           zodiac_sign_id: zodiacSign.id,
-          date: date as string,
+          date: new Date(date as string),
         },
       });
 
