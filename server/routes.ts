@@ -51,7 +51,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Validate sign
-      if (!(sign in ZODIAC_SIGNS_IT_EN)) {
+      if (!(sign as string in ZODIAC_SIGNS_IT_EN)) {
         return res.status(400).json({ error: 'Invalid zodiac sign' });
       }
 
@@ -118,19 +118,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Calculate averages
-      const avgRelazioni = horoscopes.reduce((sum, h) => sum + h.relazioni_rating, 0) / horoscopes.length;
-      const avgLavoro = horoscopes.reduce((sum, h) => sum + h.lavoro_rating, 0) / horoscopes.length;
-      const avgBenessere = horoscopes.reduce((sum, h) => sum + h.salute_rating, 0) / horoscopes.length;
+      const avgRelazioni = horoscopes.reduce((sum: number, h: any) => sum + h.relazioni_rating, 0) / horoscopes.length;
+      const avgLavoro = horoscopes.reduce((sum: number, h: any) => sum + h.lavoro_rating, 0) / horoscopes.length;
+      const avgBenessere = horoscopes.reduce((sum: number, h: any) => sum + h.salute_rating, 0) / horoscopes.length;
       const overallAverage = (avgRelazioni + avgLavoro + avgBenessere) / 3;
 
       // Calculate majority tone
-      const toneCount = horoscopes.reduce((count, h) => {
+      const toneCount = horoscopes.reduce((count: Record<string, number>, h: any) => {
         count[h.tone_analysis] = (count[h.tone_analysis] || 0) + 1;
         return count;
       }, {} as Record<string, number>);
 
       const majorityTone = Object.entries(toneCount)
-        .sort(([,a], [,b]) => b - a)[0]?.[0] || 'neutral';
+        .sort(([,a], [,b]) => (b as number) - (a as number))[0]?.[0] || 'neutral';
 
       res.json({
         avgRelazioni: Math.round(avgRelazioni * 10) / 10,
@@ -201,7 +201,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const targetDate = date as string || new Date().toISOString().split('T')[0];
 
       // Validate sign
-      if (!(sign in ZODIAC_SIGNS_IT_EN)) {
+      if (!(sign as string in ZODIAC_SIGNS_IT_EN)) {
         return res.status(400).json({ error: 'Invalid zodiac sign' });
       }
 

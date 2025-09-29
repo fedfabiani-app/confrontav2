@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -52,14 +52,14 @@ model HoroscopeData {
   id               Int      @id @default(autoincrement())
   source_id        Int
   zodiac_sign_id   Int
-  date             String   @db.Date
-  original_text    String   @db.LongText
-  summary          String   @db.LongText
-  relazioni_rating Int      @db.TinyInt
-  lavoro_rating    Int      @db.TinyInt
-  salute_rating    Int      @db.TinyInt
+  date             DateTime @db.Date
+  original_text    String   @db.Text
+  summary          String   @db.Text
+  relazioni_rating Int      @db.SmallInt
+  lavoro_rating    Int      @db.SmallInt
+  salute_rating    Int      @db.SmallInt
   tone_analysis    String   // 'positive', 'neutral', 'negative'
-  original_url     String   @db.LongText
+  original_url     String   @db.Text
   scraped_at       DateTime
   created_at       DateTime @default(now())
   updated_at       DateTime @updatedAt

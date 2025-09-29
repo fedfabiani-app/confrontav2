@@ -3,7 +3,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Home, Newspaper, Info } from "lucide-react";
+import { Home as HomeIcon, Newspaper, Info } from "lucide-react";
 import Home from "@/pages/Home";
 import SignDetail from "@/pages/SignDetail";
 import Sources from "@/pages/Sources";
@@ -15,7 +15,7 @@ function BottomNavigation() {
   const [location, navigate] = useLocation();
 
   const navItems = [
-    { path: '/', icon: Home, label: 'Home' },
+    { path: '/', icon: HomeIcon, label: 'Home' },
     { path: '/sources', icon: Newspaper, label: 'Fonti' },
     { path: '/info', icon: Info, label: 'Info' },
   ];

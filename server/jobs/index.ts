@@ -216,7 +216,7 @@ export async function enqueueUpsertJob(scraperOutput: ScraperOutput, nlpOutput: 
 // Cleanup old job statuses (older than 1 hour)
 setInterval(() => {
   const oneHourAgo = Date.now() - 60 * 60 * 1000;
-  for (const [jobId, status] of jobStatusMap.entries()) {
+  for (const [jobId, status] of Array.from(jobStatusMap.entries())) {
     if (status.completedAt && status.completedAt.getTime() < oneHourAgo) {
       jobStatusMap.delete(jobId);
     }
