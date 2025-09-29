@@ -117,7 +117,7 @@ function SourceIcon({ source, "data-testid": dataTestId }: SourceIconProps) {
     } else if (currentUrl !== `https://${source.domain}/favicon.ico`) {
       // First fallback: try domain favicon
       img.src = `https://${source.domain}/favicon.ico`;
-      img.onerror = handleImageError;
+      img.onerror = () => setImgFailed(true);
       return;
     }
 
@@ -438,35 +438,6 @@ export default function SignDetail({ sign }: SignDetailProps) {
               </CardContent>
             </Card>
           </div>
-        )}
-
-        {/* Daily Horoscope Summary */}
-        {!horoscopesLoading && horoscopes.length > 0 && (
-          <Card className="mb-6">
-            <CardContent className="p-6">
-              <h2 className="text-xl font-semibold text-card-foreground mb-4">
-                La Tua Previsione di Oggi
-              </h2>
-              <p className="text-card-foreground leading-relaxed text-lg mb-4">
-                {horoscopes[0]?.summary ||
-                  "Le stelle stanno preparando qualcosa di speciale per te oggi."}
-              </p>
-
-              {/* Source Icons */}
-              <div className="flex items-center space-x-2 pt-4 border-t border-border">
-                <span className="text-sm text-muted-foreground">Fonti:</span>
-                <div className="flex items-center space-x-2">
-                  {horoscopes.map((horoscope) => (
-                    <SourceIcon
-                      key={horoscope.id}
-                      source={horoscope.source}
-                      data-testid={`source-icon-${horoscope.source.id}`}
-                    />
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         )}
 
         {/* Individual Source Cards */}
