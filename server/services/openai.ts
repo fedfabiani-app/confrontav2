@@ -13,10 +13,10 @@ if (!process.env.OPENAI_API_KEY) {
 export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAIOutput> {
   try {
     console.log(`[OpenAI] Processing ${input.sourceName} - ${input.signSlugIt} (${input.extracted_text.length} chars)`);
-    
+
     // Validate input text quality - use fallback for problematic content instead of throwing
     let useNeutralFallback = false;
-    
+
     if (input.extracted_text.length < 30) {
       console.log(`[OpenAI] Text too short (${input.extracted_text.length} chars), using neutral fallback`);
       useNeutralFallback = true;
@@ -25,10 +25,10 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
       const hasHoroscopeKeywords = /\b(oroscopo|previsioni|stelle|fortuna|amore|lavoro|salute|giornata|periodo|energia|voto|destino|luna|sole|pianeti|segno|zodiaco|oggi|domani|settimana|relazioni|carriera|benessere|marte|venere|saturno|giove|mercurio|plutone|nettuno|urano|ariete|toro|gemelli|cancro|leone|vergine|bilancia|scorpione|sagittario|capricorno|acquario|pesci)\b/i.test(input.extracted_text.toLowerCase());
       const hasNavigationWords = /\b(menu|naviga|accedi|iscriviti|abbonati|cookie|privacy|pubblicità|home|sezioni|login|registrati|newsletter|social)\b/i.test(input.extracted_text.toLowerCase());
       const hasPaywallWords = /\b(per leggere|abbonati|registrati|accesso|premium|paywall|login|iscriviti|wall|visualizzare)\b/i.test(input.extracted_text.toLowerCase());
-      
+
       // Check for astrological content patterns
       const hasAstrologicalContent = /\b(pianeta|congiunzione|quadratura|trigono|sestile|casa|cuspide|transiti?|aspetti?|influssi?|influenze?|configurazioni?|astri|cielo|combinazione|astrologica|energia|vitalità|serenità|nervosismo|ansia|felicità|tristezza|preoccupazioni|ottimismo|passione)\b/i.test(input.extracted_text);
-      
+
       // Use fallback if content seems non-horoscope (more lenient than before)
       if (!hasHoroscopeKeywords && !hasAstrologicalContent && 
           ((hasNavigationWords && input.extracted_text.length < 100) || 
@@ -78,28 +78,28 @@ ANALISI RICHIESTA:
    - Evita di terminare frasi con virgole o punti sospensivi senza completare il pensiero
 
 2. VALUTAZIONI STELLARI (1-5 stelle) - SISTEMA CALIBRATO:
-   
+
    Per RELAZIONI:
    - 5 stelle: "eccellente", "perfetto", "straordinario", "magico", "passionale", "innamoramento", "grande amore"
    - 4 stelle: "molto buono", "favorevole", "positivo", "bene", "buone possibilità", "romantico", "armonia"
    - 3 stelle: "discreto", "nella norma", "equilibrato", "stabile", "tranquillo", "qualche tensione"
    - 2 stelle: "difficile", "complicato", "attenzione", "prudenza", "conflitti", "incomprensioni"
    - 1 stella: "pessimo", "evitare", "crisi", "rottura", "problemi seri", "tensioni forti"
-   
+
    Per LAVORO:
    - 5 stelle: "successo", "trionfo", "opportunità straordinarie", "promozione", "guadagni", "realizzazione"
    - 4 stelle: "molto positivo", "buone opportunità", "progressi", "soddisfazioni", "riconoscimenti"
    - 3 stelle: "normale", "routine", "stabilità", "qualche piccola sfida", "proseguimento"
    - 2 stelle: "difficoltà", "ostacoli", "ritardi", "stress", "conflitti", "prudenza necessaria"
    - 1 stella: "gravi problemi", "crisi", "perdite", "fallimenti", "evitare decisioni importanti"
-   
+
    Per BENESSERE (mood generale e umore della giornata):
    - 5 stelle: "umore eccellente", "giornata splendida", "energia positiva straordinaria", "felicità", "entusiasmo", "ottimismo", "serenità perfetta"
    - 4 stelle: "buon umore", "giornata positiva", "energia buona", "soddisfazione", "tranquillità", "fiducia", "benessere generale"
    - 3 stelle: "umore stabile", "giornata normale", "equilibrio emotivo", "calma", "routine", "stato d'animo neutro"
    - 2 stelle: "umore basso", "giornata difficile", "stress", "tensione", "preoccupazioni", "ansia", "malinconia", "nervosismo"
    - 1 stella: "umore pessimo", "giornata nera", "depressione", "angoscia", "disperazione", "crisi emotiva", "malessere profondo"
-   
+
 
 3. TONO GENERALE:
    - positive: linguaggio incoraggiante, opportunità, successi, energia positiva
@@ -121,7 +121,7 @@ Per LAVORO:
 - Contesti negativi: stress lavorativo, difficoltà economiche, tensioni con colleghi, incertezze professionali, licenziamenti, perdite
 
 Per BENESSERE (la valutazione deve riflettere l'umore generale, l'energia emotiva e l'outlook complessivo della giornata, non solo la salute fisica):
-- Indicatori primari: fisicamente, mentalmente, fisico, sorriso, energia, vitalità, sana, frugale, relax, pimpanti, benessere, wellness, forma fisica, equilibrio, serenità, pace interiore, salute, corpo, mente, spirito, anima, psiche, emozioni, sentimenti, stati d'animo, umore, allegria, felicità, gioia, entusiasmo, ottimismo, positività, motivazione, determinazione, coraggio, forza, resistenza, vigore, dinamismo, attività, movimento, sport, esercizio, fitness, alimentazione, dieta, nutrizione, sonno, riposo, recupero, rigenerazione, medicina, cure, terapie, dottore, medico, controlli, visite, analisi, sintomi, dolori, malesseri, stress, tensioni, ansia, preoccupazioni, nervosismo, irritabilità, stanchezza, spossatezza, debolezza, malattia, disturbi, problemi, difficoltà, crisi, depressione, tristezza, malinconia, nostalgia, rimpianti, paure, fobie, insicurezze, dubbi, abitudini sane, recupero psico-fisico, equilibrio interiore, ascolto del corpo, energia vitale, creatività, rilassamento, pratiche armonizzanti, salute non al massimo, ripresa graduale, affaticamento, acciacchi, tensione accumulata, fare pause, respirare, rallentare, energie esaurite, insonnia, contratture, tremori inspiegabili, mal di piedi, camminare molto, fegato capriccioso, fastidio oculare, luce intensa, colpi di calore, colpi di freddo, indigestione, intolleranze alimentali, mal di denti improvviso, attività fisica per scaricare la tensione, mangiucchiare, vuoto emotivo, salute di ferro, ansia interiore, riposo corpo, mangiare bene, monitorare dieta, sport tensione, relax alimentazione, energia risparmio, sacrifici consapevolezza, vita sana, ginnastica nuoto, meditazione escursione
+- Indicatori primari: fisicamente, mentalmente, fisico, sorriso, energia, vitalità, sana, frugale, relax, pimpanti, benessere, wellness, forma fisica, equilibrio, serenità, pace interiore, salute, corpo, mente, spirito, anima, psiche, emozioni, sentimenti, stati d'animo, umore, allegria, felicità, gioia, entusiasmo, ottimismo, positività, motivazione, determinazione, coraggio, forza, resistenza, vigore, dinamismo, attività, movimento, sport, esercizio, fitness, alimentazione, dieta, nutrizione, sonno, riposo, recupero, rigenerazione, medicina, cure, terapie, dottore, medico, controlli, visite, analisi, sintomi, dolori, malesseri, stress, tensioni, ansia, preoccupazioni, nervosismo, irritabilità, stanchezza, spossatezza, debolezza, malattia, disturbi, problemi, difficoltà, crisi, depressione, tristezza, malinconia, nostalgia, rimpianti, paure, fobie, insicurezze, dubbi, abitudini sane, recupero psico-fisico, equilibrio interiore, ascolto del corpo, energia vitale, creatività, rilassamento, pratiche armonizzanti, salute non al massimo, ripresa graduale, affaticamento, acciacchi, tensione accumulata, fare pause, respirare, rallentare, energie esaurite, insonnia, contratture, tremori inspiegabili, mal di piedi, camminare molto, fegato capriccioso, fastidio oculare, luce intensa, colpi di calore, colpi di freddo, indigestione, intolleranze alimentari, mal di denti improvviso, attività fisica per scaricare la tensione, mangiucchiare, vuoto emotivo, salute di ferro, ansia interiore, riposo corpo, mangiare bene, monitorare dieta, sport tensione, relax alimentazione, energia risparmio, sacrifici consapevolezza, vita sana, ginnastica nuoto, meditazione escursione
 - Contesti positivi: energia positiva, vitalità ritrovata, momento di relax, equilibrio perfetto, sorriso spontaneo, benessere generale, salute ottima
 - Contesti negativi: stanchezza fisica, stress mentale, nervosismo, agitazione, mancanza di energia, malesseri, disturbi
 
@@ -321,7 +321,7 @@ INTEGRAZIONE SKYTG24: Assicurati che il riassunto (summary) catturi l'essenza di
       },
       {
         role: 'user',
-        content: `Analizza questo oroscopo per ${zodiacSign}.
+        content: `Analizza questo oroscopo per ${input.signSlugIt}.
 
 IMPORTANTE: Se questo contenuto proviene da Gazzetta dello Sport, cerca le sezioni specifiche:
 - "LA TUA GIORNATA" 
@@ -386,7 +386,7 @@ ${input.extracted_text}`
 
     console.log(`[OpenAI] Raw response received (${content.length} chars)`);
     const parsed = JSON.parse(content);
-    
+
     // Validate and process ratings - allow 0 for unmentioned categories
     const result = {
       summary: parsed.summary || '',
@@ -406,7 +406,7 @@ ${input.extracted_text}`
     }
 
     console.log(`[OpenAI] Processed result: Relazioni=${result.ratings.relazioni}, Lavoro=${result.ratings.lavoro}, Benessere=${result.ratings.benessere}, Tone=${result.tone}`);
-    
+
     return openaiOutputSchema.parse(result);
   } catch (error) {
     console.error('OpenAI processing error:', error);
@@ -419,23 +419,23 @@ export async function processHoroscopeWithRetry(
   maxRetries: number = 3
 ): Promise<OpenAIOutput> {
   let lastError: Error;
-  
+
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       return await processHoroscopeWithAI(input);
     } catch (error) {
       lastError = error instanceof Error ? error : new Error('Unknown error');
-      
+
       if (attempt === maxRetries) {
         break;
       }
-      
+
       // Exponential backoff
       const delay = Math.pow(2, attempt) * 1000;
       console.log(`OpenAI attempt ${attempt} failed, retrying in ${delay}ms...`);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
-  
+
   throw lastError!;
 }
