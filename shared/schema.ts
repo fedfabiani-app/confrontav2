@@ -63,9 +63,9 @@ export const horoscopeDataSchema = z.object({
   date: z.string(), // DATE format YYYY-MM-DD
   original_text: z.string(),
   summary: z.string(),
-  relazioni_rating: z.number().min(1).max(5),
-  lavoro_rating: z.number().min(1).max(5),
-  salute_rating: z.number().min(1).max(5),
+  relazioni_rating: z.number().min(0).max(5),
+  lavoro_rating: z.number().min(0).max(5),
+  salute_rating: z.number().min(0).max(5),
   tone_analysis: z.enum(['positive', 'neutral', 'negative']),
   original_url: z.string(),
   scraped_at: z.date(),
@@ -79,9 +79,9 @@ export const insertHoroscopeDataSchema = z.object({
   date: z.string(),
   original_text: z.string(),
   summary: z.string().max(300),
-  relazioni_rating: z.number().min(1).max(5),
-  lavoro_rating: z.number().min(1).max(5),
-  salute_rating: z.number().min(1).max(5),
+  relazioni_rating: z.number().min(0).max(5),
+  lavoro_rating: z.number().min(0).max(5),
+  salute_rating: z.number().min(0).max(5),
   tone_analysis: z.enum(['positive', 'neutral', 'negative']),
   original_url: z.string(),
   scraped_at: z.date(),
@@ -137,9 +137,9 @@ export const openaiInputSchema = z.object({
 export const openaiOutputSchema = z.object({
   summary: z.string(),
   ratings: z.object({
-    relazioni: z.number().min(1).max(5),
-    lavoro: z.number().min(1).max(5),
-    benessere: z.number().min(1).max(5),
+    relazioni: z.number().min(0).max(5),
+    lavoro: z.number().min(0).max(5),
+    benessere: z.number().min(0).max(5),
   }),
   tone: z.enum(['positive', 'neutral', 'negative']),
 });
