@@ -70,19 +70,23 @@ Regole di inclusione/esclusione:
 
 ANALISI RICHIESTA:
 
-1. RIASSUNTO (ESATTAMENTE tra 250-520 caratteri):
+1. RIASSUNTO (ESATTAMENTE tra 250-530 caratteri):
    - Cattura l'essenza delle previsioni in modo dettagliato e specifico
    - Include elementi concreti menzionati nel testo (es. pianeti, energie, consigli)
    - Evita frasi generiche come "previsioni miste" o "giornata normale"
    - Rifletti accuratamente il tono emotivo del contenuto originale
 
 REQUISITI TECNICI RIASSUNTO:
-- CONTA sempre i caratteri mentre scrivi - devi rimanere tra 250-520 caratteri
-- Se superi i 520 caratteri, riformula per accorciare MANTENENDO il senso completo
+- CONTA sempre i caratteri mentre scrivi - devi rimanere tra 250-530 caratteri
+- FERMATI sempre ALMENO 20 caratteri prima del limite per assicurarti di completare la frase
+- Se superi i 530 caratteri, riformula completamente la frase finale per accorciare
 - Se sei sotto i 250 caratteri, aggiungi dettagli specifici dal testo originale
 - TERMINA sempre con frasi complete e pensieri conclusi naturalmente
-- MAI ellissi (...), virgole o punti sospensivi che lasciano il discorso in sospeso
-- VERIFICA che l'ultima frase sia grammaticalmente e semanticamente completa
+- MAI ellissi (...), virgole, preposizioni isolate o punti sospensivi che lasciano il discorso in sospeso
+- VERIFICA che l'ultima parola sia la conclusione naturale di un pensiero completo
+- NESSUN TRONCAMENTO: ogni pensiero deve essere completo, ogni frase deve concludersi in modo naturale
+- RILEGGI il riassunto prima di inviarlo - l'ultima frase deve avere senso da sola
+- EVITA di finire con preposizioni come 'con', 'per', 'del', 'nei', 'che' senza completare il concetto
 
 2. VALUTAZIONI STELLARI (1-5 stelle) - SISTEMA CALIBRATO:
 
