@@ -154,17 +154,19 @@ export async function enqueueUpsertJob(scraperOutput: ScraperOutput, nlpOutput: 
       
       console.log(`[JobQueue] Starting upsert job ${jobId}`);
       
-      // Find zodiac sign ID by slug
+      // Find zodiac sign ID by Italian name (signSlugIt contains Italian name)
       const zodiacSign = await prisma.zodiacSign.findFirst({
-        where: { name_english: scraperOutput.signSlugIt }
+        where: { name_italian: scraperOutput.signSlugIt }
       });
       
       if (!zodiacSign) {
         throw new Error(`Zodiac sign not found: ${scraperOutput.signSlugIt}`);
       }
       
+      console.log(`[JobQueue] Upserting data for ${zodiacSign.name_italian} (ID: ${zodiacSign.id}) from source ${scraperOutput.sourceId}`);
+      
       // Upsert horoscope data
-      await prisma.horoscopeData.upsert({
+      const upsertResult = await prisma.horoscopeData.upsert({
         where: {
           source_id_zodiac_sign_id_date: {
             source_id: scraperOutput.sourceId,
@@ -197,6 +199,8 @@ export async function enqueueUpsertJob(scraperOutput: ScraperOutput, nlpOutput: 
           scraped_at: scraperOutput.scraped_at,
         },
       });
+      
+      console.log(`[JobQueue] Successfully upserted horoscope data with ID: ${upsertResult.id}`);
       
       status.status = 'completed';
       status.completedAt = new Date();

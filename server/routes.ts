@@ -28,7 +28,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         where: { is_active: true },
         orderBy: { name: 'asc' }
       });
-      res.json(sources);
+      
+      // Convert Decimal to number for JSON serialization
+      const serializedSources = sources.map(source => ({
+        ...source,
+        reliability_score: Number(source.reliability_score)
+      }));
+      
+      res.json(serializedSources);
     } catch (error) {
       console.error('Error fetching sources:', error);
       res.status(500).json({ error: 'Failed to fetch sources' });
@@ -310,6 +317,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // GET /api/debug/database - Debug route to inspect database contents
+  app.get("/api/debug/database", async (req, res) => {
+    try {
+      const { date } = req.query;
+      const targetDate = date as string || new Date().toISOString().split('T')[0];
+
+      const [totalHoroscopes, recentHoroscopes, zodiacSigns, sources] = await Promise.all([
+        prisma.horoscopeData.count({
+          where: { date: new Date(targetDate) }
+        }),
+        prisma.horoscopeData.findMany({
+          where: { date: new Date(targetDate) },
+          include: {
+            source: { select: { name: true } },
+            zodiac_sign: { select: { name_italian: true, name_english: true } }
+          },
+          orderBy: { created_at: 'desc' },
+          take: 10
+        }),
+        prisma.zodiacSign.count(),
+        prisma.source.count({ where: { is_active: true } })
+      ]);
+
+      res.json({
+        targetDate,
+        counts: {
+          totalHoroscopesForDate: totalHoroscopes,
+          zodiacSigns,
+          activeSources: sources
+        },
+        recentEntries: recentHoroscopes.map(h => ({
+          id: h.id,
+          source: h.source.name,
+          sign: `${h.zodiac_sign.name_italian} (${h.zodiac_sign.name_english})`,
+          summary: h.summary.substring(0, 100) + '...',
+          ratings: {
+            relazioni: h.relazioni_rating,
+            lavoro: h.lavoro_rating,
+            salute: h.salute_rating
+          },
+          tone: h.tone_analysis,
+          createdAt: h.created_at
+        }))
+      });
+    } catch (error) {
+      console.error('Error in debug route:', error);
+      res.status(500).json({ error: 'Failed to fetch debug info' });
+    }
+  });
+
   // Manual trigger for scraping and processing
   app.post('/api/scrape/trigger', async (req, res) => {
     try {
@@ -332,19 +389,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Enqueue scraping jobs for each combination
       for (const source of sources) {
         for (const sign of zodiacSigns) {
-          const scraperInput = {
-            sourceId: source.id,
-            sourceName: source.name,
-            domain: source.domain,
-            baseUrl: source.base_url,
-            urlPattern: source.url_pattern,
-            signSlugIt: sign.name_english,
-            dateISO: targetDate,
-            weekdayItNoAccent: '',
-            gazzettaDatePath: '',
-            userAgent: source.user_agent || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-          };
-
+          const scraperInput = createScraperInput(source, sign, targetDate);
           const jobId = await enqueueScrapeJob(scraperInput);
           jobIds.push(jobId);
         }

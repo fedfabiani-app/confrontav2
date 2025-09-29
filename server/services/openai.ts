@@ -8,6 +8,8 @@ const openai = new OpenAI({
 
 export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAIOutput> {
   try {
+    console.log(`[OpenAI] Processing ${input.sourceName} - ${input.signSlugIt} (${input.extracted_text.length} chars)`);
+    
     const systemPrompt = `You are an expert at analyzing Italian horoscope content. Your task is to:
 1. Create a paraphrased, copyright-safe Italian summary (maximum 300 characters)
 2. Extract integer ratings from 1-5 for: Relazioni (relationships), Lavoro (work), Benessere (wellbeing)
@@ -42,6 +44,7 @@ Provide the summary and ratings as requested.`;
       throw new Error('Empty response from OpenAI');
     }
 
+    console.log(`[OpenAI] Raw response: ${content}`);
     const parsed = JSON.parse(content);
     
     // Validate and clamp ratings
@@ -62,6 +65,8 @@ Provide the summary and ratings as requested.`;
       result.summary = result.summary.substring(0, 297) + '...';
     }
 
+    console.log(`[OpenAI] Processed result: Relazioni=${result.ratings.relazioni}, Lavoro=${result.ratings.lavoro}, Benessere=${result.ratings.benessere}, Tone=${result.tone}`);
+    
     return openaiOutputSchema.parse(result);
   } catch (error) {
     console.error('OpenAI processing error:', error);
