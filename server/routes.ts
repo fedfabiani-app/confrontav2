@@ -310,6 +310,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // Manual trigger for scraping and processing
+  app.post('/api/scrape/trigger', async (req, res) => {
+    try {
+      const { sourceIds, signSlugs, dateISO } = req.body;
+
+      // Default to today if no date provided
+      const targetDate = dateISO || new Date().toISOString().split('T')[0];
+
+      // Get sources and signs from database
+      const sources = await prisma.source.findMany({
+        where: sourceIds ? { id: { in: sourceIds } } : { is_active: true }
+      });
+
+      const zodiacSigns = await prisma.zodiacSign.findMany({
+        where: signSlugs ? { name_english: { in: signSlugs } } : {}
+      });
+
+      const jobIds: string[] = [];
+
+      // Enqueue scraping jobs for each combination
+      for (const source of sources) {
+        for (const sign of zodiacSigns) {
+          const scraperInput = {
+            sourceId: source.id,
+            sourceName: source.name,
+            domain: source.domain,
+            baseUrl: source.base_url,
+            urlPattern: source.url_pattern,
+            signSlugIt: sign.name_english,
+            dateISO: targetDate,
+            weekdayItNoAccent: '',
+            gazzettaDatePath: '',
+            userAgent: source.user_agent || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          };
+
+          const jobId = await enqueueScrapeJob(scraperInput);
+          jobIds.push(jobId);
+        }
+      }
+
+      res.json({
+        message: `Enqueued ${jobIds.length} scraping jobs`,
+        jobIds,
+        targetDate
+      });
+    } catch (error) {
+      console.error('Manual scraping trigger error:', error);
+      res.status(500).json({
+        error: 'Failed to trigger scraping',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
