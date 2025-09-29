@@ -2,7 +2,14 @@ import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, RefreshCw, Heart, Briefcase, Leaf, Star } from "lucide-react";
+import {
+  ArrowLeft,
+  RefreshCw,
+  Heart,
+  Briefcase,
+  Leaf,
+  Star,
+} from "lucide-react";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
@@ -27,7 +34,7 @@ interface HoroscopeData {
   relazioni_rating: number;
   lavoro_rating: number;
   salute_rating: number;
-  tone_analysis: 'positive' | 'neutral' | 'negative';
+  tone_analysis: "positive" | "neutral" | "negative";
   original_url: string;
   scraped_at: string;
   source: {
@@ -44,22 +51,22 @@ interface HoroscopeAggregate {
   avgLavoro: number;
   avgBenessere: number;
   overallAverage: number;
-  majorityTone?: 'positive' | 'neutral' | 'negative';
+  majorityTone?: "positive" | "neutral" | "negative";
 }
 
 const signColors = {
-  ariete: 'from-red-500 to-pink-500',
-  toro: 'from-green-500 to-emerald-500',
-  gemelli: 'from-yellow-500 to-orange-500',
-  cancro: 'from-blue-500 to-cyan-500',
-  leone: 'from-orange-500 to-red-500',
-  vergine: 'from-green-600 to-blue-500',
-  bilancia: 'from-pink-500 to-purple-500',
-  scorpione: 'from-red-600 to-black',
-  sagittario: 'from-purple-500 to-indigo-500',
-  capricorno: 'from-gray-600 to-gray-800',
-  acquario: 'from-blue-400 to-cyan-400',
-  pesci: 'from-blue-500 to-purple-500',
+  ariete: "from-red-500 to-pink-500",
+  toro: "from-green-500 to-emerald-500",
+  gemelli: "from-yellow-500 to-orange-500",
+  cancro: "from-blue-500 to-cyan-500",
+  leone: "from-orange-500 to-red-500",
+  vergine: "from-green-600 to-blue-500",
+  bilancia: "from-pink-500 to-purple-500",
+  scorpione: "from-red-600 to-black",
+  sagittario: "from-purple-500 to-indigo-500",
+  capricorno: "from-gray-600 to-gray-800",
+  acquario: "from-blue-400 to-cyan-400",
+  pesci: "from-blue-500 to-purple-500",
 };
 
 interface SourceIconProps {
@@ -69,22 +76,25 @@ interface SourceIconProps {
     domain: string;
     logo_url: string | null;
   };
-  'data-testid'?: string;
+  "data-testid"?: string;
 }
 
-function SourceIcon({ source, 'data-testid': dataTestId }: SourceIconProps) {
+function SourceIcon({ source, "data-testid": dataTestId }: SourceIconProps) {
   const [imgFailed, setImgFailed] = useState(false);
   const [currentSrc, setCurrentSrc] = useState<string | null>(null);
 
-  // Initialize source URL with HTTPS normalization
+  // Initialize source URL with HTTPS normalization, fallback to domain favicon
   const getInitialSrc = () => {
-    if (!source.logo_url) return null;
-    try {
-      const url = new URL(source.logo_url, 'https://');
-      return url.toString().replace(/^http:/, 'https:');
-    } catch {
-      return null;
+    if (source.logo_url) {
+      try {
+        const url = new URL(source.logo_url, "https://");
+        return url.toString().replace(/^http:/, "https:");
+      } catch {
+        // Invalid logo_url, fallback to domain favicon
+      }
     }
+    // No logo_url or invalid, try domain favicon
+    return `https://${source.domain}/favicon.ico`;
   };
 
   const initialSrc = currentSrc || getInitialSrc();
@@ -92,42 +102,43 @@ function SourceIcon({ source, 'data-testid': dataTestId }: SourceIconProps) {
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const img = e.target as HTMLImageElement;
     const currentUrl = img.src;
-    
+
     // Remove error handler to prevent loops
-    img.onError = null;
-    
-    if (currentUrl.includes('favicon.ico')) {
+    img.onerror = null;
+
+    if (currentUrl.includes("favicon.ico")) {
       // If favicon also failed, try Google's favicon service
       const googleFaviconUrl = `https://www.google.com/s2/favicons?sz=64&domain=${source.domain}`;
       if (currentUrl !== googleFaviconUrl) {
         img.src = googleFaviconUrl;
-        img.onError = () => setImgFailed(true);
+        img.onerror = () => setImgFailed(true);
         return;
       }
     } else if (currentUrl !== `https://${source.domain}/favicon.ico`) {
       // First fallback: try domain favicon
       img.src = `https://${source.domain}/favicon.ico`;
-      img.onError = handleImageError;
+      img.onerror = () => handleImageError({ target: img } as any);
       return;
     }
-    
+
     // All image sources failed
     setImgFailed(true);
   };
 
-  // Show letter placeholder if no logo_url or all images failed
-  if (!initialSrc || imgFailed) {
+  // Show letter placeholder only if all images failed
+  if (imgFailed) {
     return (
       <div className="relative group">
-        <div 
+        <div
           className="w-6 h-6 bg-gradient-to-br from-orange-100 to-red-100 rounded flex items-center justify-center border border-border hover:border-orange-300 transition-colors"
           data-testid={dataTestId}
+          title={source.name}
         >
           <span className="text-orange-600 font-bold text-xs">
             {source.name.charAt(0)}
           </span>
         </div>
-        
+
         {/* Tooltip */}
         <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
           {source.name}
@@ -143,13 +154,14 @@ function SourceIcon({ source, 'data-testid': dataTestId }: SourceIconProps) {
         alt={source.name}
         className="w-6 h-6 rounded object-contain bg-white p-0.5 border border-border hover:border-orange-300 transition-colors"
         data-testid={dataTestId}
+        title={source.name}
         onError={handleImageError}
         referrerPolicy="no-referrer"
         loading="lazy"
         width={24}
         height={24}
       />
-      
+
       {/* Tooltip */}
       <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
         {source.name}
@@ -162,39 +174,48 @@ export default function SignDetail({ sign }: SignDetailProps) {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [refreshProgress, setRefreshProgress] = useState({ current: 0, total: 0 });
+  const [refreshProgress, setRefreshProgress] = useState({
+    current: 0,
+    total: 0,
+  });
   const [refreshDismissed, setRefreshDismissed] = useState(false);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
-  const today = new Date().toISOString().split('T')[0];
+
+  const today = new Date().toISOString().split("T")[0];
 
   // Fetch zodiac sign details
   const { data: zodiacSign } = useQuery<ZodiacSign>({
-    queryKey: ['/api/zodiac-signs', sign],
+    queryKey: ["/api/zodiac-signs", sign],
     queryFn: async () => {
-      const response = await fetch('/api/zodiac-signs');
+      const response = await fetch("/api/zodiac-signs");
       const signs = await response.json();
       return signs.find((s: ZodiacSign) => s.name_english === sign);
     },
   });
 
   // Fetch horoscope data for this sign
-  const { data: horoscopes = [], isLoading: horoscopesLoading } = useQuery<HoroscopeData[]>({
-    queryKey: ['/api/horoscopes', today, sign],
+  const { data: horoscopes = [], isLoading: horoscopesLoading } = useQuery<
+    HoroscopeData[]
+  >({
+    queryKey: ["/api/horoscopes", today, sign],
     queryFn: async () => {
-      const response = await fetch(`/api/horoscopes?date=${today}&sign=${sign}`);
-      if (!response.ok) throw new Error('Failed to fetch horoscopes');
+      const response = await fetch(
+        `/api/horoscopes?date=${today}&sign=${sign}`,
+      );
+      if (!response.ok) throw new Error("Failed to fetch horoscopes");
       return response.json();
     },
   });
 
   // Fetch aggregates for this sign
   const { data: aggregate } = useQuery<HoroscopeAggregate>({
-    queryKey: ['/api/horoscopes/aggregate', today, sign],
+    queryKey: ["/api/horoscopes/aggregate", today, sign],
     queryFn: async () => {
-      const response = await fetch(`/api/horoscopes/aggregate?date=${today}&sign=${sign}`);
-      if (!response.ok) throw new Error('Failed to fetch aggregate');
+      const response = await fetch(
+        `/api/horoscopes/aggregate?date=${today}&sign=${sign}`,
+      );
+      if (!response.ok) throw new Error("Failed to fetch aggregate");
       return response.json();
     },
   });
@@ -203,7 +224,10 @@ export default function SignDetail({ sign }: SignDetailProps) {
   const refreshSignMutation = useMutation({
     mutationFn: async () => {
       const italianSign = ZODIAC_SIGNS_EN_IT[sign] || sign;
-      const response = await apiRequest('POST', `/api/refresh/sign/${italianSign}?date=${today}`);
+      const response = await apiRequest(
+        "POST",
+        `/api/refresh/sign/${italianSign}?date=${today}`,
+      );
       return response.json();
     },
     onSuccess: (data) => {
@@ -211,31 +235,39 @@ export default function SignDetail({ sign }: SignDetailProps) {
         title: "Aggiornamento avviato",
         description: `${data.jobsEnqueued} lavori in coda per ${zodiacSign?.name_italian}`,
       });
-      
+
       setRefreshProgress({ current: 0, total: data.jobsEnqueued });
       setRefreshDismissed(false);
-      
+
       pollIntervalRef.current = setInterval(async () => {
         // Don't update progress if user dismissed the overlay
         if (refreshDismissed) return;
-        
+
         try {
-          const statusResponse = await fetch('/api/refresh/status');
+          const statusResponse = await fetch("/api/refresh/status");
           if (statusResponse.ok) {
             const status = await statusResponse.json();
             const completed = status.summary.completed + status.summary.failed;
-            setRefreshProgress({ current: completed, total: data.jobsEnqueued });
-            
+            setRefreshProgress({
+              current: completed,
+              total: data.jobsEnqueued,
+            });
+
             if (completed >= data.jobsEnqueued) {
-              if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+              if (pollIntervalRef.current)
+                clearInterval(pollIntervalRef.current);
               if (timeoutRef.current) clearTimeout(timeoutRef.current);
               setRefreshProgress({ current: 0, total: 0 });
               setRefreshDismissed(false);
-              
+
               // Invalidate cache to refresh data
-              queryClient.invalidateQueries({ queryKey: ['/api/horoscopes', today, sign] });
-              queryClient.invalidateQueries({ queryKey: ['/api/horoscopes/aggregate', today, sign] });
-              
+              queryClient.invalidateQueries({
+                queryKey: ["/api/horoscopes", today, sign],
+              });
+              queryClient.invalidateQueries({
+                queryKey: ["/api/horoscopes/aggregate", today, sign],
+              });
+
               toast({
                 title: "Aggiornamento completato",
                 description: `${status.summary.completed} successi, ${status.summary.failed} errori`,
@@ -243,18 +275,21 @@ export default function SignDetail({ sign }: SignDetailProps) {
             }
           }
         } catch (error) {
-          console.error('Error polling status:', error);
+          console.error("Error polling status:", error);
           if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
           setRefreshProgress({ current: 0, total: 0 });
           setRefreshDismissed(false);
         }
       }, 3000);
-      
-      timeoutRef.current = setTimeout(() => {
-        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-        setRefreshProgress({ current: 0, total: 0 });
-        setRefreshDismissed(false);
-      }, 5 * 60 * 1000);
+
+      timeoutRef.current = setTimeout(
+        () => {
+          if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+          setRefreshProgress({ current: 0, total: 0 });
+          setRefreshDismissed(false);
+        },
+        5 * 60 * 1000,
+      );
     },
     onError: (error) => {
       toast({
@@ -271,8 +306,10 @@ export default function SignDetail({ sign }: SignDetailProps) {
         <Card className="w-full max-w-md mx-4">
           <CardContent className="pt-6 text-center">
             <h2 className="text-xl font-bold mb-2">Segno non trovato</h2>
-            <p className="text-muted-foreground mb-4">Il segno zodiacale richiesto non esiste.</p>
-            <Button onClick={() => navigate('/')} data-testid="button-go-home">
+            <p className="text-muted-foreground mb-4">
+              Il segno zodiacale richiesto non esiste.
+            </p>
+            <Button onClick={() => navigate("/")} data-testid="button-go-home">
               Torna alla Home
             </Button>
           </CardContent>
@@ -281,9 +318,12 @@ export default function SignDetail({ sign }: SignDetailProps) {
     );
   }
 
-  const colorClass = signColors[sign as keyof typeof signColors] || 'from-gray-500 to-gray-700';
-  const isRefreshing = !refreshDismissed && (refreshSignMutation.isPending || refreshProgress.total > 0);
-  
+  const colorClass =
+    signColors[sign as keyof typeof signColors] || "from-gray-500 to-gray-700";
+  const isRefreshing =
+    !refreshDismissed &&
+    (refreshSignMutation.isPending || refreshProgress.total > 0);
+
   const handleDismissRefresh = () => {
     setRefreshDismissed(true);
     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
@@ -297,21 +337,29 @@ export default function SignDetail({ sign }: SignDetailProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-3">
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="sm"
-                onClick={() => navigate('/')}
+                onClick={() => navigate("/")}
                 data-testid="button-back"
               >
                 <ArrowLeft className="w-4 h-4" />
               </Button>
               <div className="flex items-center space-x-4">
-                <div className={`w-12 h-12 bg-gradient-to-br ${colorClass} rounded-full flex items-center justify-center`}>
-                  <span className="text-white font-bold text-xl">{zodiacSign.symbol}</span>
+                <div
+                  className={`w-12 h-12 bg-gradient-to-br ${colorClass} rounded-full flex items-center justify-center`}
+                >
+                  <span className="text-white font-bold text-xl">
+                    {zodiacSign.symbol}
+                  </span>
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-card-foreground">{zodiacSign.name_italian}</h1>
-                  <p className="text-sm text-muted-foreground">{zodiacSign.date_range}</p>
+                  <h1 className="text-xl font-bold text-card-foreground">
+                    {zodiacSign.name_italian}
+                  </h1>
+                  <p className="text-sm text-muted-foreground">
+                    {zodiacSign.date_range}
+                  </p>
                 </div>
               </div>
             </div>
@@ -321,7 +369,6 @@ export default function SignDetail({ sign }: SignDetailProps) {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        
         {/* Overview Cards */}
         {aggregate && (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
@@ -330,7 +377,9 @@ export default function SignDetail({ sign }: SignDetailProps) {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Relazioni</p>
-                    <p className="text-2xl font-bold text-card-foreground">{aggregate.avgRelazioni.toFixed(1)}</p>
+                    <p className="text-2xl font-bold text-card-foreground">
+                      {aggregate.avgRelazioni.toFixed(1)}
+                    </p>
                   </div>
                   <div className="w-12 h-12 bg-pink-100 rounded-full flex items-center justify-center">
                     <Heart className="text-pink-500 w-6 h-6" />
@@ -338,13 +387,15 @@ export default function SignDetail({ sign }: SignDetailProps) {
                 </div>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Lavoro</p>
-                    <p className="text-2xl font-bold text-card-foreground">{aggregate.avgLavoro.toFixed(1)}</p>
+                    <p className="text-2xl font-bold text-card-foreground">
+                      {aggregate.avgLavoro.toFixed(1)}
+                    </p>
                   </div>
                   <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
                     <Briefcase className="text-blue-500 w-6 h-6" />
@@ -352,13 +403,15 @@ export default function SignDetail({ sign }: SignDetailProps) {
                 </div>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Benessere</p>
-                    <p className="text-2xl font-bold text-card-foreground">{aggregate.avgBenessere.toFixed(1)}</p>
+                    <p className="text-2xl font-bold text-card-foreground">
+                      {aggregate.avgBenessere.toFixed(1)}
+                    </p>
                   </div>
                   <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
                     <Leaf className="text-green-500 w-6 h-6" />
@@ -366,13 +419,17 @@ export default function SignDetail({ sign }: SignDetailProps) {
                 </div>
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">Media Generale</p>
-                    <p className="text-2xl font-bold text-orange-500">{aggregate.overallAverage.toFixed(1)}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Media Generale
+                    </p>
+                    <p className="text-2xl font-bold text-orange-500">
+                      {aggregate.overallAverage.toFixed(1)}
+                    </p>
                   </div>
                   <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
                     <Star className="text-orange-500 w-6 h-6" />
@@ -387,11 +444,14 @@ export default function SignDetail({ sign }: SignDetailProps) {
         {!horoscopesLoading && horoscopes.length > 0 && (
           <Card className="mb-6">
             <CardContent className="p-6">
-              <h2 className="text-xl font-semibold text-card-foreground mb-4">La Tua Previsione di Oggi</h2>
+              <h2 className="text-xl font-semibold text-card-foreground mb-4">
+                La Tua Previsione di Oggi
+              </h2>
               <p className="text-card-foreground leading-relaxed text-lg mb-4">
-                {horoscopes[0]?.summary || "Le stelle stanno preparando qualcosa di speciale per te oggi."}
+                {horoscopes[0]?.summary ||
+                  "Le stelle stanno preparando qualcosa di speciale per te oggi."}
               </p>
-              
+
               {/* Source Icons */}
               <div className="flex items-center space-x-2 pt-4 border-t border-border">
                 <span className="text-sm text-muted-foreground">Fonti:</span>
@@ -413,11 +473,14 @@ export default function SignDetail({ sign }: SignDetailProps) {
         {!horoscopesLoading && horoscopes.length === 0 && (
           <Card>
             <CardContent className="p-8 text-center">
-              <h3 className="text-lg font-semibold mb-2">Nessun dato disponibile</h3>
+              <h3 className="text-lg font-semibold mb-2">
+                Nessun dato disponibile
+              </h3>
               <p className="text-muted-foreground mb-4">
-                Non ci sono previsioni disponibili per oggi. Prova ad aggiornare i dati.
+                Non ci sono previsioni disponibili per oggi. Prova ad aggiornare
+                i dati.
               </p>
-              <Button 
+              <Button
                 onClick={() => refreshSignMutation.mutate()}
                 className="bg-gradient-to-r from-orange-500 to-red-500 text-white"
                 data-testid="button-refresh-empty"
@@ -437,7 +500,9 @@ export default function SignDetail({ sign }: SignDetailProps) {
             className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-lg hover:shadow-xl transition-all"
             data-testid="button-refresh-sign"
           >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw
+              className={`w-4 h-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
+            />
             Aggiorna Previsioni
           </Button>
         </div>
