@@ -1,7 +1,9 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Star } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { RefreshCw, Star, CalendarDays } from "lucide-react";
 import { ZodiacCard } from "@/components/ZodiacCard";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { useToast } from "@/hooks/use-toast";
@@ -30,10 +32,19 @@ export default function Home() {
   const queryClient = useQueryClient();
   const [refreshProgress, setRefreshProgress] = useState({ current: 0, total: 0 });
   const [refreshDismissed, setRefreshDismissed] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   
-  const today = new Date().toISOString().split('T')[0];
+  // Get date string for API calls using local date (avoid timezone issues)
+  const selectedDateString = selectedDate.toLocaleDateString('en-CA'); // YYYY-MM-DD format in local timezone
+  
+  // Get date range for calendar (90 days back) - use day boundaries
+  const today = new Date();
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const earliestStart = new Date(todayStart);
+  earliestStart.setDate(earliestStart.getDate() - 90);
 
   // Fetch zodiac signs
   const { data: zodiacSigns = [], isLoading: signsLoading } = useQuery<ZodiacSign[]>({
@@ -42,13 +53,13 @@ export default function Home() {
 
   // Fetch aggregates for all signs
   const { data: aggregatesData = {}, isLoading: aggregatesLoading } = useQuery<Record<string, HoroscopeAggregate>>({
-    queryKey: ['/api/horoscopes/aggregates', today],
+    queryKey: ['/api/horoscopes/aggregates', selectedDateString],
     queryFn: async () => {
       const results: Record<string, HoroscopeAggregate> = {};
       
       for (const sign of zodiacSigns) {
         try {
-          const response = await fetch(`/api/horoscopes/aggregate?date=${today}&sign=${sign.name_english}`);
+          const response = await fetch(`/api/horoscopes/aggregate?date=${selectedDateString}&sign=${sign.name_english}`);
           if (response.ok) {
             results[sign.name_english] = await response.json();
           }
@@ -65,7 +76,7 @@ export default function Home() {
   // Refresh all data mutation
   const refreshAllMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest('POST', `/api/refresh/all?date=${today}`);
+      const response = await apiRequest('POST', `/api/refresh/all?date=${selectedDateString}`);
       return response.json();
     },
     onSuccess: (data) => {
@@ -132,8 +143,7 @@ export default function Home() {
     navigate(`/sign/${signName}`);
   };
 
-  const formatDate = () => {
-    const date = new Date();
+  const formatDate = (date: Date) => {
     return date.toLocaleDateString('it-IT', { 
       weekday: 'long', 
       year: 'numeric', 
@@ -141,6 +151,27 @@ export default function Home() {
       day: 'numeric' 
     });
   };
+
+  const handleDateSelect = (date: Date | undefined) => {
+    if (date) {
+      setSelectedDate(date);
+      setCalendarOpen(false);
+      // Invalidate queries to fetch new data for selected date
+      queryClient.invalidateQueries({ queryKey: ['/api/horoscopes/aggregates'] });
+    }
+  };
+
+  // Cleanup intervals/timeouts on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+      }
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   const isLoading = signsLoading || aggregatesLoading;
   const isRefreshing = !refreshDismissed && (refreshAllMutation.isPending || refreshProgress.total > 0);
@@ -167,7 +198,35 @@ export default function Home() {
               </div>
             </div>
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-muted-foreground">{formatDate()}</span>
+              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                <PopoverTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    className="text-sm text-muted-foreground hover:text-foreground p-2 h-auto font-normal justify-start"
+                    data-testid="date-selector-trigger"
+                  >
+                    <CalendarDays className="w-4 h-4 mr-2" />
+                    {formatDate(selectedDate)}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                  <div className="p-3 border-b border-border">
+                    <h4 className="text-sm font-medium">Seleziona Data</h4>
+                    <p className="text-xs text-muted-foreground">Ultimi 90 giorni disponibili</p>
+                  </div>
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={handleDateSelect}
+                    disabled={(date) => date < earliestStart || date > todayStart}
+                    toDate={todayStart}
+                    defaultMonth={selectedDate}
+                    className="border-0"
+                    data-testid="date-calendar"
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
         </div>
@@ -178,8 +237,15 @@ export default function Home() {
         {/* Refresh Section */}
         <div className="mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold text-card-foreground mb-2">Oroscopo di Oggi</h2>
-            <p className="text-muted-foreground">Le migliori previsioni astrali per oggi</p>
+            <h2 className="text-2xl font-bold text-card-foreground mb-2">
+              {selectedDate.getTime() === todayStart.getTime() ? 'Oroscopo di Oggi' : 'Archivio Oroscopi'}
+            </h2>
+            <p className="text-muted-foreground">
+              {selectedDate.getTime() === todayStart.getTime() 
+                ? 'Le migliori previsioni astrali per oggi'
+                : `Previsioni astrali per ${formatDate(selectedDate).toLowerCase()}`
+              }
+            </p>
           </div>
           <Button
             onClick={() => refreshAllMutation.mutate()}
