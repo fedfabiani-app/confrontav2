@@ -151,14 +151,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const avgBenessere = horoscopes.reduce((sum: number, h: any) => sum + h.salute_rating, 0) / horoscopes.length;
       const overallAverage = (avgRelazioni + avgLavoro + avgBenessere) / 3;
 
-      // Calculate majority tone
-      const toneCount = horoscopes.reduce((count: Record<string, number>, h: any) => {
-        count[h.tone_analysis] = (count[h.tone_analysis] || 0) + 1;
-        return count;
-      }, {} as Record<string, number>);
-
-      const majorityTone = Object.entries(toneCount)
-        .sort(([,a], [,b]) => (b as number) - (a as number))[0]?.[0] || 'neutral';
+      // Calculate tone based on overall average rating
+      const majorityTone = overallAverage < 3 ? 'negative' : 
+                           overallAverage > 3 ? 'positive' : 'neutral';
 
       res.json({
         avgRelazioni: Math.round(avgRelazioni * 10) / 10,
