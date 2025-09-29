@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Star, Brain, Globe, Shield, Clock, Users } from "lucide-react";
+import { ArrowLeft, Star, Brain, Globe, Shield, Clock } from "lucide-react";
 import { useLocation } from "wouter";
 
 export default function Info() {
