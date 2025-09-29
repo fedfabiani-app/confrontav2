@@ -1,0 +1,125 @@
+import { useState, useEffect, useCallback } from 'react';
+
+const FAVORITES_STORAGE_KEY = 'horoscope:favorites:v1';
+
+interface FavoritesData {
+  [signEnglish: string]: {
+    pinnedSourceIds: number[];
+    updatedAt: string;
+  };
+}
+
+interface HoroscopeData {
+  id: number;
+  source: {
+    id: number;
+    name: string;
+    domain: string;
+    logo_url: string | null;
+    reliability_score: number;
+  };
+  [key: string]: any;
+}
+
+export function useFavorites(signEnglish: string) {
+  const [favorites, setFavorites] = useState<number[]>([]);
+
+  // Load favorites from localStorage on mount
+  useEffect(() => {
+    const loadFavorites = () => {
+      try {
+        const stored = localStorage.getItem(FAVORITES_STORAGE_KEY);
+        if (stored) {
+          const data: FavoritesData = JSON.parse(stored);
+          const signData = data[signEnglish];
+          if (signData) {
+            setFavorites(signData.pinnedSourceIds);
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to load favorites from localStorage:', error);
+      }
+    };
+
+    loadFavorites();
+
+    // Listen for storage changes from other tabs
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === FAVORITES_STORAGE_KEY) {
+        loadFavorites();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [signEnglish]);
+
+  // Save favorites to localStorage
+  const saveFavorites = useCallback((newFavorites: number[]) => {
+    try {
+      const stored = localStorage.getItem(FAVORITES_STORAGE_KEY);
+      const data: FavoritesData = stored ? JSON.parse(stored) : {};
+      
+      data[signEnglish] = {
+        pinnedSourceIds: newFavorites,
+        updatedAt: new Date().toISOString()
+      };
+
+      localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(data));
+      setFavorites(newFavorites);
+    } catch (error) {
+      console.warn('Failed to save favorites to localStorage:', error);
+    }
+  }, [signEnglish]);
+
+  // Check if a source is favorited
+  const isFavorite = useCallback((sourceId: number): boolean => {
+    return favorites.includes(sourceId);
+  }, [favorites]);
+
+  // Toggle favorite status
+  const toggleFavorite = useCallback((sourceId: number) => {
+    const newFavorites = isFavorite(sourceId)
+      ? favorites.filter(id => id !== sourceId)
+      : [...favorites, sourceId];
+    
+    saveFavorites(newFavorites);
+  }, [favorites, isFavorite, saveFavorites]);
+
+  // Reorder horoscopes to show pinned sources first
+  const reorderSources = useCallback((horoscopes: HoroscopeData[]): HoroscopeData[] => {
+    if (favorites.length === 0) {
+      return horoscopes;
+    }
+
+    const pinned: HoroscopeData[] = [];
+    const regular: HoroscopeData[] = [];
+
+    // Separate pinned and regular sources
+    horoscopes.forEach(horoscope => {
+      if (favorites.includes(horoscope.source.id)) {
+        pinned.push(horoscope);
+      } else {
+        regular.push(horoscope);
+      }
+    });
+
+    // Sort pinned sources by their order in favorites array (user's preference)
+    pinned.sort((a, b) => {
+      const indexA = favorites.indexOf(a.source.id);
+      const indexB = favorites.indexOf(b.source.id);
+      return indexA - indexB;
+    });
+
+    // Return pinned first, then regular (both maintain their internal order)
+    return [...pinned, ...regular];
+  }, [favorites]);
+
+  return {
+    favorites,
+    isFavorite,
+    toggleFavorite,
+    reorderSources,
+    hasFavorites: favorites.length > 0
+  };
+}

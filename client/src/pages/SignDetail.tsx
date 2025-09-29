@@ -14,6 +14,7 @@ import {
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
+import { useFavorites } from "@/hooks/use-favorites";
 import { apiRequest } from "@/lib/queryClient";
 import { ZODIAC_SIGNS_EN_IT } from "@shared/constants";
 
@@ -181,6 +182,9 @@ export default function SignDetail({ sign }: SignDetailProps) {
   });
   const [refreshDismissed, setRefreshDismissed] = useState(false);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Favorites functionality
+  const { isFavorite, toggleFavorite, reorderSources, hasFavorites } = useFavorites(sign);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const today = new Date().toISOString().split("T")[0];
@@ -445,7 +449,7 @@ export default function SignDetail({ sign }: SignDetailProps) {
         {!horoscopesLoading && horoscopes.length > 0 && (
           <div className="space-y-4 mb-8">
             <h2 className="text-xl font-semibold text-card-foreground mb-4">Previsioni per Fonte</h2>
-            {horoscopes.map((horoscope) => (
+            {reorderSources(horoscopes).map((horoscope) => (
               <Card key={horoscope.id} className="relative">
                 <CardContent className="p-6">
                   {/* Source Header */}
@@ -460,13 +464,33 @@ export default function SignDetail({ sign }: SignDetailProps) {
                         <p className="text-xs text-muted-foreground">{horoscope.source.domain}</p>
                       </div>
                     </div>
-                    <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      horoscope.tone_analysis === 'positive' ? 'bg-green-100 text-green-800' :
-                      horoscope.tone_analysis === 'negative' ? 'bg-red-100 text-red-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
-                      {horoscope.tone_analysis === 'positive' ? 'Positivo' :
-                       horoscope.tone_analysis === 'negative' ? 'Negativo' : 'Neutrale'}
+                    <div className="flex items-center space-x-2">
+                      {/* Favorite Toggle Button */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => toggleFavorite(horoscope.source.id)}
+                        className="p-1 h-8 w-8 hover:bg-pink-50 dark:hover:bg-pink-900/20"
+                        data-testid={`button-favorite-${horoscope.source.id}`}
+                        title={isFavorite(horoscope.source.id) ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
+                      >
+                        <Heart 
+                          className={`w-4 h-4 transition-colors ${
+                            isFavorite(horoscope.source.id) 
+                              ? 'fill-pink-500 text-pink-500' 
+                              : 'text-gray-400 hover:text-pink-500'
+                          }`}
+                        />
+                      </Button>
+                      {/* Tone Badge */}
+                      <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        horoscope.tone_analysis === 'positive' ? 'bg-green-100 text-green-800' :
+                        horoscope.tone_analysis === 'negative' ? 'bg-red-100 text-red-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {horoscope.tone_analysis === 'positive' ? 'Positivo' :
+                         horoscope.tone_analysis === 'negative' ? 'Negativo' : 'Neutrale'}
+                      </div>
                     </div>
                   </div>
 
