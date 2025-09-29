@@ -41,7 +41,7 @@ export default function Info() {
           </div>
           <h2 className="text-3xl font-bold text-card-foreground mb-4">Oroscopo Italiano</h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            La prima piattaforma italiana che confronta previsioni astrologiche da fonti multiple, 
+            La piattaforma italiana per previsioni astrologiche intelligenti, 
             utilizzando intelligenza artificiale per analisi approfondite e sintesi copyright-safe.
           </p>
         </div>
@@ -62,8 +62,8 @@ export default function Info() {
                 </div>
                 <h3 className="font-semibold mb-2">1. Raccolta Dati</h3>
                 <p className="text-sm text-muted-foreground">
-                  Scansione automatica di 14 siti italiani autorevoli per raccogliere 
-                  le previsioni giornaliere di tutti i segni zodiacali.
+                  Raccolta automatica delle migliori previsioni astrologiche 
+                  per tutti i segni zodiacali.
                 </p>
               </div>
               
@@ -171,36 +171,6 @@ export default function Info() {
           </Card>
         </div>
 
-        {/* Sources Info */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Users className="w-5 h-5 text-purple-500" />
-              <span>Fonti Utilizzate</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground mb-4">
-              L'app aggrega previsioni da 14 siti italiani autorevoli nel settore astrologico:
-            </p>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-              {[
-                "La Repubblica", "IO Donna", "alfemminile", "Gazzetta dello Sport",
-                "Oggi", "Virgilio", "OnlyOroscopo", "Sky TG24",
-                "Corriere della Sera", "Amica", "Quotidiano.net", "Style Corriere",
-                "Vogue Italia", "Grazia"
-              ].map((source) => (
-                <Badge key={source} variant="outline" className="justify-center py-1">
-                  {source}
-                </Badge>
-              ))}
-            </div>
-            <p className="text-sm text-muted-foreground mt-4">
-              Ogni fonte ha un punteggio di affidabilità calcolato in base alla consistenza 
-              e qualità delle previsioni nel tempo.
-            </p>
-          </CardContent>
-        </Card>
 
         {/* Rating System */}
         <Card className="mb-8">
@@ -286,8 +256,8 @@ export default function Info() {
             <p className="text-sm text-amber-700 dark:text-amber-300">
               Questa applicazione è fornita esclusivamente a scopo di intrattenimento. 
               Le previsioni astrologiche non devono essere considerate come consigli professionali 
-              per decisioni importanti nella vita. I contenuti sono aggregati da fonti pubbliche 
-              e rielaborati per garantire originalità e rispetto del copyright.
+              per decisioni importanti nella vita. I contenuti sono rielaborati 
+              per garantire originalità e rispetto del copyright.
             </p>
           </CardContent>
         </Card>

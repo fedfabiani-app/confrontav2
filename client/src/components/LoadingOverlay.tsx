@@ -16,7 +16,7 @@ interface LoadingOverlayProps {
 export function LoadingOverlay({ 
   isVisible, 
   title = "Aggiornamento in corso...", 
-  message = "Scaricamento dati da fonti multiple",
+  message = "Aggiornamento in corso",
   progress = 0,
   total = 100,
   onDismiss

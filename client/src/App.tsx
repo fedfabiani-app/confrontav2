@@ -3,10 +3,9 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Home as HomeIcon, Newspaper, Info } from "lucide-react";
+import { Home as HomeIcon, Info } from "lucide-react";
 import Home from "@/pages/Home";
 import SignDetail from "@/pages/SignDetail";
-import Sources from "@/pages/Sources";
 import InfoPage from "@/pages/Info";
 import NotFound from "@/pages/not-found";
 import { useLocation } from "wouter";
@@ -16,7 +15,6 @@ function BottomNavigation() {
 
   const navItems = [
     { path: '/', icon: HomeIcon, label: 'Home' },
-    { path: '/sources', icon: Newspaper, label: 'Fonti' },
     { path: '/info', icon: Info, label: 'Info' },
   ];
 
@@ -56,7 +54,6 @@ function Router() {
         <Route path="/sign/:sign">
           {(params) => <SignDetail sign={params.sign} />}
         </Route>
-        <Route path="/sources" component={Sources} />
         <Route path="/info" component={InfoPage} />
         <Route component={NotFound} />
       </Switch>

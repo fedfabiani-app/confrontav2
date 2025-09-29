@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft, RefreshCw, Heart, Briefcase, Leaf, Star } from "lucide-react";
-import { SourceCard } from "@/components/SourceCard";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
@@ -287,12 +286,40 @@ export default function SignDetail({ sign }: SignDetailProps) {
           </div>
         )}
 
-        {/* Header with Refresh Button */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-          <div>
-            <h2 className="text-xl font-semibold text-card-foreground">Previsioni da Tutte le Fonti</h2>
-            <p className="text-muted-foreground">Confronta le previsioni dai principali siti italiani</p>
-          </div>
+        {/* Daily Horoscope Summary */}
+        {!horoscopesLoading && horoscopes.length > 0 && (
+          <Card className="mb-6">
+            <CardContent className="p-6">
+              <h2 className="text-xl font-semibold text-card-foreground mb-4">La Tua Previsione di Oggi</h2>
+              <p className="text-card-foreground leading-relaxed text-lg">
+                {horoscopes[0]?.summary || "Le stelle stanno preparando qualcosa di speciale per te oggi."}
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* No data state */}
+        {!horoscopesLoading && horoscopes.length === 0 && (
+          <Card>
+            <CardContent className="p-8 text-center">
+              <h3 className="text-lg font-semibold mb-2">Nessun dato disponibile</h3>
+              <p className="text-muted-foreground mb-4">
+                Non ci sono previsioni disponibili per oggi. Prova ad aggiornare i dati.
+              </p>
+              <Button 
+                onClick={() => refreshSignMutation.mutate()}
+                className="bg-gradient-to-r from-orange-500 to-red-500 text-white"
+                data-testid="button-refresh-empty"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Aggiorna Dati
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Refresh Button */}
+        <div className="flex justify-center mt-8">
           <Button
             onClick={() => refreshSignMutation.mutate()}
             disabled={isRefreshing}
@@ -300,71 +327,8 @@ export default function SignDetail({ sign }: SignDetailProps) {
             data-testid="button-refresh-sign"
           >
             <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-            Aggiorna Questo Segno
+            Aggiorna Previsioni
           </Button>
-        </div>
-
-        {/* Sources List */}
-        <div className="space-y-4">
-          {horoscopesLoading && (
-            <div className="space-y-4">
-              {Array.from({ length: 5 }, (_, i) => (
-                <Card key={i} className="animate-pulse">
-                  <CardContent className="p-6">
-                    <div className="flex items-start space-x-4 mb-4">
-                      <div className="w-12 h-12 bg-muted rounded-lg"></div>
-                      <div className="flex-1">
-                        <div className="h-4 bg-muted rounded w-1/3 mb-2"></div>
-                        <div className="h-3 bg-muted rounded w-1/4"></div>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="h-3 bg-muted rounded"></div>
-                      <div className="h-3 bg-muted rounded w-4/5"></div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-
-          {!horoscopesLoading && horoscopes.length === 0 && (
-            <Card>
-              <CardContent className="p-8 text-center">
-                <h3 className="text-lg font-semibold mb-2">Nessun dato disponibile</h3>
-                <p className="text-muted-foreground mb-4">
-                  Non ci sono previsioni disponibili per oggi. Prova ad aggiornare i dati.
-                </p>
-                <Button 
-                  onClick={() => refreshSignMutation.mutate()}
-                  className="bg-gradient-to-r from-orange-500 to-red-500 text-white"
-                  data-testid="button-refresh-empty"
-                >
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Aggiorna Dati
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-
-          {!horoscopesLoading && horoscopes.map((horoscope) => (
-            <SourceCard 
-              key={horoscope.id} 
-              source={{
-                id: horoscope.source.id,
-                name: horoscope.source.name,
-                domain: horoscope.source.domain,
-                reliability_score: horoscope.source.reliability_score,
-                summary: horoscope.summary,
-                relazioni_rating: horoscope.relazioni_rating,
-                lavoro_rating: horoscope.lavoro_rating,
-                salute_rating: horoscope.salute_rating,
-                tone_analysis: horoscope.tone_analysis,
-                original_url: horoscope.original_url,
-                scraped_at: horoscope.scraped_at,
-              }}
-            />
-          ))}
         </div>
       </main>
 
@@ -372,7 +336,7 @@ export default function SignDetail({ sign }: SignDetailProps) {
       <LoadingOverlay
         isVisible={isRefreshing}
         title={`Aggiornando ${zodiacSign.name_italian}...`}
-        message="Scaricamento da tutte le fonti"
+        message="Aggiornamento previsioni in corso"
         progress={refreshProgress.current}
         total={refreshProgress.total}
         onDismiss={handleDismissRefresh}

@@ -71,7 +71,7 @@ export default function Home() {
     onSuccess: (data) => {
       toast({
         title: "Aggiornamento avviato",
-        description: `${data.jobsEnqueued} lavori in coda per tutte le fonti`,
+        description: `${data.jobsEnqueued} aggiornamenti in corso`,
       });
       
       // Poll for updates (simplified - in production you might use WebSocket)
@@ -163,7 +163,7 @@ export default function Home() {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-card-foreground">Oroscopo Italiano</h1>
-                <p className="text-xs text-muted-foreground">Confronta previsioni da fonti multiple</p>
+                <p className="text-xs text-muted-foreground">Le tue previsioni astrali quotidiane</p>
               </div>
             </div>
             <div className="flex items-center space-x-4">
@@ -179,7 +179,7 @@ export default function Home() {
         <div className="mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <h2 className="text-2xl font-bold text-card-foreground mb-2">Oroscopo di Oggi</h2>
-            <p className="text-muted-foreground">Previsioni aggregate da 14 fonti autorevoli italiane</p>
+            <p className="text-muted-foreground">Le migliori previsioni astrali per oggi</p>
           </div>
           <Button
             onClick={() => refreshAllMutation.mutate()}
@@ -232,7 +232,7 @@ export default function Home() {
       <LoadingOverlay
         isVisible={isRefreshing}
         title="Aggiornamento in corso..."
-        message="Scaricamento dati da 14 fonti"
+        message="Aggiornamento previsioni in corso"
         progress={refreshProgress.current}
         total={refreshProgress.total}
         onDismiss={handleDismissRefresh}
