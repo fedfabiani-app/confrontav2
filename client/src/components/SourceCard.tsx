@@ -216,19 +216,19 @@ function SourcesPage() {
                             <div className="flex gap-2 mt-2 md:mt-0">
                               <button 
                                 onClick={() => toggleFavorite(source.id)} 
-                                className={`p-1 rounded transition-colors ${
+                                className={`p-2 rounded-md transition-colors border ${
                                   favoriteIds.has(source.id) 
-                                    ? 'text-red-500 hover:text-red-700' 
-                                    : 'text-gray-400 hover:text-red-500'
+                                    ? 'text-red-500 hover:text-red-700 bg-red-50 border-red-200' 
+                                    : 'text-gray-400 hover:text-red-500 bg-gray-50 border-gray-200 hover:bg-red-50'
                                 }`}
                                 title={favoriteIds.has(source.id) ? 'Remove from favorites' : 'Add to favorites'}
                               >
                                 <Heart size={18} fill={favoriteIds.has(source.id) ? 'currentColor' : 'none'} />
                               </button>
-                              <button onClick={() => startEditing(source)} className="text-blue-600 hover:text-blue-800 p-1 rounded">
+                              <button onClick={() => startEditing(source)} className="text-blue-600 hover:text-blue-800 p-2 rounded-md bg-blue-50 border border-blue-200">
                                 <Pencil size={18} />
                               </button>
-                              <button onClick={() => deleteSource(source.id)} className="text-red-600 hover:text-red-800 p-1 rounded">
+                              <button onClick={() => deleteSource(source.id)} className="text-red-600 hover:text-red-800 p-2 rounded-md bg-red-50 border border-red-200">
                                 <Trash2 size={18} />
                               </button>
                             </div>
@@ -293,19 +293,19 @@ function SourcesPage() {
                             <div className="flex gap-2 mt-2 md:mt-0">
                               <button 
                                 onClick={() => toggleFavorite(source.id)} 
-                                className={`p-1 rounded transition-colors ${
+                                className={`p-2 rounded-md transition-colors border ${
                                   favoriteIds.has(source.id) 
-                                    ? 'text-red-500 hover:text-red-700' 
-                                    : 'text-gray-400 hover:text-red-500'
+                                    ? 'text-red-500 hover:text-red-700 bg-red-50 border-red-200' 
+                                    : 'text-gray-400 hover:text-red-500 bg-gray-50 border-gray-200 hover:bg-red-50'
                                 }`}
                                 title={favoriteIds.has(source.id) ? 'Remove from favorites' : 'Add to favorites'}
                               >
                                 <Heart size={18} fill={favoriteIds.has(source.id) ? 'currentColor' : 'none'} />
                               </button>
-                              <button onClick={() => startEditing(source)} className="text-blue-600 hover:text-blue-800 p-1 rounded">
+                              <button onClick={() => startEditing(source)} className="text-blue-600 hover:text-blue-800 p-2 rounded-md bg-blue-50 border border-blue-200">
                                 <Pencil size={18} />
                               </button>
-                              <button onClick={() => deleteSource(source.id)} className="text-red-600 hover:text-red-800 p-1 rounded">
+                              <button onClick={() => deleteSource(source.id)} className="text-red-600 hover:text-red-800 p-2 rounded-md bg-red-50 border border-red-200">
                                 <Trash2 size={18} />
                               </button>
                             </div>
