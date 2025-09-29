@@ -65,17 +65,24 @@ Regole di inclusione/esclusione:
 - Non menzionare mai la fonte/sito nell'output
 - Parafrasa sempre, non copiare letteralmente
 - Concentrati sul contenuto astrologico sostanziale
+- Divieto assoluto di troncamento: non troncare testi o frasi, non interrompere i periodi con ellissi (...) o segni di punteggiatura che lascino il pensiero incompleto. Se necessario, riformula per rispettare i limiti di caratteri, mantenendo sempre frasi complete, coerenti e con una conclusione naturale.
+
 
 ANALISI RICHIESTA:
 
-1. RIASSUNTO (max 300 caratteri):
+1. RIASSUNTO (ESATTAMENTE tra 250-520 caratteri):
    - Cattura l'essenza delle previsioni in modo dettagliato e specifico
    - Include elementi concreti menzionati nel testo (es. pianeti, energie, consigli)
    - Evita frasi generiche come "previsioni miste" o "giornata normale"
    - Rifletti accuratamente il tono emotivo del contenuto originale
 
-- Assicurati che il riassunto sia grammaticalmente corretto, concluda in modo naturale e sia completamente all'interno del limite di caratteri
-   - Evita di terminare frasi con virgole o punti sospensivi senza completare il pensiero
+REQUISITI TECNICI RIASSUNTO:
+- CONTA sempre i caratteri mentre scrivi - devi rimanere tra 250-520 caratteri
+- Se superi i 520 caratteri, riformula per accorciare MANTENENDO il senso completo
+- Se sei sotto i 250 caratteri, aggiungi dettagli specifici dal testo originale
+- TERMINA sempre con frasi complete e pensieri conclusi naturalmente
+- MAI ellissi (...), virgole o punti sospensivi che lasciano il discorso in sospeso
+- VERIFICA che l'ultima frase sia grammaticalmente e semanticamente completa
 
 2. VALUTAZIONI STELLARI (1-5 stelle) - SISTEMA CALIBRATO:
 
@@ -344,7 +351,7 @@ ${input.extracted_text}`
             properties: {
               summary: {
                 type: 'string',
-                maxLength: 300,
+                maxLength: 580,
                 description: 'Riassunto conciso, obiettivo e che catturi l\'essenza dell\'oroscopo, originale e copyright-safe'
               },
               relazioni: {
@@ -400,10 +407,9 @@ ${input.extracted_text}`
         : 'neutral'
     };
 
-    // Ensure summary is within 300 characters
-    if (result.summary.length > 300) {
-      result.summary = result.summary.substring(0, 297) + '...';
-    }
+    // Trust AI to follow character limit instructions (250-550 chars)
+    // The AI prompt explicitly instructs to stay within limits naturally
+    console.log(`[OpenAI] Summary length: ${result.summary.length} characters`);
 
     console.log(`[OpenAI] Processed result: Relazioni=${result.ratings.relazioni}, Lavoro=${result.ratings.lavoro}, Benessere=${result.ratings.benessere}, Tone=${result.tone}`);
 

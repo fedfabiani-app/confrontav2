@@ -194,7 +194,7 @@ export default function Home() {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-card-foreground">Confronta Oroscopo</h1>
-                <p className="text-xs text-muted-foreground">Le tue previsioni astrali quotidiane</p>
+                <p className="text-xs text-muted-foreground">Tutti gli Oroscopi, una sola App</p>
               </div>
             </div>
             <div className="flex items-center space-x-4">
