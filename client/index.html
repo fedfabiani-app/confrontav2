@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="it" class="h-full">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <title>Oroscopo Italiano - Confronta Previsioni</title>
+    <meta name="description" content="Confronta previsioni astrologiche da 14 fonti autorevoli italiane. Analisi AI avanzata per Relazioni, Lavoro e Benessere. PWA offline-ready." />
+    <meta name="keywords" content="oroscopo, astrologia, previsioni, italia, confronto, AI, relazioni, lavoro, benessere" />
+    <meta name="author" content="Oroscopo Italiano" />
+    
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#ea580c">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Oroscopo IT">
+    <link rel="apple-touch-icon" href="https://cdn.jsdelivr.net/npm/@mdi/svg@7.2.96/svg/star.svg">
+    
+    <!-- Open Graph Meta Tags -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Oroscopo Italiano - Confronta Previsioni" />
+    <meta property="og:description" content="La prima piattaforma italiana che confronta previsioni astrologiche da fonti multiple utilizzando intelligenza artificiale." />
+    <meta property="og:url" content="/" />
+    <meta property="og:site_name" content="Oroscopo Italiano" />
+    <meta property="og:image" content="https://cdn.jsdelivr.net/npm/@mdi/svg@7.2.96/svg/star.svg" />
+    
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Oroscopo Italiano - Confronta Previsioni" />
+    <meta name="twitter:description" content="Confronta previsioni astrologiche da 14 fonti italiane con analisi AI avanzata." />
+    <meta name="twitter:image" content="https://cdn.jsdelivr.net/npm/@mdi/svg@7.2.96/svg/star.svg" />
+    
+    <!-- Preconnect for performance -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="https://cdn.jsdelivr.net/npm/@mdi/svg@7.2.96/svg/star.svg">
+    
+    <!-- Service Worker Registration -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/service-worker.js')
+            .then((registration) => {
+              console.log('SW registered: ', registration);
+            })
+            .catch((registrationError) => {
+              console.log('SW registration failed: ', registrationError);
+            });
+        });
+      }
+    </script>
+  </head>
+  <body class="h-full">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
