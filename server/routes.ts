@@ -206,7 +206,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const zodiacSign = await prisma.zodiacSign.findFirst({
-        where: { name_english: sign }
+        where: { name_english: ZODIAC_SIGNS_IT_EN[sign as keyof typeof ZODIAC_SIGNS_IT_EN] }
       });
 
       if (!zodiacSign) {

@@ -1,17 +1,17 @@
 // Zodiac sign mappings
 export const ZODIAC_SIGNS_IT_EN = {
-  ariete: 'aries',
-  toro: 'taurus',
-  gemelli: 'gemini',
-  cancro: 'cancer',
-  leone: 'leo',
-  vergine: 'virgo',
-  bilancia: 'libra',
-  scorpione: 'scorpio',
-  sagittario: 'sagittarius',
-  capricorno: 'capricorn',
-  acquario: 'aquarius',
-  pesci: 'pisces',
+  Ariete: 'aries',
+  Toro: 'taurus',
+  Gemelli: 'gemini',
+  Cancro: 'cancer',
+  Leone: 'leo',
+  Vergine: 'virgo',
+  Bilancia: 'libra',
+  Scorpione: 'scorpio',
+  Sagittario: 'sagittarius',
+  Capricorno: 'capricorn',
+  Acquario: 'aquarius',
+  Pesci: 'pisces',
 } as const;
 
 export const ZODIAC_SIGNS_EN_IT = Object.fromEntries(
