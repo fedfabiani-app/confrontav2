@@ -12,7 +12,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/zodiac-signs", async (req, res) => {
     try {
       const signs = await prisma.zodiacSign.findMany({
-        orderBy: { name_english: 'asc' }
+        orderBy: { id: 'asc' }
       });
       res.json(signs);
     } catch (error) {
@@ -188,7 +188,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get all active sources and zodiac signs
       const [sources, zodiacSigns] = await Promise.all([
         prisma.source.findMany({ where: { is_active: true } }),
-        prisma.zodiacSign.findMany(),
+        prisma.zodiacSign.findMany({ orderBy: { id: 'asc' } }),
       ]);
 
       const jobIds: string[] = [];
@@ -415,7 +415,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const zodiacSigns = await prisma.zodiacSign.findMany({
-        where: signSlugs ? { name_english: { in: signSlugs } } : {}
+        where: signSlugs ? { name_english: { in: signSlugs } } : {},
+        orderBy: { id: 'asc' }
       });
 
       const jobIds: string[] = [];
