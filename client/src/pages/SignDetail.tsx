@@ -117,7 +117,7 @@ function SourceIcon({ source, "data-testid": dataTestId }: SourceIconProps) {
     } else if (currentUrl !== `https://${source.domain}/favicon.ico`) {
       // First fallback: try domain favicon
       img.src = `https://${source.domain}/favicon.ico`;
-      img.onerror = () => handleImageError({ target: img } as any);
+      img.onerror = handleImageError;
       return;
     }
 
