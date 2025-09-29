@@ -481,7 +481,7 @@ export default function SignDetail({ sign }: SignDetailProps) {
                       href={horoscope.original_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+                      className="inline-flex items-right text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
                       data-testid={`link-read-more-${horoscope.source.id}`}
                     >
                       Leggi tutto

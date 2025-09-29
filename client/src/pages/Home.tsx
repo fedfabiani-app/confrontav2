@@ -162,7 +162,7 @@ export default function Home() {
                 <Star className="text-white w-4 h-4" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-card-foreground">Oroscopo Italiano</h1>
+                <h1 className="text-xl font-bold text-card-foreground">Confronta Oroscopo</h1>
                 <p className="text-xs text-muted-foreground">Le tue previsioni astrali quotidiane</p>
               </div>
             </div>
