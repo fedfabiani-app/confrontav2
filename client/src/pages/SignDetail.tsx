@@ -10,6 +10,7 @@ import {
   Leaf,
   Star,
   ExternalLink,
+  Share,
 } from "lucide-react";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { useToast } from "@/hooks/use-toast";
@@ -185,6 +186,49 @@ export default function SignDetail({ sign }: SignDetailProps) {
   
   // Favorites functionality
   const { isFavorite, toggleFavorite, reorderSources, hasFavorites } = useFavorites(sign);
+
+  // Share functionality
+  const handleShare = async () => {
+    const currentUrl = window.location.href;
+    const today = new Date().toLocaleDateString('it-IT', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+    
+    const shareData = {
+      title: `Oroscopo ${zodiacSign?.name_italian} - ${today}`,
+      text: `Scopri l'oroscopo di oggi per ${zodiacSign?.name_italian} da fonti multiple italiane`,
+      url: currentUrl
+    };
+
+    try {
+      // Check if Web Share API is supported
+      if (navigator.share) {
+        await navigator.share(shareData);
+        toast({
+          title: "Condiviso!",
+          description: "L'oroscopo è stato condiviso con successo."
+        });
+      } else {
+        // Fallback: copy URL to clipboard
+        await navigator.clipboard.writeText(currentUrl);
+        toast({
+          title: "Link copiato!",
+          description: "Il link dell'oroscopo è stato copiato negli appunti."
+        });
+      }
+    } catch (error) {
+      // If sharing is cancelled or clipboard fails, show a fallback
+      if (error instanceof Error && error.name !== 'AbortError') {
+        toast({
+          title: "Errore",
+          description: "Non è stato possibile condividere l'oroscopo.",
+          variant: "destructive"
+        });
+      }
+    }
+  };
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const today = new Date().toISOString().split("T")[0];
@@ -481,6 +525,18 @@ export default function SignDetail({ sign }: SignDetailProps) {
                               : 'text-gray-400 hover:text-pink-500'
                           }`}
                         />
+                      </Button>
+                      {/* Share Button */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleShare}
+                        className="p-1 h-8 w-8 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                        data-testid={`button-share-${horoscope.source.id}`}
+                        title="Condividi questo oroscopo"
+                        aria-label="Condividi"
+                      >
+                        <Share className="w-4 h-4 text-gray-400 hover:text-blue-500 transition-colors" />
                       </Button>
                       {/* Tone Badge */}
                       <div className={`px-2 py-1 rounded-full text-xs font-medium ${
