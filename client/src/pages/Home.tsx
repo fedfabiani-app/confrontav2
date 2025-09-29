@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Star } from "lucide-react";
@@ -29,6 +29,9 @@ export default function Home() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [refreshProgress, setRefreshProgress] = useState({ current: 0, total: 0 });
+  const [refreshDismissed, setRefreshDismissed] = useState(false);
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const today = new Date().toISOString().split('T')[0];
 
@@ -73,8 +76,12 @@ export default function Home() {
       
       // Poll for updates (simplified - in production you might use WebSocket)
       setRefreshProgress({ current: 0, total: data.jobsEnqueued });
+      setRefreshDismissed(false);
       
-      const pollInterval = setInterval(async () => {
+      pollIntervalRef.current = setInterval(async () => {
+        // Don't update progress if user dismissed the overlay
+        if (refreshDismissed) return;
+        
         try {
           const statusResponse = await fetch('/api/refresh/status');
           if (statusResponse.ok) {
@@ -83,8 +90,10 @@ export default function Home() {
             setRefreshProgress({ current: completed, total: data.jobsEnqueued });
             
             if (completed >= data.jobsEnqueued) {
-              clearInterval(pollInterval);
+              if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+              if (timeoutRef.current) clearTimeout(timeoutRef.current);
               setRefreshProgress({ current: 0, total: 0 });
+              setRefreshDismissed(false);
               
               // Invalidate cache to refresh data
               queryClient.invalidateQueries({ queryKey: ['/api/horoscopes/aggregates'] });
@@ -97,15 +106,17 @@ export default function Home() {
           }
         } catch (error) {
           console.error('Error polling status:', error);
-          clearInterval(pollInterval);
+          if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
           setRefreshProgress({ current: 0, total: 0 });
+          setRefreshDismissed(false);
         }
       }, 3000);
       
       // Stop polling after 5 minutes
-      setTimeout(() => {
-        clearInterval(pollInterval);
+      timeoutRef.current = setTimeout(() => {
+        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
         setRefreshProgress({ current: 0, total: 0 });
+        setRefreshDismissed(false);
       }, 5 * 60 * 1000);
     },
     onError: (error) => {
@@ -132,7 +143,13 @@ export default function Home() {
   };
 
   const isLoading = signsLoading || aggregatesLoading;
-  const isRefreshing = refreshAllMutation.isPending || refreshProgress.total > 0;
+  const isRefreshing = !refreshDismissed && (refreshAllMutation.isPending || refreshProgress.total > 0);
+  
+  const handleDismissRefresh = () => {
+    setRefreshDismissed(true);
+    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -218,7 +235,7 @@ export default function Home() {
         message="Scaricamento dati da 14 fonti"
         progress={refreshProgress.current}
         total={refreshProgress.total}
-        onDismiss={() => setRefreshProgress({ current: 0, total: 0 })}
+        onDismiss={handleDismissRefresh}
       />
 
       {/* Bottom spacing for mobile navigation */}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -67,6 +67,9 @@ export default function SignDetail({ sign }: SignDetailProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [refreshProgress, setRefreshProgress] = useState({ current: 0, total: 0 });
+  const [refreshDismissed, setRefreshDismissed] = useState(false);
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const today = new Date().toISOString().split('T')[0];
 
@@ -114,8 +117,12 @@ export default function SignDetail({ sign }: SignDetailProps) {
       });
       
       setRefreshProgress({ current: 0, total: data.jobsEnqueued });
+      setRefreshDismissed(false);
       
-      const pollInterval = setInterval(async () => {
+      pollIntervalRef.current = setInterval(async () => {
+        // Don't update progress if user dismissed the overlay
+        if (refreshDismissed) return;
+        
         try {
           const statusResponse = await fetch('/api/refresh/status');
           if (statusResponse.ok) {
@@ -124,8 +131,10 @@ export default function SignDetail({ sign }: SignDetailProps) {
             setRefreshProgress({ current: completed, total: data.jobsEnqueued });
             
             if (completed >= data.jobsEnqueued) {
-              clearInterval(pollInterval);
+              if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+              if (timeoutRef.current) clearTimeout(timeoutRef.current);
               setRefreshProgress({ current: 0, total: 0 });
+              setRefreshDismissed(false);
               
               // Invalidate cache to refresh data
               queryClient.invalidateQueries({ queryKey: ['/api/horoscopes', today, sign] });
@@ -139,14 +148,16 @@ export default function SignDetail({ sign }: SignDetailProps) {
           }
         } catch (error) {
           console.error('Error polling status:', error);
-          clearInterval(pollInterval);
+          if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
           setRefreshProgress({ current: 0, total: 0 });
+          setRefreshDismissed(false);
         }
       }, 3000);
       
-      setTimeout(() => {
-        clearInterval(pollInterval);
+      timeoutRef.current = setTimeout(() => {
+        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
         setRefreshProgress({ current: 0, total: 0 });
+        setRefreshDismissed(false);
       }, 5 * 60 * 1000);
     },
     onError: (error) => {
@@ -175,7 +186,13 @@ export default function SignDetail({ sign }: SignDetailProps) {
   }
 
   const colorClass = signColors[sign as keyof typeof signColors] || 'from-gray-500 to-gray-700';
-  const isRefreshing = refreshSignMutation.isPending || refreshProgress.total > 0;
+  const isRefreshing = !refreshDismissed && (refreshSignMutation.isPending || refreshProgress.total > 0);
+  
+  const handleDismissRefresh = () => {
+    setRefreshDismissed(true);
+    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -358,7 +375,7 @@ export default function SignDetail({ sign }: SignDetailProps) {
         message="Scaricamento da tutte le fonti"
         progress={refreshProgress.current}
         total={refreshProgress.total}
-        onDismiss={() => setRefreshProgress({ current: 0, total: 0 })}
+        onDismiss={handleDismissRefresh}
       />
 
       {/* Bottom spacing for mobile navigation */}
