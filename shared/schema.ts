@@ -89,10 +89,10 @@ export const insertHoroscopeDataSchema = z.object({
 
 // API Response Types
 export const horoscopeAggregateSchema = z.object({
-  avgRelazioni: z.number(),
-  avgLavoro: z.number(),
-  avgBenessere: z.number(),
-  overallAverage: z.number(),
+  avgRelazioni: z.number().nullable(),
+  avgLavoro: z.number().nullable(),
+  avgBenessere: z.number().nullable(),
+  overallAverage: z.number().nullable(),
   majorityTone: z.enum(['positive', 'neutral', 'negative']).optional(),
 });
 

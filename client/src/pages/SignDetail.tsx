@@ -48,10 +48,10 @@ interface HoroscopeData {
 }
 
 interface HoroscopeAggregate {
-  avgRelazioni: number;
-  avgLavoro: number;
-  avgBenessere: number;
-  overallAverage: number;
+  avgRelazioni: number | null;
+  avgLavoro: number | null;
+  avgBenessere: number | null;
+  overallAverage: number | null;
   majorityTone?: "positive" | "neutral" | "negative";
 }
 
@@ -379,7 +379,7 @@ export default function SignDetail({ sign }: SignDetailProps) {
                   <div>
                     <p className="text-sm text-muted-foreground">Relazioni</p>
                     <p className="text-2xl font-bold text-card-foreground">
-                      {aggregate.avgRelazioni.toFixed(1)}
+                      {aggregate.avgRelazioni !== null ? aggregate.avgRelazioni.toFixed(1) : 'N/A'}
                     </p>
                   </div>
                   <div className="w-12 h-12 bg-pink-100 rounded-full flex items-center justify-center">
@@ -395,7 +395,7 @@ export default function SignDetail({ sign }: SignDetailProps) {
                   <div>
                     <p className="text-sm text-muted-foreground">Lavoro</p>
                     <p className="text-2xl font-bold text-card-foreground">
-                      {aggregate.avgLavoro.toFixed(1)}
+                      {aggregate.avgLavoro !== null ? aggregate.avgLavoro.toFixed(1) : 'N/A'}
                     </p>
                   </div>
                   <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
@@ -411,7 +411,7 @@ export default function SignDetail({ sign }: SignDetailProps) {
                   <div>
                     <p className="text-sm text-muted-foreground">Benessere</p>
                     <p className="text-2xl font-bold text-card-foreground">
-                      {aggregate.avgBenessere.toFixed(1)}
+                      {aggregate.avgBenessere !== null ? aggregate.avgBenessere.toFixed(1) : 'N/A'}
                     </p>
                   </div>
                   <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
@@ -429,7 +429,7 @@ export default function SignDetail({ sign }: SignDetailProps) {
                       Media Generale
                     </p>
                     <p className="text-2xl font-bold text-orange-500">
-                      {aggregate.overallAverage.toFixed(1)}
+                      {aggregate.overallAverage !== null ? aggregate.overallAverage.toFixed(1) : 'N/A'}
                     </p>
                   </div>
                   <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
@@ -497,7 +497,7 @@ export default function SignDetail({ sign }: SignDetailProps) {
                         <span className="text-sm text-muted-foreground">Relazioni</span>
                       </div>
                       <div className="text-lg font-bold text-card-foreground">
-                        {horoscope.relazioni_rating}/5
+                        {horoscope.relazioni_rating === 0 ? 'N/A' : `${horoscope.relazioni_rating}/5`}
                       </div>
                     </div>
                     <div className="text-center">
@@ -506,7 +506,7 @@ export default function SignDetail({ sign }: SignDetailProps) {
                         <span className="text-sm text-muted-foreground">Lavoro</span>
                       </div>
                       <div className="text-lg font-bold text-card-foreground">
-                        {horoscope.lavoro_rating}/5
+                        {horoscope.lavoro_rating === 0 ? 'N/A' : `${horoscope.lavoro_rating}/5`}
                       </div>
                     </div>
                     <div className="text-center">
@@ -515,7 +515,7 @@ export default function SignDetail({ sign }: SignDetailProps) {
                         <span className="text-sm text-muted-foreground">Benessere</span>
                       </div>
                       <div className="text-lg font-bold text-card-foreground">
-                        {horoscope.salute_rating}/5
+                        {horoscope.salute_rating === 0 ? 'N/A' : `${horoscope.salute_rating}/5`}
                       </div>
                     </div>
                   </div>

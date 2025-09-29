@@ -12,10 +12,10 @@ interface ZodiacCardProps {
     symbol: string;
   };
   aggregate?: {
-    avgRelazioni: number;
-    avgLavoro: number;
-    avgBenessere: number;
-    overallAverage: number;
+    avgRelazioni: number | null;
+    avgLavoro: number | null;
+    avgBenessere: number | null;
+    overallAverage: number | null;
     majorityTone?: 'positive' | 'neutral' | 'negative';
   };
   summary?: string;
@@ -83,28 +83,46 @@ export function ZodiacCard({ sign, aggregate, summary, onClick, className }: Zod
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Relazioni</span>
               <div className="flex items-center space-x-1">
-                <StarRating rating={Math.round(aggregate.avgRelazioni)} size="sm" />
-                <span className="text-xs text-muted-foreground ml-1">
-                  {aggregate.avgRelazioni.toFixed(1)}
-                </span>
+                {aggregate.avgRelazioni !== null ? (
+                  <>
+                    <StarRating rating={Math.round(aggregate.avgRelazioni)} size="sm" />
+                    <span className="text-xs text-muted-foreground ml-1">
+                      {aggregate.avgRelazioni.toFixed(1)}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-xs text-muted-foreground">N/A</span>
+                )}
               </div>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Lavoro</span>
               <div className="flex items-center space-x-1">
-                <StarRating rating={Math.round(aggregate.avgLavoro)} size="sm" />
-                <span className="text-xs text-muted-foreground ml-1">
-                  {aggregate.avgLavoro.toFixed(1)}
-                </span>
+                {aggregate.avgLavoro !== null ? (
+                  <>
+                    <StarRating rating={Math.round(aggregate.avgLavoro)} size="sm" />
+                    <span className="text-xs text-muted-foreground ml-1">
+                      {aggregate.avgLavoro.toFixed(1)}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-xs text-muted-foreground">N/A</span>
+                )}
               </div>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Benessere</span>
               <div className="flex items-center space-x-1">
-                <StarRating rating={Math.round(aggregate.avgBenessere)} size="sm" />
-                <span className="text-xs text-muted-foreground ml-1">
-                  {aggregate.avgBenessere.toFixed(1)}
-                </span>
+                {aggregate.avgBenessere !== null ? (
+                  <>
+                    <StarRating rating={Math.round(aggregate.avgBenessere)} size="sm" />
+                    <span className="text-xs text-muted-foreground ml-1">
+                      {aggregate.avgBenessere.toFixed(1)}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-xs text-muted-foreground">N/A</span>
+                )}
               </div>
             </div>
           </div>
@@ -116,7 +134,7 @@ export function ZodiacCard({ sign, aggregate, summary, onClick, className }: Zod
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-card-foreground">Media Generale</span>
               <span className="text-lg font-bold text-orange-500" data-testid={`overall-average-${sign.name_english}`}>
-                {aggregate.overallAverage.toFixed(1)}
+                {aggregate.overallAverage !== null ? aggregate.overallAverage.toFixed(1) : 'N/A'}
               </span>
             </div>
           </div>

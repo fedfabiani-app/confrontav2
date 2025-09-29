@@ -137,29 +137,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (horoscopes.length === 0) {
         return res.json({
-          avgRelazioni: 0,
-          avgLavoro: 0,
-          avgBenessere: 0,
-          overallAverage: 0,
+          avgRelazioni: null,
+          avgLavoro: null,
+          avgBenessere: null,
+          overallAverage: null,
           majorityTone: 'neutral'
         });
       }
 
-      // Calculate averages
-      const avgRelazioni = horoscopes.reduce((sum: number, h: any) => sum + h.relazioni_rating, 0) / horoscopes.length;
-      const avgLavoro = horoscopes.reduce((sum: number, h: any) => sum + h.lavoro_rating, 0) / horoscopes.length;
-      const avgBenessere = horoscopes.reduce((sum: number, h: any) => sum + h.salute_rating, 0) / horoscopes.length;
-      const overallAverage = (avgRelazioni + avgLavoro + avgBenessere) / 3;
+      // Calculate averages excluding 0 ratings (not mentioned categories)
+      const relazioniRatings = horoscopes.filter((h: any) => h.relazioni_rating > 0).map((h: any) => h.relazioni_rating);
+      const lavoroRatings = horoscopes.filter((h: any) => h.lavoro_rating > 0).map((h: any) => h.lavoro_rating);
+      const benessereRatings = horoscopes.filter((h: any) => h.salute_rating > 0).map((h: any) => h.salute_rating);
+      
+      const avgRelazioni = relazioniRatings.length > 0 
+        ? relazioniRatings.reduce((sum: number, rating: number) => sum + rating, 0) / relazioniRatings.length 
+        : null;
+      const avgLavoro = lavoroRatings.length > 0 
+        ? lavoroRatings.reduce((sum: number, rating: number) => sum + rating, 0) / lavoroRatings.length 
+        : null;
+      const avgBenessere = benessereRatings.length > 0 
+        ? benessereRatings.reduce((sum: number, rating: number) => sum + rating, 0) / benessereRatings.length 
+        : null;
+      // Calculate overall average only from categories with valid ratings
+      const validAverages = [avgRelazioni, avgLavoro, avgBenessere].filter(avg => avg !== null) as number[];
+      const overallAverage = validAverages.length > 0 
+        ? validAverages.reduce((sum, avg) => sum + avg, 0) / validAverages.length 
+        : null;
 
       // Calculate tone based on overall average rating
-      const majorityTone = overallAverage < 3 ? 'negative' : 
+      const majorityTone = overallAverage === null ? 'neutral' :
+                           overallAverage < 3 ? 'negative' : 
                            overallAverage > 3 ? 'positive' : 'neutral';
 
       res.json({
-        avgRelazioni: Math.round(avgRelazioni * 10) / 10,
-        avgLavoro: Math.round(avgLavoro * 10) / 10,
-        avgBenessere: Math.round(avgBenessere * 10) / 10,
-        overallAverage: Math.round(overallAverage * 10) / 10,
+        avgRelazioni: avgRelazioni !== null ? Math.round(avgRelazioni * 10) / 10 : null,
+        avgLavoro: avgLavoro !== null ? Math.round(avgLavoro * 10) / 10 : null,
+        avgBenessere: avgBenessere !== null ? Math.round(avgBenessere * 10) / 10 : null,
+        overallAverage: overallAverage !== null ? Math.round(overallAverage * 10) / 10 : null,
         majorityTone: majorityTone as 'positive' | 'neutral' | 'negative',
       });
     } catch (error) {
