@@ -7,7 +7,7 @@ import { ScraperInput } from "@shared/schema";
 import { ZODIAC_SIGNS_IT_EN, ITALIAN_WEEKDAYS } from "@shared/constants";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  
+
   // GET /api/zodiac-signs
   app.get("/api/zodiac-signs", async (req, res) => {
     try {
@@ -39,7 +39,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/horoscopes", async (req, res) => {
     try {
       const { date, sign } = req.query;
-      
+
       if (!date || !sign) {
         return res.status(400).json({ error: 'Date and sign parameters are required' });
       }
@@ -53,7 +53,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Validate sign and convert to English if needed
       const signString = sign as string;
       let englishSign = signString;
-      
+
       // Check if it's Italian sign and convert to English
       if (signString in ZODIAC_SIGNS_IT_EN) {
         englishSign = ZODIAC_SIGNS_IT_EN[signString as keyof typeof ZODIAC_SIGNS_IT_EN];
@@ -95,7 +95,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/horoscopes/aggregate", async (req, res) => {
     try {
       const { date, sign } = req.query;
-      
+
       if (!date || !sign) {
         return res.status(400).json({ error: 'Date and sign parameters are required' });
       }
@@ -103,7 +103,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Validate sign and convert to English if needed
       const signString = sign as string;
       let englishSign = signString;
-      
+
       // Check if it's Italian sign and convert to English
       if (signString in ZODIAC_SIGNS_IT_EN) {
         englishSign = ZODIAC_SIGNS_IT_EN[signString as keyof typeof ZODIAC_SIGNS_IT_EN];
@@ -224,7 +224,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Validate sign and convert to English if needed
       const signString = sign as string;
       let englishSign = signString;
-      
+
       // Check if it's Italian sign and convert to English
       if (signString in ZODIAC_SIGNS_IT_EN) {
         englishSign = ZODIAC_SIGNS_IT_EN[signString as keyof typeof ZODIAC_SIGNS_IT_EN];
@@ -278,7 +278,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/refresh/status", async (req, res) => {
     try {
       const jobs = getAllJobStatuses();
-      
+
       const summary = {
         total: jobs.length,
         pending: jobs.filter(j => j.status === 'pending').length,
@@ -319,7 +319,7 @@ function createScraperInput(source: any, zodiacSign: any, dateISO: string): Scra
   const date = new Date(dateISO);
   const weekdayIndex = date.getDay();
   const weekdayItNoAccent = ITALIAN_WEEKDAYS[weekdayIndex];
-  
+
   // Special date format for Gazzetta
   const gazzettaDatePath = `${date.getFullYear()}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getDate().toString().padStart(2, '0')}`;
 
@@ -329,7 +329,7 @@ function createScraperInput(source: any, zodiacSign: any, dateISO: string): Scra
     domain: source.domain,
     baseUrl: source.base_url,
     urlPattern: source.url_pattern,
-    signSlugIt: zodiacSign.name_english,
+    signSlugIt: zodiacSign.name_italian,
     dateISO,
     weekdayItNoAccent,
     gazzettaDatePath,

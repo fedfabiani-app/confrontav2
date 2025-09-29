@@ -169,7 +169,7 @@ export async function enqueueUpsertJob(scraperOutput: ScraperOutput, nlpOutput: 
           source_id_zodiac_sign_id_date: {
             source_id: scraperOutput.sourceId,
             zodiac_sign_id: zodiacSign.id,
-            date: scraperOutput.dateISO,
+            date: new Date(scraperOutput.dateISO),
           }
         },
         update: {
@@ -186,7 +186,7 @@ export async function enqueueUpsertJob(scraperOutput: ScraperOutput, nlpOutput: 
         create: {
           source_id: scraperOutput.sourceId,
           zodiac_sign_id: zodiacSign.id,
-          date: scraperOutput.dateISO,
+          date: new Date(scraperOutput.dateISO),
           original_text: scraperOutput.extracted_text,
           summary: nlpOutput.summary,
           relazioni_rating: nlpOutput.ratings.relazioni,
