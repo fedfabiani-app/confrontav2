@@ -571,7 +571,9 @@ export default function SignDetail({ sign }: SignDetailProps) {
         {!horoscopesLoading && horoscopes.length > 0 && (
           <div className="space-y-4 mb-8">
             <h2 className="text-xl font-semibold text-card-foreground mb-4">Tutti gli Oroscopi di oggi</h2>
-            {reorderSources(horoscopes).map((horoscope) => {
+            {reorderSources(horoscopes)
+              .sort((a, b) => a.source.name.localeCompare(b.source.name))
+              .map((horoscope) => {
               const isCollapsed = collapsedCards[horoscope.source.id] || true;
 
               return (
