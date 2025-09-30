@@ -76,15 +76,18 @@ ANALISI RICHIESTA:
    - Evita frasi generiche come "previsioni miste" o "giornata normale"
    - Rifletti accuratamente il tono emotivo del contenuto originale
 
-REQUISITI TECNICI RIASSUNTO:
+REQUISITI TECNICI RIASSUNTO - PRIORITÀ ASSOLUTA:
+- OBIETTIVO: 400-500 caratteri per una lunghezza ottimale
 - CONTA sempre i caratteri mentre scrivi - devi rimanere tra 250-530 caratteri
-- FERMATI sempre ALMENO 20 caratteri prima del limite per assicurarti di completare la frase
-- Se superi i 530 caratteri, riformula completamente la frase finale per accorciare
-- Se sei sotto i 250 caratteri, aggiungi dettagli specifici dal testo originale
+- FERMATI sempre ALMENO 30 caratteri prima del limite per completare la frase
+- PIANIFICA la conclusione: se stai raggiungendo 480-500 caratteri, prepara una conclusione naturale
+- Se superi i 500 caratteri, RIDUCI la frase corrente invece di continuare
+- Se sei sotto i 300 caratteri, aggiungi dettagli specifici dal testo originale
 - TERMINA sempre con frasi complete e pensieri conclusi naturalmente
-- MAI ellissi (...), virgole, preposizioni isolate o punti sospensivi che lasciano il discorso in sospeso
+- MAI ellissi (...), virgole, preposizioni isolate o punti sospensivi
 - VERIFICA che l'ultima parola sia la conclusione naturale di un pensiero completo
 - NESSUN TRONCAMENTO: ogni pensiero deve essere completo, ogni frase deve concludersi in modo naturale
+- PRIORITÀ: meglio un riassunto di 450 caratteri completo che uno di 530 troncato
 - RILEGGI il riassunto prima di inviarlo - l'ultima frase deve avere senso da sola
 - EVITA di finire con preposizioni come 'con', 'per', 'del', 'nei', 'che' senza completare il concetto
 
@@ -355,8 +358,8 @@ ${input.extracted_text}`
             properties: {
               summary: {
                 type: 'string',
-                maxLength: 580,
-                description: 'Riassunto conciso, obiettivo e che catturi l\'essenza dell\'oroscopo, originale e copyright-safe'
+                maxLength: 550,
+                description: 'Riassunto conciso, obiettivo e che catturi l\'essenza dell\'oroscopo, originale e copyright-safe. DEVE essere tra 250-530 caratteri e terminare con frasi complete senza troncamenti.'
               },
               relazioni: {
                 type: 'integer',
@@ -399,8 +402,51 @@ ${input.extracted_text}`
     const parsed = JSON.parse(content);
 
     // Validate and process ratings - allow 0 for unmentioned categories
+    let summary = parsed.summary || '';
+    
+    // Post-process summary to ensure it's not truncated
+    if (summary.length > 530) {
+      // Find the last complete sentence within the limit
+      const sentences = summary.split(/[.!?]+/);
+      let truncatedSummary = '';
+      
+      for (const sentence of sentences) {
+        const testSummary = truncatedSummary + sentence + '.';
+        if (testSummary.length <= 530) {
+          truncatedSummary = testSummary;
+        } else {
+          break;
+        }
+      }
+      
+      // If we have a valid truncated summary, use it
+      if (truncatedSummary.length >= 250) {
+        summary = truncatedSummary.trim();
+      } else {
+        // Fallback: cut at word boundary before 530 chars
+        const words = summary.split(' ');
+        let wordSummary = '';
+        
+        for (const word of words) {
+          const testSummary = wordSummary + (wordSummary ? ' ' : '') + word;
+          if (testSummary.length <= 525) { // Leave room for period
+            wordSummary = testSummary;
+          } else {
+            break;
+          }
+        }
+        
+        summary = wordSummary + (wordSummary.endsWith('.') ? '' : '.');
+      }
+    }
+    
+    // Ensure minimum length
+    if (summary.length < 250) {
+      console.log(`[OpenAI] Warning: Summary too short (${summary.length} chars), using as-is`);
+    }
+
     const result = {
-      summary: parsed.summary || '',
+      summary: summary,
       ratings: {
         relazioni: Math.max(0, Math.min(5, Math.round(parsed.relazioni || 0))),
         lavoro: Math.max(0, Math.min(5, Math.round(parsed.lavoro || 0))),
@@ -411,9 +457,7 @@ ${input.extracted_text}`
         : 'neutral'
     };
 
-    // Trust AI to follow character limit instructions (250-550 chars)
-    // The AI prompt explicitly instructs to stay within limits naturally
-    console.log(`[OpenAI] Summary length: ${result.summary.length} characters`);
+    console.log(`[OpenAI] Final summary length: ${result.summary.length} characters`);
 
     console.log(`[OpenAI] Processed result: Relazioni=${result.ratings.relazioni}, Lavoro=${result.ratings.lavoro}, Benessere=${result.ratings.benessere}, Tone=${result.tone}`);
 
