@@ -492,82 +492,87 @@ export default function SignDetail({ sign }: SignDetailProps) {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Overview Cards */}
-        {aggregate && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Relazioni</p>
-                    <p className="text-2xl font-bold text-card-foreground">
-                      {aggregate.avgRelazioni !== null ? aggregate.avgRelazioni.toFixed(1) : 'N/A'}
-                    </p>
-                  </div>
-                  <div className="w-12 h-12 bg-pink-100 rounded-full flex items-center justify-center">
-                    <Heart className="text-pink-500 w-6 h-6" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Lavoro</p>
-                    <p className="text-2xl font-bold text-card-foreground">
-                      {aggregate.avgLavoro !== null ? aggregate.avgLavoro.toFixed(1) : 'N/A'}
-                    </p>
-                  </div>
-                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                    <Briefcase className="text-blue-500 w-6 h-6" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Benessere</p>
-                    <p className="text-2xl font-bold text-card-foreground">
-                      {aggregate.avgBenessere !== null ? aggregate.avgBenessere.toFixed(1) : 'N/A'}
-                    </p>
-                  </div>
-                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                    <Leaf className="text-green-500 w-6 h-6" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      Media Generale
-                    </p>
-                    <p className="text-2xl font-bold text-orange-500">
-                      {aggregate.overallAverage !== null ? aggregate.overallAverage.toFixed(1) : 'N/A'}
-                    </p>
-                  </div>
-                  <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
-                    <Star className="text-orange-500 w-6 h-6" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+{aggregate && (
+  <div className="grid grid-cols-3 md:grid-cols-4 gap-2 md:gap-4 mb-8">
+    <Card>
+      <CardContent className="p-2 md:p-4">
+        <div className="flex flex-col md:flex-row items-center md:justify-between">
+          <div className="text-center md:text-left">
+            <p className="text-xs md:text-sm text-muted-foreground font-bold">Relazioni</p>
+            <p className="text-lg md:text-2xl font-bold text-card-foreground">
+              {aggregate.avgRelazioni !== null ? aggregate.avgRelazioni.toFixed(1) : 'N/A'}
+            </p>
           </div>
-        )}
+          <div className="w-8 h-8 md:w-12 md:h-12 bg-pink-100 rounded-full flex items-center justify-center mt-1 md:mt-0">
+            <Heart className="text-pink-500 w-4 h-4 md:w-6 md:h-6" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+
+    <Card>
+      <CardContent className="p-2 md:p-4">
+        <div className="flex flex-col md:flex-row items-center md:justify-between">
+          <div className="text-center md:text-left">
+            <p className="text-xs md:text-sm text-muted-foreground font-bold">Lavoro</p>
+            <p className="text-lg md:text-2xl font-bold text-card-foreground">
+              {aggregate.avgLavoro !== null ? aggregate.avgLavoro.toFixed(1) : 'N/A'}
+            </p>
+          </div>
+          <div className="w-8 h-8 md:w-12 md:h-12 bg-blue-100 rounded-full flex items-center justify-center mt-1 md:mt-0">
+            <Briefcase className="text-blue-500 w-4 h-4 md:w-6 md:h-6" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+
+    <Card>
+      <CardContent className="p-2 md:p-4">
+        <div className="flex flex-col md:flex-row items-center md:justify-between">
+          <div className="text-center md:text-left">
+            <p className="text-xs md:text-sm text-muted-foreground font-bold">Benessere</p>
+            <p className="text-lg md:text-2xl font-bold text-card-foreground">
+              {aggregate.avgBenessere !== null ? aggregate.avgBenessere.toFixed(1) : 'N/A'}
+            </p>
+          </div>
+          <div className="w-8 h-8 md:w-12 md:h-12 bg-green-100 rounded-full flex items-center justify-center mt-1 md:mt-0">
+            <Leaf className="text-green-500 w-4 h-4 md:w-6 md:h-6" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+
+    <Card className="col-span-3 md:col-span-1">
+      <CardContent className="p-2 md:p-4">
+        <div className="flex items-center justify-center gap-3 md:gap-4">
+          <span className="text-xs md:text-sm text-muted-foreground font-bold">Media Generale</span>
+          <span className="text-lg md:text-2xl font-bold text-orange-500">
+            {aggregate.overallAverage?.toFixed(1) || 'N/A'}
+          </span>
+          <div className="flex">
+            {[...Array(5)].map((_, i) => (
+              <Star
+                key={i}
+                className={`w-3 h-3 md:w-4 md:h-4 ${
+                  i < Math.round(aggregate.overallAverage || 0)
+                    ? 'text-orange-500 fill-orange-500'
+                    : 'text-gray-300'
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  </div>
+)}
 
         {/* Individual Source Cards */}
         {!horoscopesLoading && horoscopes.length > 0 && (
           <div className="space-y-4 mb-8">
-            <h2 className="text-xl font-semibold text-card-foreground mb-4">Previsioni per Fonte</h2>
+            <h2 className="text-xl font-semibold text-card-foreground mb-4">Tutti gli Oroscopi di oggi</h2>
             {reorderSources(horoscopes).map((horoscope) => {
-              const isCollapsed = collapsedCards[horoscope.source.id] || false;
+              const isCollapsed = collapsedCards[horoscope.source.id] || true;
 
               return (
                 <Card key={horoscope.id} className="relative">
