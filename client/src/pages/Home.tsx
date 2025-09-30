@@ -191,9 +191,9 @@ export default function Home() {
   <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
     <div className="flex items-center justify-between h-16">
       <div className="flex items-center space-x-3">
-        <img src={iconImage} alt="Logo" className="w-8 h-8" />
+        <img src={iconImage} alt="Logo" className="w-12 h-12" />
         <div>
-          <h1 className="text-xl font-bold text-card-foreground">Confronta Oroscopo</h1>
+          <h1 className="text-xl font-bold text-[#382b61]">Confronta Oroscopo</h1>
           <p className="text-xs font-bold text-muted-foreground">Tutti gli Oroscopi, una sola App</p>
         </div>
       </div>
