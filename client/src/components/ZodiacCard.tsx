@@ -1,7 +1,10 @@
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { StarRating } from "./StarRating";
 import { ToneBadge } from "./ToneBadge";
 import { cn } from "@/lib/utils";
+import { Heart, ChevronDown, ChevronUp } from "lucide-react";
 
 interface ZodiacCardProps {
   sign: {
@@ -21,6 +24,10 @@ interface ZodiacCardProps {
   summary?: string;
   onClick?: () => void;
   className?: string;
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 const signColors = {
@@ -38,24 +45,47 @@ const signColors = {
   pesci: 'from-blue-300 to-blue-500',
 };
 
-  export function ZodiacCard({ sign, aggregate, summary, onClick, className }: ZodiacCardProps) {
-    // Debug: verifica cosa contiene sign
-    console.log('Sign data:', sign.name_english, sign.name_italian);
+  export function ZodiacCard({ 
+  sign, 
+  aggregate, 
+  summary, 
+  onClick, 
+  className,
+  isFavorite = false,
+  onToggleFavorite,
+  isCollapsed = false,
+  onToggleCollapse
+}: ZodiacCardProps) {
+  const signKey = sign.name_italian.toLowerCase();
+  const colorClass = signColors[signKey as keyof typeof signColors] || 'from-gray-500 to-gray-700';
 
-    // Prova con name_italian in minuscolo
-    const signKey = sign.name_italian.toLowerCase();
-    const colorClass = signColors[signKey as keyof typeof signColors] || 'from-gray-500 to-gray-700';
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Don't trigger card click if clicking on control buttons
+    if ((e.target as HTMLElement).closest('button')) {
+      return;
+    }
+    onClick?.();
+  };
 
-    console.log('Sign key:', signKey, 'Color class:', colorClass);
+  const handleFavoriteClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onToggleFavorite?.();
+  };
+
+  const handleCollapseClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onToggleCollapse?.();
+  };
   
   return (
     <Card 
       className={cn(
         "zodiac-card bg-card border border-border cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-1",
         onClick && "hover:shadow-lg",
+        isFavorite && "ring-2 ring-red-200 border-red-300",
         className
       )}
-      onClick={onClick}
+      onClick={handleCardClick}
       data-testid={`zodiac-card-${sign.name_english}`}
     >
       <CardContent className="p-6">
@@ -72,80 +102,126 @@ const signColors = {
               <p className="text-xs text-muted-foreground">{sign.date_range}</p>
             </div>
           </div>
-          {aggregate?.majorityTone && (
-            <ToneBadge tone={aggregate.majorityTone} size="sm" />
-          )}
+          <div className="flex items-center space-x-2">
+            {aggregate?.majorityTone && (
+              <ToneBadge tone={aggregate.majorityTone} size="sm" />
+            )}
+            {/* Control Buttons */}
+            <div className="flex items-center space-x-1">
+              {onToggleFavorite && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleFavoriteClick}
+                  className="p-1 h-8 w-8 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  data-testid={`button-favorite-${sign.name_english}`}
+                  title={isFavorite ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
+                >
+                  <Heart 
+                    className={cn(
+                      "w-4 h-4",
+                      isFavorite ? "text-red-500 fill-red-500" : "text-muted-foreground"
+                    )} 
+                  />
+                </Button>
+              )}
+              {onToggleCollapse && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleCollapseClick}
+                  className="p-1 h-8 w-8 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  data-testid={`button-collapse-${sign.name_english}`}
+                  title={isCollapsed ? 'Espandi dettagli' : 'Comprimi dettagli'}
+                >
+                  {isCollapsed ? (
+                    <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                  )}
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
         
-        {/* Summary */}
-        {summary && (
-          <p className="text-sm text-card-foreground mb-4 line-clamp-3" data-testid={`sign-summary-${sign.name_english}`}>
-            {summary}
-          </p>
-        )}
-        
-        {/* Ratings */}
-        {aggregate && (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Relazioni</span>
-              <div className="flex items-center space-x-1">
-                {aggregate.avgRelazioni !== null ? (
-                  <>
-                    <StarRating rating={Math.round(aggregate.avgRelazioni)} size="sm" />
-                    <span className="text-xs text-muted-foreground ml-1">
-                      {aggregate.avgRelazioni.toFixed(1)}
-                    </span>
-                  </>
-                ) : (
-                  <span className="text-xs text-muted-foreground">N/A</span>
-                )}
+        {/* Collapsible Content */}
+        <div 
+          className={cn(
+            "overflow-hidden transition-all duration-300 ease-in-out",
+            isCollapsed ? "max-h-0 opacity-0" : "max-h-[500px] opacity-100"
+          )}
+        >
+          {/* Summary */}
+          {summary && (
+            <p className="text-sm text-card-foreground mb-4 line-clamp-3" data-testid={`sign-summary-${sign.name_english}`}>
+              {summary}
+            </p>
+          )}
+          
+          {/* Ratings */}
+          {aggregate && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Relazioni</span>
+                <div className="flex items-center space-x-1">
+                  {aggregate.avgRelazioni !== null ? (
+                    <>
+                      <StarRating rating={Math.round(aggregate.avgRelazioni)} size="sm" />
+                      <span className="text-xs text-muted-foreground ml-1">
+                        {aggregate.avgRelazioni.toFixed(1)}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">N/A</span>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Lavoro</span>
+                <div className="flex items-center space-x-1">
+                  {aggregate.avgLavoro !== null ? (
+                    <>
+                      <StarRating rating={Math.round(aggregate.avgLavoro)} size="sm" />
+                      <span className="text-xs text-muted-foreground ml-1">
+                        {aggregate.avgLavoro.toFixed(1)}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">N/A</span>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Benessere</span>
+                <div className="flex items-center space-x-1">
+                  {aggregate.avgBenessere !== null ? (
+                    <>
+                      <StarRating rating={Math.round(aggregate.avgBenessere)} size="sm" />
+                      <span className="text-xs text-muted-foreground ml-1">
+                        {aggregate.avgBenessere.toFixed(1)}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">N/A</span>
+                  )}
+                </div>
               </div>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Lavoro</span>
-              <div className="flex items-center space-x-1">
-                {aggregate.avgLavoro !== null ? (
-                  <>
-                    <StarRating rating={Math.round(aggregate.avgLavoro)} size="sm" />
-                    <span className="text-xs text-muted-foreground ml-1">
-                      {aggregate.avgLavoro.toFixed(1)}
-                    </span>
-                  </>
-                ) : (
-                  <span className="text-xs text-muted-foreground">N/A</span>
-                )}
+          )}
+          
+          {/* Overall Average */}
+          {aggregate && (
+            <div className="mt-4 pt-4 border-t border-border">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-card-foreground">Media Generale</span>
+                <span className="text-lg font-bold text-orange-500" data-testid={`overall-average-${sign.name_english}`}>
+                  {aggregate.overallAverage !== null ? aggregate.overallAverage.toFixed(1) : 'N/A'}
+                </span>
               </div>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Benessere</span>
-              <div className="flex items-center space-x-1">
-                {aggregate.avgBenessere !== null ? (
-                  <>
-                    <StarRating rating={Math.round(aggregate.avgBenessere)} size="sm" />
-                    <span className="text-xs text-muted-foreground ml-1">
-                      {aggregate.avgBenessere.toFixed(1)}
-                    </span>
-                  </>
-                ) : (
-                  <span className="text-xs text-muted-foreground">N/A</span>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-        
-        {/* Overall Average */}
-        {aggregate && (
-          <div className="mt-4 pt-4 border-t border-border">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-card-foreground">Media Generale</span>
-              <span className="text-lg font-bold text-orange-500" data-testid={`overall-average-${sign.name_english}`}>
-                {aggregate.overallAverage !== null ? aggregate.overallAverage.toFixed(1) : 'N/A'}
-              </span>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </CardContent>
     </Card>
   );

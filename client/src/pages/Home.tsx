@@ -7,6 +7,8 @@ import { RefreshCw, CalendarDays } from "lucide-react";
 import { ZodiacCard } from "@/components/ZodiacCard";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { useToast } from "@/hooks/use-toast";
+import { useFavorites } from "@/hooks/use-favorites";
+import { useCollapsedCards } from "@/hooks/use-collapsed-cards";
 import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import iconImage from "@assets/icon.png";
@@ -38,6 +40,12 @@ export default function Home() {
   const [calendarOpen, setCalendarOpen] = useState(false);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Initialize hooks for favorites and collapsed cards
+  const { collapsedCards, toggleCollapsed, initializeCollapsedState, isCollapsed } = useCollapsedCards();
+  
+  // We'll create a general favorites hook for the homepage (not sign-specific)
+  const [homeFavorites, setHomeFavorites] = useState<Set<string>>(new Set());
   
   // Get date string for API calls using local date (avoid timezone issues)
   const selectedDateString = selectedDate.toLocaleDateString('en-CA'); // YYYY-MM-DD format in local timezone
@@ -163,6 +171,22 @@ export default function Home() {
     }
   };
 
+  // Initialize collapsed state and load home favorites
+  useEffect(() => {
+    initializeCollapsedState();
+    
+    // Load home favorites from localStorage
+    try {
+      const stored = localStorage.getItem('horoscope:home-favorites:v1');
+      if (stored) {
+        const favorites = JSON.parse(stored);
+        setHomeFavorites(new Set(favorites));
+      }
+    } catch (error) {
+      console.warn('Failed to load home favorites:', error);
+    }
+  }, [initializeCollapsedState]);
+
   // Cleanup intervals/timeouts on unmount to prevent memory leaks
   useEffect(() => {
     return () => {
@@ -174,6 +198,27 @@ export default function Home() {
       }
     };
   }, []);
+
+  // Save home favorites to localStorage
+  const saveHomeFavorites = (favorites: Set<string>) => {
+    try {
+      localStorage.setItem('horoscope:home-favorites:v1', JSON.stringify([...favorites]));
+      setHomeFavorites(favorites);
+    } catch (error) {
+      console.warn('Failed to save home favorites:', error);
+    }
+  };
+
+  // Toggle home favorite
+  const toggleHomeFavorite = (signEnglish: string) => {
+    const newFavorites = new Set(homeFavorites);
+    if (newFavorites.has(signEnglish)) {
+      newFavorites.delete(signEnglish);
+    } else {
+      newFavorites.add(signEnglish);
+    }
+    saveHomeFavorites(newFavorites);
+  };
 
   const isLoading = signsLoading || aggregatesLoading;
   const isRefreshing = !refreshDismissed && (refreshAllMutation.isPending || refreshProgress.total > 0);
@@ -272,14 +317,29 @@ export default function Home() {
         {/* Zodiac Grid */}
         {!isLoading && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {zodiacSigns.map((sign) => (
-              <ZodiacCard
-                key={sign.id}
-                sign={sign}
-                aggregate={aggregatesData[sign.name_english]}
-                onClick={() => handleSignClick(sign.name_english)}
-              />
-            ))}
+            {zodiacSigns
+              .sort((a, b) => {
+                // Sort favorites first, then alphabetically
+                const aIsFav = homeFavorites.has(a.name_english);
+                const bIsFav = homeFavorites.has(b.name_english);
+                
+                if (aIsFav && !bIsFav) return -1;
+                if (!aIsFav && bIsFav) return 1;
+                
+                return a.name_italian.localeCompare(b.name_italian);
+              })
+              .map((sign) => (
+                <ZodiacCard
+                  key={sign.id}
+                  sign={sign}
+                  aggregate={aggregatesData[sign.name_english]}
+                  onClick={() => handleSignClick(sign.name_english)}
+                  isFavorite={homeFavorites.has(sign.name_english)}
+                  onToggleFavorite={() => toggleHomeFavorite(sign.name_english)}
+                  isCollapsed={isCollapsed(sign.name_english)}
+                  onToggleCollapse={() => toggleCollapsed(sign.name_english)}
+                />
+              ))}
           </div>
         )}
       </main>
