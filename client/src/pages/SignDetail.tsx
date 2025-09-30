@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,6 +11,7 @@ import {
   Star,
   ExternalLink,
   Share,
+  ChevronDown,
 } from "lucide-react";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { useToast } from "@/hooks/use-toast";
@@ -186,6 +187,35 @@ export default function SignDetail({ sign }: SignDetailProps) {
   
   // Favorites functionality
   const { isFavorite, toggleFavorite, reorderSources, hasFavorites } = useFavorites(sign);
+
+  // Collapse/expand functionality with localStorage persistence
+  const [collapsedCards, setCollapsedCards] = useState<Record<number, boolean>>({});
+
+  // Load collapsed state from localStorage on mount
+  useEffect(() => {
+    const loadCollapsedState = () => {
+      const savedState: Record<number, boolean> = {};
+      horoscopes.forEach(horoscope => {
+        const key = `signDetail_collapsed_${horoscope.source.id}`;
+        const saved = localStorage.getItem(key);
+        if (saved !== null) {
+          savedState[horoscope.source.id] = saved === 'true';
+        }
+      });
+      setCollapsedCards(savedState);
+    };
+
+    if (horoscopes.length > 0) {
+      loadCollapsedState();
+    }
+  }, [horoscopes]);
+
+  // Toggle collapse state and save to localStorage
+  const toggleCollapse = (sourceId: number) => {
+    const newState = !collapsedCards[sourceId];
+    setCollapsedCards(prev => ({ ...prev, [sourceId]: newState }));
+    localStorage.setItem(`signDetail_collapsed_${sourceId}`, newState.toString());
+  };
 
   // Share functionality
   const handleShare = async () => {
@@ -493,115 +523,141 @@ export default function SignDetail({ sign }: SignDetailProps) {
         {!horoscopesLoading && horoscopes.length > 0 && (
           <div className="space-y-4 mb-8">
             <h2 className="text-xl font-semibold text-card-foreground mb-4">Previsioni per Fonte</h2>
-            {reorderSources(horoscopes).map((horoscope) => (
-              <Card key={horoscope.id} className="relative">
-                <CardContent className="p-6">
-                  {/* Source Header */}
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center space-x-3">
-                      <SourceIcon
-                        source={horoscope.source}
-                        data-testid={`individual-source-icon-${horoscope.source.id}`}
-                      />
-                      <div>
-                        <h3 className="font-semibold text-card-foreground">{horoscope.source.name}</h3>
-                        <p className="text-xs text-muted-foreground">{horoscope.source.domain}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      {/* Favorite Toggle Button */}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => toggleFavorite(horoscope.source.id)}
-                        className="p-1 h-8 w-8 hover:bg-pink-50 dark:hover:bg-pink-900/20"
-                        data-testid={`button-favorite-${horoscope.source.id}`}
-                        title={isFavorite(horoscope.source.id) ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
-                      >
-                        <Heart 
-                          className={`w-4 h-4 transition-colors ${
-                            isFavorite(horoscope.source.id) 
-                              ? 'fill-pink-500 text-pink-500' 
-                              : 'text-gray-400 hover:text-pink-500'
-                          }`}
+            {reorderSources(horoscopes).map((horoscope) => {
+              const isCollapsed = collapsedCards[horoscope.source.id] || false;
+              
+              return (
+                <Card key={horoscope.id} className="relative">
+                  <CardContent className="p-6">
+                    {/* Source Header */}
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center space-x-3">
+                        <SourceIcon
+                          source={horoscope.source}
+                          data-testid={`individual-source-icon-${horoscope.source.id}`}
                         />
-                      </Button>
-                      {/* Share Button */}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleShare}
-                        className="p-1 h-8 w-8 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                        data-testid={`button-share-${horoscope.source.id}`}
-                        title="Condividi questo oroscopo"
-                        aria-label="Condividi"
-                      >
-                        <Share className="w-4 h-4 text-gray-400 hover:text-blue-500 transition-colors" />
-                      </Button>
-                      {/* Tone Badge */}
-                      <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        horoscope.tone_analysis === 'positive' ? 'bg-green-100 text-green-800' :
-                        horoscope.tone_analysis === 'negative' ? 'bg-red-100 text-red-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {horoscope.tone_analysis === 'positive' ? 'Positivo' :
-                         horoscope.tone_analysis === 'negative' ? 'Negativo' : 'Neutrale'}
+                        <div>
+                          <h3 className="font-semibold text-card-foreground">{horoscope.source.name}</h3>
+                          <p className="text-xs text-muted-foreground">{horoscope.source.domain}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        {/* Collapse Toggle Button */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleCollapse(horoscope.source.id)}
+                          className="p-1 h-8 w-8 hover:bg-gray-50 dark:hover:bg-gray-800"
+                          data-testid={`button-collapse-${horoscope.source.id}`}
+                          title={isCollapsed ? 'Espandi scheda' : 'Comprimi scheda'}
+                        >
+                          <ChevronDown 
+                            className={`w-4 h-4 text-gray-400 hover:text-gray-600 transition-all duration-200 ${
+                              isCollapsed ? 'rotate-180' : 'rotate-0'
+                            }`}
+                          />
+                        </Button>
+                        {/* Favorite Toggle Button */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleFavorite(horoscope.source.id)}
+                          className="p-1 h-8 w-8 hover:bg-pink-50 dark:hover:bg-pink-900/20"
+                          data-testid={`button-favorite-${horoscope.source.id}`}
+                          title={isFavorite(horoscope.source.id) ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
+                        >
+                          <Heart 
+                            className={`w-4 h-4 transition-colors ${
+                              isFavorite(horoscope.source.id) 
+                                ? 'fill-pink-500 text-pink-500' 
+                                : 'text-gray-400 hover:text-pink-500'
+                            }`}
+                          />
+                        </Button>
+                        {/* Share Button */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleShare}
+                          className="p-1 h-8 w-8 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                          data-testid={`button-share-${horoscope.source.id}`}
+                          title="Condividi questo oroscopo"
+                          aria-label="Condividi"
+                        >
+                          <Share className="w-4 h-4 text-gray-400 hover:text-blue-500 transition-colors" />
+                        </Button>
+                        {/* Tone Badge */}
+                        <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          horoscope.tone_analysis === 'positive' ? 'bg-green-100 text-green-800' :
+                          horoscope.tone_analysis === 'negative' ? 'bg-red-100 text-red-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {horoscope.tone_analysis === 'positive' ? 'Positivo' :
+                           horoscope.tone_analysis === 'negative' ? 'Negativo' : 'Neutrale'}
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Horoscope Content */}
-                  <p className="text-card-foreground leading-relaxed mb-4">
-                    {horoscope.summary}
-                  </p>
-
-                  {/* Read More Link */}
-                  <div className="mb-4">
-                    <a
-                      href={horoscope.original_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-right text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
-                      data-testid={`link-read-more-${horoscope.source.id}`}
+                    {/* Collapsible Content */}
+                    <div 
+                      className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                        isCollapsed ? 'max-h-0 opacity-0' : 'max-h-[1000px] opacity-100'
+                      }`}
                     >
-                      Leggi tutto
-                      <ExternalLink className="w-3 h-3 ml-1" />
-                    </a>
-                  </div>
+                      {/* Horoscope Content */}
+                      <p className="text-card-foreground leading-relaxed mb-4">
+                        {horoscope.summary}
+                      </p>
 
-                  {/* Ratings */}
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="text-center">
-                      <div className="flex items-center justify-center space-x-2 mb-1">
-                        <Heart className="w-4 h-4 text-pink-500" />
-                        <span className="text-sm text-muted-foreground">Relazioni</span>
+                      {/* Read More Link */}
+                      <div className="mb-4">
+                        <a
+                          href={horoscope.original_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-right text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+                          data-testid={`link-read-more-${horoscope.source.id}`}
+                        >
+                          Leggi tutto
+                          <ExternalLink className="w-3 h-3 ml-1" />
+                        </a>
                       </div>
-                      <div className="text-lg font-bold text-card-foreground">
-                        {horoscope.relazioni_rating === 0 ? 'N/A' : `${horoscope.relazioni_rating}/5`}
+
+                      {/* Ratings */}
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="text-center">
+                          <div className="flex items-center justify-center space-x-2 mb-1">
+                            <Heart className="w-4 h-4 text-pink-500" />
+                            <span className="text-sm text-muted-foreground">Relazioni</span>
+                          </div>
+                          <div className="text-lg font-bold text-card-foreground">
+                            {horoscope.relazioni_rating === 0 ? 'N/A' : `${horoscope.relazioni_rating}/5`}
+                          </div>
+                        </div>
+                        <div className="text-center">
+                          <div className="flex items-center justify-center space-x-2 mb-1">
+                            <Briefcase className="w-4 h-4 text-blue-500" />
+                            <span className="text-sm text-muted-foreground">Lavoro</span>
+                          </div>
+                          <div className="text-lg font-bold text-card-foreground">
+                            {horoscope.lavoro_rating === 0 ? 'N/A' : `${horoscope.lavoro_rating}/5`}
+                          </div>
+                        </div>
+                        <div className="text-center">
+                          <div className="flex items-center justify-center space-x-2 mb-1">
+                            <Leaf className="w-4 h-4 text-green-500" />
+                            <span className="text-sm text-muted-foreground">Benessere</span>
+                          </div>
+                          <div className="text-lg font-bold text-card-foreground">
+                            {horoscope.salute_rating === 0 ? 'N/A' : `${horoscope.salute_rating}/5`}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    <div className="text-center">
-                      <div className="flex items-center justify-center space-x-2 mb-1">
-                        <Briefcase className="w-4 h-4 text-blue-500" />
-                        <span className="text-sm text-muted-foreground">Lavoro</span>
-                      </div>
-                      <div className="text-lg font-bold text-card-foreground">
-                        {horoscope.lavoro_rating === 0 ? 'N/A' : `${horoscope.lavoro_rating}/5`}
-                      </div>
-                    </div>
-                    <div className="text-center">
-                      <div className="flex items-center justify-center space-x-2 mb-1">
-                        <Leaf className="w-4 h-4 text-green-500" />
-                        <span className="text-sm text-muted-foreground">Benessere</span>
-                      </div>
-                      <div className="text-lg font-bold text-card-foreground">
-                        {horoscope.salute_rating === 0 ? 'N/A' : `${horoscope.salute_rating}/5`}
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
 
