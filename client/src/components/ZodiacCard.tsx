@@ -24,22 +24,29 @@ interface ZodiacCardProps {
 }
 
 const signColors = {
-  ariete: 'from-red-500 to-pink-500',
-  toro: 'from-green-500 to-emerald-500',
-  gemelli: 'from-yellow-500 to-orange-500',
-  cancro: 'from-blue-500 to-cyan-500',
-  leone: 'from-orange-500 to-red-500',
-  vergine: 'from-green-600 to-blue-500',
-  bilancia: 'from-pink-500 to-purple-500',
-  scorpione: 'from-red-600 to-black',
-  sagittario: 'from-purple-500 to-indigo-500',
-  capricorno: 'from-gray-600 to-gray-800',
-  acquario: 'from-blue-400 to-cyan-400',
-  pesci: 'from-blue-500 to-purple-500',
+  ariete: 'from-red-300 to-red-500',
+  toro: 'from-yellow-300 to-orange-500',
+  gemelli: 'from-green-400 to-green-600',
+  cancro: 'from-blue-300 to-blue-500',
+  leone: 'from-red-300 to-red-500',
+  vergine: 'from-yellow-300 to-orange-500',
+  bilancia: 'from-green-400 to-green-600',
+  scorpione: 'from-blue-300 to-blue-500',
+  sagittario: 'from-red-300 to-red-500',
+  capricorno: 'from-yellow-300 to-orange-500',
+  acquario: 'from-green-400 to-green-600',
+  pesci: 'from-blue-300 to-blue-500',
 };
 
-export function ZodiacCard({ sign, aggregate, summary, onClick, className }: ZodiacCardProps) {
-  const colorClass = signColors[sign.name_english as keyof typeof signColors] || 'from-gray-500 to-gray-700';
+  export function ZodiacCard({ sign, aggregate, summary, onClick, className }: ZodiacCardProps) {
+    // Debug: verifica cosa contiene sign
+    console.log('Sign data:', sign.name_english, sign.name_italian);
+
+    // Prova con name_italian in minuscolo
+    const signKey = sign.name_italian.toLowerCase();
+    const colorClass = signColors[signKey as keyof typeof signColors] || 'from-gray-500 to-gray-700';
+
+    console.log('Sign key:', signKey, 'Color class:', colorClass);
   
   return (
     <Card 
