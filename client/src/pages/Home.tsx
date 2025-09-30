@@ -3,12 +3,13 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { RefreshCw, Star, CalendarDays } from "lucide-react";
+import { RefreshCw, CalendarDays } from "lucide-react";
 import { ZodiacCard } from "@/components/ZodiacCard";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
+import iconImage from "@assets/icon.png";
 
 
 interface ZodiacSign {
@@ -190,9 +191,7 @@ export default function Home() {
   <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
     <div className="flex items-center justify-between h-16">
       <div className="flex items-center space-x-3">
-        <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-500 rounded-lg flex items-center justify-center">
-          <Star className="text-white w-4 h-4" />
-        </div>
+        <img src={iconImage} alt="Logo" className="w-8 h-8" />
         <div>
           <h1 className="text-xl font-bold text-card-foreground">Confronta Oroscopo</h1>
           <p className="text-xs font-bold text-muted-foreground">Tutti gli Oroscopi, una sola App</p>
