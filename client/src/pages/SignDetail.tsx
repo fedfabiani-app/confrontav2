@@ -12,6 +12,7 @@ import {
   ExternalLink,
   Share,
   ChevronDown,
+  Loader2,
 } from "lucide-react";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { useToast } from "@/hooks/use-toast";
@@ -46,7 +47,6 @@ interface HoroscopeData {
     name: string;
     domain: string;
     logo_url: string | null;
-    reliability_score: number;
   };
 }
 
@@ -184,7 +184,7 @@ export default function SignDetail({ sign }: SignDetailProps) {
   });
   const [refreshDismissed, setRefreshDismissed] = useState(false);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  
+
   // Favorites functionality
   const { isFavorite, toggleFavorite, reorderSources, hasFavorites } = useFavorites(sign);
 
@@ -225,7 +225,7 @@ export default function SignDetail({ sign }: SignDetailProps) {
       month: 'long', 
       day: 'numeric' 
     });
-    
+
     const shareData = {
       title: `Oroscopo ${zodiacSign?.name_italian} - ${today}`,
       text: `Scopri l'oroscopo di oggi per ${zodiacSign?.name_italian} da fonti multiple italiane`,
@@ -274,7 +274,7 @@ export default function SignDetail({ sign }: SignDetailProps) {
   });
 
   // Fetch horoscope data for this sign
-  const { data: horoscopes = [], isLoading: horoscopesLoading } = useQuery<
+  const { data: horoscopes = [], isLoading: horoscopesLoading, error: horoscopesError } = useQuery<
     HoroscopeData[]
   >({
     queryKey: ["/api/horoscopes", today, sign],
@@ -409,6 +409,47 @@ export default function SignDetail({ sign }: SignDetailProps) {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
   };
 
+  // Check if we're in a loading state
+  const isLoading = horoscopesLoading || !zodiacSign || !aggregate;
+
+  // Early return for loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Caricamento oroscopo...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Early return for error state
+  if (horoscopesError) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-destructive mb-4">Errore nel caricamento dell'oroscopo</p>
+          <Button onClick={() => navigate('/')}>Torna alla Home</Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Ensure horoscope exists before accessing it
+  if (!horoscopes || horoscopes.length === 0) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-muted-foreground">Oroscopo non trovato</p>
+          <Button onClick={() => navigate('/')}>Torna alla Home</Button>
+        </div>
+      </div>
+    );
+  }
+
+  const currentSign = zodiacSign; // Renamed for clarity with the fetched sign data
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Header */}
@@ -429,15 +470,15 @@ export default function SignDetail({ sign }: SignDetailProps) {
                   className={`w-12 h-12 bg-gradient-to-br ${colorClass} rounded-full flex items-center justify-center`}
                 >
                   <span className="text-white font-bold text-xl">
-                    {zodiacSign.symbol}
+                    {currentSign.symbol}
                   </span>
                 </div>
                 <div>
                   <h1 className="text-xl font-bold text-card-foreground">
-                    {zodiacSign.name_italian}
+                    {currentSign.name_italian}
                   </h1>
                   <p className="text-sm text-muted-foreground">
-                    {zodiacSign.date_range}
+                    {currentSign.date_range}
                   </p>
                 </div>
               </div>
@@ -525,7 +566,7 @@ export default function SignDetail({ sign }: SignDetailProps) {
             <h2 className="text-xl font-semibold text-card-foreground mb-4">Previsioni per Fonte</h2>
             {reorderSources(horoscopes).map((horoscope) => {
               const isCollapsed = collapsedCards[horoscope.source.id] || false;
-              
+
               return (
                 <Card key={horoscope.id} className="relative">
                   <CardContent className="p-6">
@@ -703,7 +744,7 @@ export default function SignDetail({ sign }: SignDetailProps) {
       {/* Loading Overlay */}
       <LoadingOverlay
         isVisible={isRefreshing}
-        title={`Aggiornando ${zodiacSign.name_italian}...`}
+        title={`Aggiornando ${currentSign.name_italian}...`}
         message="Aggiornamento previsioni in corso"
         progress={refreshProgress.current}
         total={refreshProgress.total}
