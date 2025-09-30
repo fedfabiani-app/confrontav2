@@ -574,7 +574,7 @@ export default function SignDetail({ sign }: SignDetailProps) {
             {reorderSources(horoscopes)
               .sort((a, b) => a.source.name.localeCompare(b.source.name))
               .map((horoscope) => {
-              const isCollapsed = collapsedCards[horoscope.source.id] || true;
+              const isCollapsed = collapsedCards[horoscope.source.id] ?? true;
 
               return (
                 <Card key={horoscope.id} className="relative">

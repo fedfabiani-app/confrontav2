@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 
+
 interface ZodiacSign {
   id: number;
   name_italian: string;
@@ -184,79 +185,69 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* Header */}
-      <header className="bg-card border-b border-border sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-500 rounded-lg flex items-center justify-center">
-                <Star className="text-white w-4 h-4" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-card-foreground">Confronta Oroscopo</h1>
-                <p className="text-xs text-muted-foreground">Tutti gli Oroscopi, una sola App</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-                <PopoverTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    className="text-sm text-muted-foreground hover:text-foreground p-2 h-auto font-normal justify-start"
-                    data-testid="date-selector-trigger"
-                  >
-                    <CalendarDays className="w-4 h-4 mr-2" />
-                    {formatDate(selectedDate)}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="end">
-                  <div className="p-3 border-b border-border">
-                    <h4 className="text-sm font-medium">Seleziona Data</h4>
-                    <p className="text-xs text-muted-foreground">Ultimi 90 giorni disponibili</p>
-                  </div>
-                  <Calendar
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={handleDateSelect}
-                    disabled={(date) => date < earliestStart || date > todayStart}
-                    toDate={todayStart}
-                    defaultMonth={selectedDate}
-                    className="border-0"
-                    data-testid="date-calendar"
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-          </div>
+     {/* Header */}
+<header className="bg-card border-b border-border sticky top-0 z-40">
+  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="flex items-center justify-between h-16">
+      <div className="flex items-center space-x-3">
+        <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-500 rounded-lg flex items-center justify-center">
+          <Star className="text-white w-4 h-4" />
         </div>
-      </header>
+        <div>
+          <h1 className="text-xl font-bold text-card-foreground">Confronta Oroscopo</h1>
+          <p className="text-xs font-bold text-muted-foreground">Tutti gli Oroscopi, una sola App</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Refresh Section */}
-        <div className="mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-2xl font-bold text-card-foreground mb-2">
-              {selectedDate.getTime() === todayStart.getTime() ? 'Oroscopo di Oggi' : 'Archivio Oroscopi'}
-            </h2>
-            <p className="text-muted-foreground">
-              {selectedDate.getTime() === todayStart.getTime() 
-                ? 'Le migliori previsioni astrali per oggi'
-                : `Previsioni astrali per ${formatDate(selectedDate).toLowerCase()}`
-              }
-            </p>
-          </div>
-          <Button
-            onClick={() => refreshAllMutation.mutate()}
-            disabled={isRefreshing}
-            className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-lg hover:shadow-xl transition-all"
-            data-testid="button-refresh-all"
+{/* Main Content */}
+<main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+  {/* Refresh Section - WITH DATE SELECTOR */}
+  <div className="mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+      <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+        <PopoverTrigger asChild>
+          <Button 
+            variant="outline" 
+            size="default"
+            className="w-full sm:w-auto justify-start"
+            data-testid="date-selector-trigger"
           >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-            Aggiorna Tutti i Dati
+            <CalendarDays className="w-4 h-4 mr-2" />
+            {formatDate(selectedDate)}
           </Button>
-        </div>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <div className="p-3 border-b border-border">
+            <h4 className="text-sm font-medium">Seleziona Data</h4>
+            <p className="text-xs text-muted-foreground">Ultimi 90 giorni disponibili</p>
+          </div>
+          <Calendar
+            mode="single"
+            selected={selectedDate}
+            onSelect={handleDateSelect}
+            disabled={(date) => date < earliestStart || date > todayStart}
+            toDate={todayStart}
+            defaultMonth={selectedDate}
+            className="border-0"
+            data-testid="date-calendar"
+          />
+        </PopoverContent>
+      </Popover>
+      
+      <Button
+        onClick={() => refreshAllMutation.mutate()}
+        disabled={isRefreshing}
+        className="w-full sm:w-auto bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-lg hover:shadow-xl transition-all"
+        data-testid="button-refresh-all"
+      >
+        <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+        Aggiorna Tutti i Dati
+      </Button>
+    </div>
+  </div>
 
         {/* Loading State */}
         {isLoading && (
