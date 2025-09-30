@@ -188,35 +188,6 @@ export default function SignDetail({ sign }: SignDetailProps) {
   // Favorites functionality
   const { isFavorite, toggleFavorite, reorderSources, hasFavorites } = useFavorites(sign);
 
-  // Collapse/expand functionality with localStorage persistence
-  const [collapsedCards, setCollapsedCards] = useState<Record<number, boolean>>({});
-
-  // Load collapsed state from localStorage on mount
-  useEffect(() => {
-    const loadCollapsedState = () => {
-      const savedState: Record<number, boolean> = {};
-      horoscopes.forEach(horoscope => {
-        const key = `signDetail_collapsed_${horoscope.source.id}`;
-        const saved = localStorage.getItem(key);
-        if (saved !== null) {
-          savedState[horoscope.source.id] = saved === 'true';
-        }
-      });
-      setCollapsedCards(savedState);
-    };
-
-    if (horoscopes.length > 0) {
-      loadCollapsedState();
-    }
-  }, [horoscopes]);
-
-  // Toggle collapse state and save to localStorage
-  const toggleCollapse = (sourceId: number) => {
-    const newState = !collapsedCards[sourceId];
-    setCollapsedCards(prev => ({ ...prev, [sourceId]: newState }));
-    localStorage.setItem(`signDetail_collapsed_${sourceId}`, newState.toString());
-  };
-
   // Share functionality
   const handleShare = async () => {
     const currentUrl = window.location.href;
@@ -286,6 +257,37 @@ export default function SignDetail({ sign }: SignDetailProps) {
       return response.json();
     },
   });
+
+  // Collapse/expand functionality with localStorage persistence
+  const [collapsedCards, setCollapsedCards] = useState<Record<number, boolean>>({});
+
+  // Load collapsed state from localStorage on mount
+  useEffect(() => {
+    if (!horoscopes || horoscopes.length === 0) return;
+    
+    const loadCollapsedState = () => {
+      const savedState: Record<number, boolean> = {};
+      horoscopes.forEach(horoscope => {
+        const key = `signDetail_collapsed_${horoscope.source.id}`;
+        const saved = localStorage.getItem(key);
+        if (saved !== null) {
+          savedState[horoscope.source.id] = saved === 'true';
+        }
+      });
+      setCollapsedCards(savedState);
+    };
+
+    loadCollapsedState();
+  }, [horoscopes]);
+
+  // Toggle collapse state and save to localStorage
+  const toggleCollapse = (sourceId: number) => {
+    setCollapsedCards(prev => {
+      const newState = !prev[sourceId];
+      localStorage.setItem(`signDetail_collapsed_${sourceId}`, newState.toString());
+      return { ...prev, [sourceId]: newState };
+    });
+  };
 
   // Fetch aggregates for this sign
   const { data: aggregate } = useQuery<HoroscopeAggregate>({
