@@ -774,6 +774,7 @@
 
                 const h4GenericRegex = /<h4[^>]*>(?:Oroscopo\s+di\s+)?[^<]*<\/h4>/gi;
                 let matchH4;
+                let allExtractedParagraphs: string[] = [];
 
                 while ((matchH4 = h4GenericRegex.exec(cleanHtml)) !== null) {
                   if (matchH4.index === undefined) continue;
@@ -787,30 +788,60 @@
                     contentToSearch = cleanHtml.substring(matchH4.index + matchH4[0].length);
                   }
 
-                  const pTagRegex = /<p[^>]*>([\s\S]*?)<\/p>/i;
-                  let matchP = contentToSearch.match(pTagRegex);
+                  // Extract ALL paragraphs from this section, not just the first one
+                  const pTagRegex = /<p[^>]*>([\s\S]*?)<\/p>/gi;
+                  let matchP;
+                  let sectionParagraphs: string[] = [];
 
-                  if (matchP && matchP[1]) {
-                    let extractedParagraphContent = matchP[1]
-                      .replace(/<br\s*\/?>/gi, '\n')
-                      .replace(/<[^>]*>/g, ' ')
-                      .replace(/&nbsp;/g, ' ')
-                      .replace(/&amp;/g, '&')
-                      .replace(/\s+/g, ' ')
-                      .trim();
+                  while ((matchP = pTagRegex.exec(contentToSearch)) !== null) {
+                    if (matchP[1]) {
+                      let extractedParagraphContent = matchP[1]
+                        .replace(/<br\s*\/?>/gi, '\n')
+                        .replace(/<[^>]*>/g, ' ')
+                        .replace(/&nbsp;/g, ' ')
+                        .replace(/&amp;/g, '&')
+                        .replace(/&lt;/g, '<')
+                        .replace(/&gt;/g, '>')
+                        .replace(/&quot;/g, '"')
+                        .replace(/&#39;/g, "'")
+                        .replace(/&#8217;/g, "'")
+                        .replace(/&#8220;/g, '"')
+                        .replace(/&#8221;/g, '"')
+                        .replace(/&#8211;/g, '-')
+                        .replace(/&#8212;/g, '—')
+                        .replace(/&hellip;/g, '...')
+                        .replace(/\s+/g, ' ')
+                        .trim();
 
-                    const hasZodiacSign = extractedParagraphContent.toLowerCase().includes(zodiacName);
-                    const hasHoroscopeContent = /\b(oroscopo|previsioni|stelle|fortuna|amore|lavoro|salute|giornata|energia|periodo)\b/i.test(extractedParagraphContent);
+                      // Check if this paragraph contains relevant horoscope content
+                      const hasHoroscopeContent = /\b(oroscopo|previsioni|stelle|fortuna|amore|lavoro|salute|giornata|energia|periodo|eros|denaro|benessere)\b/i.test(extractedParagraphContent);
+                      const hasZodiacSign = extractedParagraphContent.toLowerCase().includes(zodiacName);
+                      const isSubstantial = extractedParagraphContent.length > 30;
 
-                    if (hasZodiacSign || (hasHoroscopeContent && extractedParagraphContent.length > 50)) {
-                      return {
-                        success: true,
-                        text: extractedParagraphContent.substring(0, 3500),
-                        url,
-                        actualUrl: url
-                      };
+                      if (isSubstantial && (hasZodiacSign || hasHoroscopeContent)) {
+                        sectionParagraphs.push(extractedParagraphContent);
+                        console.log(`Oggi.it - Found relevant paragraph: ${extractedParagraphContent.substring(0, 100)}...`);
+                      }
                     }
                   }
+
+                  // If we found paragraphs in this section, add them to our collection
+                  if (sectionParagraphs.length > 0) {
+                    allExtractedParagraphs.push(...sectionParagraphs);
+                  }
+                }
+
+                // Combine all extracted paragraphs
+                if (allExtractedParagraphs.length > 0) {
+                  const combinedText = allExtractedParagraphs.join('\n\n');
+                  console.log(`Oggi.it - Successfully extracted ${allExtractedParagraphs.length} paragraphs for ${input.signSlugIt}`);
+                  
+                  return {
+                    success: true,
+                    text: combinedText.substring(0, 3500),
+                    url,
+                    actualUrl: url
+                  };
                 }
 
                 return {
