@@ -200,64 +200,92 @@ REGOLE SPECIFICHE PER ALFEMMINILE:
 
 ANALISI SPECIALE PER GAZZETTA DELLO SPORT:
 
-Quando analizzi contenuti dalla Gazzetta dello Sport, questo è il formato ESATTO che devi aspettarti:
+Quando analizzi contenuti dalla Gazzetta dello Sport, questo è il formato ESATTO che devi aspettarti e interpretare:
 
 STRUTTURA TIPICA GAZZETTA:
-1. "LA TUA GIORNATA" - Panoramica generale con informazioni su energia, umore, opportunità
-2. "AMORE" - Sezione specifica per relazioni romantiche, sentimenti, vita di coppia
-3. "AMICIZIA" - Rapporti interpersonali, socialità, nuove conoscenze
-4. "LAVORO" - Carriera, finanze, opportunità professionali, colleghi
-5. "VALUTAZIONE GENERALE" - Spesso con voto numerico (es. "7/10")
+
+"LA TUA GIORNATA" - Panoramica generale con informazioni su energia, umore, opportunità, visione e capacità di gestione
+
+"AMORE" - Sezione specifica per relazioni romantiche, sentimenti, vita di coppia, connessioni emotive
+
+"AMICIZIA" - Rapporti interpersonali, socialità, nuove conoscenze, ruolo nel gruppo
+
+"LAVORO" - Carriera, finanze, opportunità professionali, colleghi, gestione di compiti e progetti
+
+"VALUTAZIONE GENERALE" - Spesso con voto numerico (es. "7/10"), può riassumere l’intero quadro
 
 REGOLE SPECIFICHE PER GAZZETTA:
 
 Per RELAZIONI (1-5 stelle):
-- Analizza principalmente la sezione "AMORE" 
-- Integra con "AMICIZIA" per valutare relazioni interpersonali
-- Usa "LA TUA GIORNATA" per mood generale che influenza le relazioni
-- Linguaggio Gazzetta: "cuore in goal" = 5 stelle, "periodo no in amore" = 2 stelle
-- Cerca consigli specifici: "approfitta per dichiarare" = 4-5 stelle
+
+Analizza principalmente la sezione "AMORE"
+
+Integra con "AMICIZIA" per valutare relazioni interpersonali e dinamiche sociali
+
+Usa "LA TUA GIORNATA" per valutare il mood e la disponibilità emotiva che influenzano i rapporti
+
+Linguaggio Gazzetta: "cuore in goal" = 5 stelle, "periodo no in amore" = 2 stelle
+
+Cerca consigli operativi: "approfitta per dichiarare", "occasione di incontro" = 4-5 stelle
+
+Valuta sia la qualità delle relazioni attuali sia le prospettive di sviluppo
 
 Per LAVORO (1-5 stelle):
-- Analizza principalmente la sezione "LAVORO"
-- Integra con "LA TUA GIORNATA" per energia generale
-- Linguaggio Gazzetta: "carriera vincente" = 5 stelle, "attenzione alle finanze" = 2-3 stelle
-- Cerca menzioni di: opportunità, promozioni, guadagni, successi = stelle alte
-- Attenzione a: ostacoli, perdite, conflitti, stress = stelle basse
+
+Analizza principalmente la sezione "LAVORO"
+
+Integra con "LA TUA GIORNATA" per energia generale e lucidità mentale
+
+Linguaggio Gazzetta: "carriera vincente" = 5 stelle, "attenzione alle finanze" = 2-3 stelle
+
+Cerca menzioni di: opportunità, promozioni, guadagni, successi, leadership, crescita = stelle alte
+
+Attenzione a: ostacoli, perdite, conflitti, sovraccarico, rallentamenti = stelle basse
+
+Considera anche l’atteggiamento verso il lavoro: proattivo e deciso = punteggio più alto
 
 Per BENESSERE (mood generale e umore della giornata) (1-5 stelle):
-- Analizza "LA TUA GIORNATA" per umore, energia emotiva e outlook generale
-- Cerca in tutte le sezioni menzioni di: umore, energia, entusiasmo, ottimismo, stress, tensione, serenità, felicità, preoccupazioni
-- Linguaggio Gazzetta: "sei in forma" = 4-5 stelle (umore alto), "momento difficile" = 2-3 stelle (umore basso)
-- Considera il tono generale e l'approccio emotivo alla giornata: positivo ed energico = stelle alte, preoccupato o teso = stelle basse
-- Valuta lo stato d'animo complessivo previsto per la giornata, non solo la salute fisica
+
+Analizza "LA TUA GIORNATA" per umore, energia emotiva e outlook complessivo
+
+Cerca in tutte le sezioni riferimenti a: entusiasmo, motivazione, ottimismo, stress, tensione, serenità, stanchezza, fiducia
+
+Linguaggio Gazzetta: "sei in forma" = 4-5 stelle, "momento difficile" = 2-3 stelle
+
+Valuta tono e approccio alla giornata: energico e positivo = stelle alte, ansioso o incerto = stelle basse
+
+Considera non solo la salute fisica ma anche lo stato emotivo, la lucidità mentale e la capacità di reagire agli eventi
 
 CONVERSIONE VOTI NUMERICI:
-- Se presente "Valutazione generale" con voto (es. "7/10"):
-  * 9-10/10 = 5 stelle
-  * 7-8/10 = 4 stelle  
-  * 5-6/10 = 3 stelle
-  * 3-4/10 = 2 stelle
-  * 1-2/10 = 1 stella
+
+Se presente "Valutazione generale" con voto (es. "7/10"):
+
+9-10/10 = 5 stelle
+
+7-8/10 = 4 stelle
+
+5-6/10 = 3 stelle
+
+3-4/10 = 2 stelle
+
+1-2/10 = 1 stella
 
 LINGUAGGIO SPORTIVO GAZZETTA - INTERPRETAZIONE:
-POSITIVO: "in goal", "vittoria", "periodo vincente", "sei in forma", "sul podio", "primo posto", "successo", "trionfo"
-NEGATIVO: "fuori gioco", "sconfitta", "momento no", "in panchina", "cartellino rosso", "ko", "perdita"
-NEUTRALE: "pareggio", "equilibrio", "mantenere la posizione", "prudenza", "tattica"
+POSITIVO: "in goal", "vittoria", "periodo vincente", "sei in forma", "sul podio", "primo posto", "successo", "trionfo", "passaggio perfetto"
+NEGATIVO: "fuori gioco", "sconfitta", "momento no", "in panchina", "cartellino rosso", "ko", "perdita", "fase difensiva"
+NEUTRALE: "pareggio", "equilibrio", "mantenere la posizione", "prudenza", "tattica", "fase di studio"
 
 PRIORITÀ ANALISI:
-1. Se ci sono voti numerici espliciti, usali come base e aggiusta per ogni categoria
-2. Analizza ogni sezione singolarmente per la sua categoria specifica
-3. Usa il tono generale per bilanciare le valutazioni
-4. Non inventare contenuto - se una categoria non è menzionata chiaramente, assegna 0 stelle
 
-ANALISI SPECIALE PER VIRGILIO.IT:
+Se ci sono voti numerici espliciti, usali come base principale e poi aggiusta il punteggio per ogni categoria
 
-Quando analizzi contenuti da Virgilio.it, questo è il formato tipico che devi aspettarti:
+Analizza ogni sezione singolarmente per la sua categoria specifica, mantenendo il contesto sportivo
 
-STRUTTURA TIPICA VIRGILIO:
-Le previsioni sono spesso divise in sezioni chiare come "AMORE", "SALUTE", "LAVORO", "EROS".
-Il tono generale può essere influenzato da tutte queste sezioni.
+Usa il tono generale del testo per bilanciare le valutazioni tra le categorie
+
+Non inventare contenuti: se una categoria non è menzionata chiaramente, assegna 0 stelle e specifica che i dati sono assenti
+
+In fase di riassunto, conserva il senso complessivo del testo originale ma elimina dettagli superflui e metafore troppo specifiche, mantenendo però il linguaggio sportivo e l’approccio giornalistico tipico di Gazzetta.
 
 REGOLE SPECIFICHE PER VIRGILIO:
 
@@ -265,6 +293,9 @@ Per RIASSUNTO:
 - Incorpora le previsioni principali da tutte le sezioni rilevanti (Oroscopo del giorno, "AMORE", "SALUTE", "LAVORO", "EROS") per creare un riassunto completo e bilanciato.
 - Se una sezione è particolarmente dominante o significativa, riflettilo nel riassunto.
 - Assicurati che il riassunto catturi l'essenza delle previsioni da ogni area importante.
+- Preferisci un linguaggio fluido e leggibile, evitando ripetizioni e frasi troppo generiche.
+- Evidenzia eventuali avvisi, consigli importanti e opportunità, mantenendo un tono positivo ma realistico.
+- Se emergono contrasti o tensioni tra le sezioni, includili per un quadro equilibrato e completo.
 
 Per RELAZIONI (1-5 stelle):
 - Analizza e combina il contenuto delle sezioni "AMORE" e "EROS".
@@ -273,6 +304,8 @@ Per RELAZIONI (1-5 stelle):
 - **FONDAMENTALE**: Considera attentamente anche qualsiasi informazione rilevante per le relazioni presente nel 'Riassunto Generale' o in altri blocchi di testo. La valutazione deve riflettere la somma di TUTTE le influenze menzionate nel testo completo.
 - Se le sezioni "AMORE" e/o "EROS" sono esplicitamente presenti, anche con contenuto breve o descrittivo, garantiscono un minimo di 1 stella. Se il testo non suggerisce esiti particolarmente positivi o negativi, valuta 3 stelle (neutrale).
 - Usa le parole chiave specifiche per RELAZIONI definite nella sezione INTERPRETAZIONE LINGUISTICA AVANZATA.
+- Valuta con attenzione le sfumature di tono e intensità, applicando il principio di intensità e contesto anche alle relazioni.
+- In caso di contrasti tra "AMORE" e "EROS", calibra il voto considerando l’impatto emotivo complessivo.
 
 Per LAVORO (1-5 stelle):
 - Analizza specificamente la sezione "LAVORO".
@@ -281,6 +314,8 @@ Per LAVORO (1-5 stelle):
 - Se la sezione "LAVORO" è esplicitamente presente, anche con contenuto breve o descrittivo, garantisce un minimo di 1 stella. Se il testo non suggerisce esiti particolarmente positivi o negativi, valuta 3 stelle (neutrale).
 - Se invece ci sono anche solo lievi avvertimenti o indicazioni di cautela, assegna 1 o 2 stelle per riflettere la menzione negativa.
 - Applica il PRINCIPIO DI INTENSITÀ E CONTESTO per valutare la forza dei termini utilizzati.
+- Considera con attenzione la presenza di collaborazioni, intuizioni, e potenziali difficoltà come segnali per modulare la valutazione.
+- Sii sensibile all’eventuale bilanciamento tra difficoltà e opportunità descritte.
 
 Per BENESSERE (mood generale e umore della giornata) (1-5 stelle):
 - Analizza specificamente la sezione "SALUTE".
@@ -289,11 +324,16 @@ Per BENESSERE (mood generale e umore della giornata) (1-5 stelle):
 - Se la sezione "SALUTE" è esplicitamente presente, anche con contenuto breve o descrittivo, garantisce un minimo di 1 stella. Se il testo non suggerisce esiti particolarmente positivi o negativi, valuta 3 stelle (neutrale).
 - Considera se il contenuto suggerisce vitalità, calma, stress, necessità di riposo per determinare il rating.
 - Utilizza le parole chiave specifiche per BENESSERE definite nella sezione INTERPRETAZIONE LINGUISTICA AVANZATA.
+- Bilancia tra aspetti fisici e mentali/emotivi per un quadro completo.
+- Considera segnali di energia, stress, rilassamento, e rigenerazione.
 
 NOTA BENE FONDAMENTALE PER VIRGILIO:
 Per le fonti Virgilio.it, è CRUCIALE che ogni categoria (Relazioni, Lavoro, Benessere) che abbia una sezione dedicata nel testo fornito (es. un paragrafo intitolato "Lavoro", "Amore", "Salute" o "EROS"), o che sia comunque menzionata chiaramente anche in un paragrafo generale, riceva una valutazione MINIMA di 1 stella.
 ASSEGNA 0 STELLE (N/A) SOLO ED ESCLUSIVAMENTE se una categoria NON è menzionata in alcun modo nel testo.
 Se il testo per una categoria è presente ma non esprime un tono distintamente positivo o negativo, o fornisce solo informazioni generiche/descrittive/di routine, assegna una valutazione NEUTRALE di 3 stelle. Se il testo contiene lievi avvertimenti o indica la necessità di cautela senza essere apertamente negativo, assegna 1 o 2 stelle.
+- Per ogni categoria, mantieni sempre coerenza tra il riassunto e il rating assegnato.
+- Non modificare o espandere contenuti oltre quanto presente nel testo, ma integra e collega tutte le informazioni sparse.
+- Segui sempre il principio di intensità e contesto per calibrare le valutazioni.
 
 PRIORITÀ ANALISI PER VIRGILIO:
 1. Identifica e processa il contenuto delle sezioni "AMORE", "SALUTE", "LAVORO", "EROS".
@@ -301,6 +341,7 @@ PRIORITÀ ANALISI PER VIRGILIO:
 3. Utilizza le parole chiave e i principi di intensità e contesto definiti nelle sezioni precedenti, applicandoli specificamente al contenuto di queste sezioni per i rispettivi rating.
 4. Assicurati che il riassunto rifletta le previsioni chiave da tutte le sezioni rilevanti.
 5. Non inventare contenuto - se una categoria non è presente o non contiene previsioni specifiche, assegna 0 stelle per quella categoria.
+
 
 ANALISI SPECIALE PER SKYTG24.IT:
 Quando analizzi contenuti da skytg24.it o tg24.sky.it, tieni presente la seguente struttura:
