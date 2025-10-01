@@ -21,6 +21,72 @@ interface HoroscopeData {
   [key: string]: any;
 }
 
+// Hook for managing home page sign favorites
+export function useHomeFavorites() {
+  const HOME_FAVORITES_STORAGE_KEY = 'horoscope:home-favorites:v1';
+  const [homeFavorites, setHomeFavorites] = useState<Set<string>>(new Set());
+
+  // Load home favorites from localStorage on mount
+  useEffect(() => {
+    const loadHomeFavorites = () => {
+      try {
+        const stored = localStorage.getItem(HOME_FAVORITES_STORAGE_KEY);
+        if (stored) {
+          const favorites = JSON.parse(stored);
+          setHomeFavorites(new Set(favorites));
+        }
+      } catch (error) {
+        console.warn('Failed to load home favorites:', error);
+      }
+    };
+
+    loadHomeFavorites();
+
+    // Listen for storage changes from other tabs
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === HOME_FAVORITES_STORAGE_KEY) {
+        loadHomeFavorites();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
+  // Save home favorites to localStorage
+  const saveHomeFavorites = useCallback((newFavorites: Set<string>) => {
+    try {
+      localStorage.setItem(HOME_FAVORITES_STORAGE_KEY, JSON.stringify([...newFavorites]));
+      setHomeFavorites(newFavorites);
+    } catch (error) {
+      console.warn('Failed to save home favorites:', error);
+    }
+  }, []);
+
+  // Check if a sign is favorited on home page
+  const isHomeFavorite = useCallback((signEnglish: string): boolean => {
+    return homeFavorites.has(signEnglish);
+  }, [homeFavorites]);
+
+  // Toggle home favorite status
+  const toggleHomeFavorite = useCallback((signEnglish: string) => {
+    const newFavorites = new Set(homeFavorites);
+    if (newFavorites.has(signEnglish)) {
+      newFavorites.delete(signEnglish);
+    } else {
+      newFavorites.add(signEnglish);
+    }
+    saveHomeFavorites(newFavorites);
+  }, [homeFavorites, saveHomeFavorites]);
+
+  return {
+    homeFavorites,
+    isHomeFavorite,
+    toggleHomeFavorite,
+    hasFavorites: homeFavorites.size > 0
+  };
+}
+
 export function useFavorites(signEnglish: string) {
   const [favorites, setFavorites] = useState<number[]>([]);
 
