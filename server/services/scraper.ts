@@ -456,6 +456,144 @@
             }
           }
 
+          async function scrapeAlfemminileHoroscopeText(url: string, input: ScraperInput): Promise<ScrapeResult> {
+            try {
+              console.log('Alfemminile.com - Starting specialized extraction for:', input.signSlugIt);
+
+              const html = await fetchHtml(url, input.userAgent);
+
+              // Clean HTML but preserve structure
+              let cleanHtml = html
+                .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+                .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+                .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
+                .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '')
+                .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '')
+                .replace(/<!--[\s\S]*?-->/g, '');
+
+              // Map sign names to match the heading patterns
+              const signMap: Record<string, string[]> = {
+                'Ariete': ['ariete', "dell'ariete", "dell'Ariete"],
+                'Toro': ['toro', 'del toro', 'del Toro'],
+                'Gemelli': ['gemelli', 'dei gemelli', 'dei Gemelli'],
+                'Cancro': ['cancro', 'del cancro', 'del Cancro'],
+                'Leone': ['leone', 'del leone', 'del Leone'],
+                'Vergine': ['vergine', 'della vergine', 'della Vergine'],
+                'Bilancia': ['bilancia', 'della bilancia', 'della Bilancia'],
+                'Scorpione': ['scorpione', 'dello scorpione', 'dello Scorpione'],
+                'Sagittario': ['sagittario', 'del sagittario', 'del Sagittario'],
+                'Capricorno': ['capricorno', 'del capricorno', 'del Capricorno'],
+                'Acquario': ['acquario', "dell'acquario", "dell'Acquario"],
+                'Pesci': ['pesci', 'dei pesci', 'dei Pesci']
+              };
+
+              const signVariants = signMap[input.signSlugIt] || [input.signSlugIt.toLowerCase()];
+              let extractedContent = '';
+
+              // Look for heading patterns for the specific sign
+              for (const variant of signVariants) {
+                // Pattern 1: <h2 class="sign">Oroscopo del/della/dello/dell'/dei sign</h2>
+                const headingPattern1 = new RegExp(`<h2[^>]*class="[^"]*${variant.split(' ')[0]}[^"]*"[^>]*>\\s*Oroscopo\\s+(?:del|della|dello|dell'|dei)\\s+${variant}[^<]*</h2>`, 'gi');
+                
+                // Pattern 2: <h2>Oroscopo del/della/dello/dell'/dei sign</h2> (without class)
+                const headingPattern2 = new RegExp(`<h2[^>]*>\\s*Oroscopo\\s+(?:del|della|dello|dell'|dei)\\s+${variant}[^<]*</h2>`, 'gi');
+                
+                // Pattern 3: Any heading with the sign name
+                const headingPattern3 = new RegExp(`<h[2-4][^>]*>\\s*[^<]*${variant}[^<]*</h[2-4]>`, 'gi');
+
+                const patterns = [headingPattern1, headingPattern2, headingPattern3];
+
+                for (const pattern of patterns) {
+                  const headingMatch = cleanHtml.match(pattern);
+                  
+                  if (headingMatch) {
+                    console.log(`Alfemminile.com - Found heading for ${input.signSlugIt}: ${headingMatch[0]}`);
+                    
+                    // Find the position of this heading
+                    const headingIndex = cleanHtml.indexOf(headingMatch[0]);
+                    
+                    if (headingIndex !== -1) {
+                      // Extract content from after this heading until the next heading or end
+                      let contentAfterHeading = cleanHtml.substring(headingIndex + headingMatch[0].length);
+                      
+                      // Find the end of this section (next h2/h3/h4 or significant break)
+                      const nextHeadingMatch = contentAfterHeading.match(/<h[2-4][^>]*>/i);
+                      const nextSectionEnd = contentAfterHeading.match(/<section[^>]*>|<article[^>]*>|<div[^>]*class="[^"]*(?:horoscope|oroscopo|sign)[^"]*"/i);
+                      
+                      let endIndex = contentAfterHeading.length;
+                      if (nextHeadingMatch && nextHeadingMatch.index !== undefined) {
+                        endIndex = Math.min(endIndex, nextHeadingMatch.index);
+                      }
+                      if (nextSectionEnd && nextSectionEnd.index !== undefined) {
+                        endIndex = Math.min(endIndex, nextSectionEnd.index);
+                      }
+                      
+                      let sectionContent = contentAfterHeading.substring(0, endIndex);
+                      
+                      // Clean and extract text from this section
+                      let cleanedContent = sectionContent
+                        .replace(/<br[^>]*>/gi, '\n')
+                        .replace(/<\/p>\s*<p[^>]*>/gi, '\n\n')
+                        .replace(/<p[^>]*>/gi, '\n')
+                        .replace(/<\/p>/gi, '\n')
+                        .replace(/<[^>]*>/g, ' ')
+                        .replace(/&nbsp;/g, ' ')
+                        .replace(/&amp;/g, '&')
+                        .replace(/&lt;/g, '<')
+                        .replace(/&gt;/g, '>')
+                        .replace(/&quot;/g, '"')
+                        .replace(/&#39;/g, "'")
+                        .replace(/&#8217;/g, "'")
+                        .replace(/&#8220;/g, '"')
+                        .replace(/&#8221;/g, '"')
+                        .replace(/&#8211;/g, '-')
+                        .replace(/&#8212;/g, '—')
+                        .replace(/&hellip;/g, '...')
+                        .replace(/[ \t]+/g, ' ')
+                        .replace(/\n[ \t]+/g, '\n')
+                        .replace(/\n{3,}/g, '\n\n')
+                        .trim();
+
+                      if (cleanedContent.length > 50) {
+                        const score = scoreHoroscopeContent(cleanedContent, input.signSlugIt.toLowerCase(), 'alfemminile.com');
+                        console.log(`Alfemminile.com - Found content for ${input.signSlugIt} with score ${score} (length: ${cleanedContent.length})`);
+                        
+                        if (score > 20) {
+                          extractedContent = cleanedContent;
+                          break;
+                        }
+                      }
+                    }
+                  }
+                }
+                
+                if (extractedContent) break;
+              }
+
+              if (!extractedContent || extractedContent.length < 50) {
+                return {
+                  success: false,
+                  error: `No substantial horoscope content found for ${input.signSlugIt} on Alfemminile.com`
+                };
+              }
+
+              console.log(`Alfemminile.com - Successfully extracted content for ${input.signSlugIt}, length: ${extractedContent.length}`);
+
+              return {
+                success: true,
+                text: extractedContent.substring(0, 3500),
+                url,
+                actualUrl: url
+              };
+
+            } catch (error) {
+              return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown Alfemminile.com scraping error'
+              };
+            }
+          }
+
           async function scrapeGazzettaHoroscopeText(url: string, input: ScraperInput): Promise<ScrapeResult> {
             try {
               console.log('Gazzetta.it - Starting specialized extraction for:', input.signSlugIt);
@@ -606,6 +744,11 @@
               // Special handling for Gazzetta.it
               if (url.includes('gazzetta.it')) {
                 return await scrapeGazzettaHoroscopeText(url, input);
+              }
+
+              // Special handling for alfemminile.com
+              if (url.includes('alfemminile.com')) {
+                return await scrapeAlfemminileHoroscopeText(url, input);
               }
 
               const html = await fetchHtml(url, input.userAgent);
