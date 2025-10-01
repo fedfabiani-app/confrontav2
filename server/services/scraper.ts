@@ -1,4 +1,4 @@
-          import axios from 'axios';
+import axios from 'axios';
           import * as cheerio from 'cheerio';
           import { ScraperInput, ScraperOutput, scraperOutputSchema } from '@shared/schema';
           import { ITALIAN_WEEKDAYS, ITALIAN_MONTHS } from '@shared/constants';
@@ -494,10 +494,10 @@
               for (const variant of signVariants) {
                 // Pattern 1: <h2 class="sign">Oroscopo del/della/dello/dell'/dei sign</h2>
                 const headingPattern1 = new RegExp(`<h2[^>]*class="[^"]*${variant.split(' ')[0]}[^"]*"[^>]*>\\s*Oroscopo\\s+(?:del|della|dello|dell'|dei)\\s+${variant}[^<]*</h2>`, 'gi');
-                
+
                 // Pattern 2: <h2>Oroscopo del/della/dello/dell'/dei sign</h2> (without class)
                 const headingPattern2 = new RegExp(`<h2[^>]*>\\s*Oroscopo\\s+(?:del|della|dello|dell'|dei)\\s+${variant}[^<]*</h2>`, 'gi');
-                
+
                 // Pattern 3: Any heading with the sign name
                 const headingPattern3 = new RegExp(`<h[2-4][^>]*>\\s*[^<]*${variant}[^<]*</h[2-4]>`, 'gi');
 
@@ -505,21 +505,21 @@
 
                 for (const pattern of patterns) {
                   const headingMatch = cleanHtml.match(pattern);
-                  
+
                   if (headingMatch) {
                     console.log(`Alfemminile.com - Found heading for ${input.signSlugIt}: ${headingMatch[0]}`);
-                    
+
                     // Find the position of this heading
                     const headingIndex = cleanHtml.indexOf(headingMatch[0]);
-                    
+
                     if (headingIndex !== -1) {
                       // Extract content from after this heading until the next heading or end
                       let contentAfterHeading = cleanHtml.substring(headingIndex + headingMatch[0].length);
-                      
+
                       // Find the end of this section (next h2/h3/h4 or significant break)
                       const nextHeadingMatch = contentAfterHeading.match(/<h[2-4][^>]*>/i);
                       const nextSectionEnd = contentAfterHeading.match(/<section[^>]*>|<article[^>]*>|<div[^>]*class="[^"]*(?:horoscope|oroscopo|sign)[^"]*"/i);
-                      
+
                       let endIndex = contentAfterHeading.length;
                       if (nextHeadingMatch && nextHeadingMatch.index !== undefined) {
                         endIndex = Math.min(endIndex, nextHeadingMatch.index);
@@ -527,9 +527,9 @@
                       if (nextSectionEnd && nextSectionEnd.index !== undefined) {
                         endIndex = Math.min(endIndex, nextSectionEnd.index);
                       }
-                      
+
                       let sectionContent = contentAfterHeading.substring(0, endIndex);
-                      
+
                       // Clean and extract text from this section
                       let cleanedContent = sectionContent
                         .replace(/<br[^>]*>/gi, '\n')
@@ -557,7 +557,7 @@
                       if (cleanedContent.length > 50) {
                         const score = scoreHoroscopeContent(cleanedContent, input.signSlugIt.toLowerCase(), 'alfemminile.com');
                         console.log(`Alfemminile.com - Found content for ${input.signSlugIt} with score ${score} (length: ${cleanedContent.length})`);
-                        
+
                         if (score > 20) {
                           extractedContent = cleanedContent;
                           break;
@@ -566,7 +566,7 @@
                     }
                   }
                 }
-                
+
                 if (extractedContent) break;
               }
 
@@ -624,7 +624,7 @@
                 let match;
                 while ((match = pattern.exec(cleanHtml)) !== null) {
                   let content = match[1];
-                  
+
                   // Extract text content while preserving section structure
                   let processedContent = content
                     // Convert section headers to clear markers
@@ -659,11 +659,11 @@
                   // Check if this content contains the key sections
                   const hasMainSections = /LA TUA GIORNATA[\s\S]*AMORE[\s\S]*AMICIZIA[\s\S]*LAVORO/i.test(processedContent);
                   const containsZodiacSign = processedContent.toLowerCase().includes(input.signSlugIt.toLowerCase());
-                  
+
                   if (hasMainSections && containsZodiacSign && processedContent.length > 200) {
                     const currentScore = scoreHoroscopeContent(processedContent, input.signSlugIt.toLowerCase(), 'gazzetta.it');
                     console.log(`Gazzetta.it - Found structured content with score ${currentScore} (length: ${processedContent.length})`);
-                    
+
                     if (currentScore > highestScore) {
                       highestScore = currentScore;
                       bestContent = processedContent;
@@ -675,27 +675,27 @@
               // If no structured content found, try extracting all paragraphs in order
               if (!bestContent || highestScore < 50) {
                 console.log('Gazzetta.it - Trying paragraph extraction fallback');
-                
+
                 const paragraphPattern = /<p[^>]*>([^<]*(?:<[^>]*>[^<]*)*)<\/p>/gi;
                 const paragraphs = [];
                 let match;
-                
+
                 while ((match = paragraphPattern.exec(cleanHtml)) !== null) {
                   const pContent = match[1]
                     .replace(/<[^>]*>/g, ' ')
                     .replace(/&[^;]+;/g, ' ')
                     .replace(/\s+/g, ' ')
                     .trim();
-                  
+
                   if (pContent.length > 20) {
                     paragraphs.push(pContent);
                   }
                 }
-                
+
                 if (paragraphs.length > 0) {
                   const combinedContent = paragraphs.join('\n\n');
                   const combinedScore = scoreHoroscopeContent(combinedContent, input.signSlugIt.toLowerCase(), 'gazzetta.it');
-                  
+
                   if (combinedScore > highestScore) {
                     bestContent = combinedContent;
                     highestScore = combinedScore;
@@ -835,7 +835,7 @@
                 if (allExtractedParagraphs.length > 0) {
                   const combinedText = allExtractedParagraphs.join('\n\n');
                   console.log(`Oggi.it - Successfully extracted ${allExtractedParagraphs.length} paragraphs for ${input.signSlugIt}`);
-                  
+
                   return {
                     success: true,
                     text: combinedText.substring(0, 3500),
@@ -940,7 +940,7 @@
           // All old extraction functions removed - using new source-specific scraping functions instead
 
           export async function scrapeWithRetry(
-            input: ScraperInput, 
+            input: ScraperInput,
             maxRetries: number = 3
           ): Promise<ScraperOutput> {
             let lastError: Error;

@@ -378,6 +378,12 @@ INTEGRAZIONE SKYTG24: Assicurati che il riassunto (summary) catturi l'essenza di
         role: 'user',
         content: `Analizza questo oroscopo per ${input.signSlugIt}.
 
+IMPORTANTE: Se questo contenuto proviene da Oggi.it, cerca le sezioni specifiche:
+- "AMORE ED EROS" per le previsioni sentimentali (rating relazioni)
+- "LAVORO E DENARO" per le previsioni lavorative e finanziarie (rating lavoro)  
+- "BENESSERE" per le previsioni di salute e benessere (rating salute)
+- "PREVISIONI GENERALI" per il tono generale
+
 IMPORTANTE: Se questo contenuto proviene da Gazzetta dello Sport, cerca le sezioni specifiche:
 - "LA TUA GIORNATA" 
 - "AMORE"

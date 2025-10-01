@@ -41,7 +41,7 @@ PORT = "5000"
 integrations = ["javascript_openai:1.0.0"]
 
 [workflows]
-runButton = "Project"
+runButton = "Restart Server"
 
 [[workflows.workflow]]
 name = "Project"
@@ -60,3 +60,20 @@ author = "agent"
 task = "shell.exec"
 args = "npm run dev"
 waitForPort = 5000
+
+[[workflows.workflow]]
+name = "Restart Server"
+author = 47771647
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pkill -f \"tsx server/index.ts\" || true"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "sleep 2"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev"
