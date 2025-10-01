@@ -1,13 +1,8 @@
+
 import { useState, useEffect, useCallback } from 'react';
 
 const FAVORITES_STORAGE_KEY = 'horoscope:favorites:v1';
-
-interface FavoritesData {
-  [signEnglish: string]: {
-    pinnedSourceIds: number[];
-    updatedAt: string;
-  };
-}
+const HOME_FAVORITES_STORAGE_KEY = 'horoscope:home-favorites:v1';
 
 interface HoroscopeData {
   id: number;
@@ -23,7 +18,6 @@ interface HoroscopeData {
 
 // Hook for managing home page sign favorites
 export function useHomeFavorites() {
-  const HOME_FAVORITES_STORAGE_KEY = 'horoscope:home-favorites:v1';
   const [homeFavorites, setHomeFavorites] = useState<Set<string>>(new Set());
 
   // Load home favorites from localStorage on mount
@@ -87,7 +81,8 @@ export function useHomeFavorites() {
   };
 }
 
-export function useFavorites(signEnglish: string) {
+// Global favorites hook - applies to all signs
+export function useFavorites(signEnglish?: string) {
   const [favorites, setFavorites] = useState<number[]>([]);
 
   // Load favorites from localStorage on mount
@@ -96,10 +91,25 @@ export function useFavorites(signEnglish: string) {
       try {
         const stored = localStorage.getItem(FAVORITES_STORAGE_KEY);
         if (stored) {
-          const data: FavoritesData = JSON.parse(stored);
-          const signData = data[signEnglish];
-          if (signData) {
-            setFavorites(signData.pinnedSourceIds);
+          const data = JSON.parse(stored);
+          
+          // Handle migration from old per-sign format to global format
+          if (data && typeof data === 'object' && !Array.isArray(data)) {
+            // Old format - extract all unique source IDs and migrate
+            const allSourceIds = new Set<number>();
+            Object.values(data).forEach((signData: any) => {
+              if (signData && signData.pinnedSourceIds) {
+                signData.pinnedSourceIds.forEach((id: number) => allSourceIds.add(id));
+              }
+            });
+            const migratedFavorites = Array.from(allSourceIds);
+            
+            // Save in new format
+            localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(migratedFavorites));
+            setFavorites(migratedFavorites);
+          } else if (Array.isArray(data)) {
+            // New format - already an array of source IDs
+            setFavorites(data);
           }
         }
       } catch (error) {
@@ -118,25 +128,17 @@ export function useFavorites(signEnglish: string) {
 
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
-  }, [signEnglish]);
+  }, []);
 
   // Save favorites to localStorage
   const saveFavorites = useCallback((newFavorites: number[]) => {
     try {
-      const stored = localStorage.getItem(FAVORITES_STORAGE_KEY);
-      const data: FavoritesData = stored ? JSON.parse(stored) : {};
-      
-      data[signEnglish] = {
-        pinnedSourceIds: newFavorites,
-        updatedAt: new Date().toISOString()
-      };
-
-      localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(data));
+      localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(newFavorites));
       setFavorites(newFavorites);
     } catch (error) {
       console.warn('Failed to save favorites to localStorage:', error);
     }
-  }, [signEnglish]);
+  }, []);
 
   // Check if a source is favorited
   const isFavorite = useCallback((sourceId: number): boolean => {
