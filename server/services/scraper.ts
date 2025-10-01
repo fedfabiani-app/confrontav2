@@ -770,75 +770,174 @@ import axios from 'axios';
 
               // Source-specific extraction strategies
               if (domain.includes('oggi.it')) {
-                console.log("Oggi.it - Starting specialized extraction for:", zodiacName);
+                console.log("Oggi.it - Starting enhanced extraction for:", zodiacName);
 
-                const h4GenericRegex = /<h4[^>]*>(?:Oroscopo\s+di\s+)?[^<]*<\/h4>/gi;
-                let matchH4;
-                let allExtractedParagraphs: string[] = [];
+                // Look for the main horoscope sections with their specific headings
+                const sectionMap = {
+                  'PREVISIONI GENERALI': /(?:<[^>]*>)*\s*(?:Oroscopo|Previsioni).*?(?:<[^>]*>)*\s*/gi,
+                  'AMORE ED EROS': /(?:<[^>]*>)*\s*Amore\s+ed?\s+[Ee]ros\s*(?:<[^>]*>)*\s*/gi,
+                  'LAVORO E DENARO': /(?:<[^>]*>)*\s*Lavoro\s+e\s+[Dd]enaro\s*(?:<[^>]*>)*\s*/gi,
+                  'BENESSERE': /(?:<[^>]*>)*\s*Benessere\s*(?:<[^>]*>)*\s*/gi
+                };
 
-                while ((matchH4 = h4GenericRegex.exec(cleanHtml)) !== null) {
-                  if (matchH4.index === undefined) continue;
+                let extractedSections: Record<string, string> = {};
 
-                  const commentStartIndex = cleanHtml.indexOf('<!-- GIORNALIERO -->', matchH4.index);
-                  let contentToSearch = '';
+                // First, try to find sections by their specific headings
+                for (const [sectionName, headingRegex] of Object.entries(sectionMap)) {
+                  const headingMatch = cleanHtml.match(headingRegex);
 
-                  if (commentStartIndex !== -1) {
-                    contentToSearch = cleanHtml.substring(matchH4.index + matchH4[0].length, commentStartIndex);
-                  } else {
-                    contentToSearch = cleanHtml.substring(matchH4.index + matchH4[0].length);
+                  if (headingMatch) {
+                    console.log(`Oggi.it - Found section heading: ${sectionName}`);
+
+                    const headingIndex = cleanHtml.indexOf(headingMatch[0]);
+                    if (headingIndex !== -1) {
+                      // Find content after this heading until the next heading or comment
+                      let contentAfterHeading = cleanHtml.substring(headingIndex + headingMatch[0].length);
+
+                      // Find the end of this section (next section heading or comment)
+                      const nextSectionRegex = /(?:<[^>]*>)*\s*(?:Amore\s+ed?\s+[Ee]ros|Lavoro\s+e\s+[Dd]enaro|Benessere|<!--)/i;
+                      const nextSectionMatch = contentAfterHeading.match(nextSectionRegex);
+
+                      let sectionContent = '';
+                      if (nextSectionMatch && nextSectionMatch.index !== undefined) {
+                        sectionContent = contentAfterHeading.substring(0, nextSectionMatch.index);
+                      } else {
+                        // Take a reasonable amount of content (up to 1000 chars)
+                        sectionContent = contentAfterHeading.substring(0, 1000);
+                      }
+
+                      // Extract paragraphs from this section
+                      const pTagRegex = /<p[^>]*>([\s\S]*?)<\/p>/gi;
+                      let matchP;
+                      let sectionParagraphs: string[] = [];
+
+                      while ((matchP = pTagRegex.exec(sectionContent)) !== null) {
+                        if (matchP[1]) {
+                          let extractedParagraphContent = matchP[1]
+                            .replace(/<br\s*\/?>/gi, '\n')
+                            .replace(/<[^>]*>/g, ' ')
+                            .replace(/&nbsp;/g, ' ')
+                            .replace(/&amp;/g, '&')
+                            .replace(/&lt;/g, '<')
+                            .replace(/&gt;/g, '>')
+                            .replace(/&quot;/g, '"')
+                            .replace(/&#39;/g, "'")
+                            .replace(/&#8217;/g, "'")
+                            .replace(/&#8220;/g, '"')
+                            .replace(/&#8221;/g, '"')
+                            .replace(/&#8211;/g, '-')
+                            .replace(/&#8212;/g, '—')
+                            .replace(/&hellip;/g, '...')
+                            .replace(/\s+/g, ' ')
+                            .trim();
+
+                          if (extractedParagraphContent.length > 20) {
+                            sectionParagraphs.push(extractedParagraphContent);
+                          }
+                        }
+                      }
+
+                      if (sectionParagraphs.length > 0) {
+                        extractedSections[sectionName] = sectionParagraphs.join(' ');
+                        console.log(`Oggi.it - Extracted ${sectionParagraphs.length} paragraphs for ${sectionName}`);
+                      }
+                    }
                   }
+                }
 
-                  // Extract ALL paragraphs from this section, not just the first one
-                  const pTagRegex = /<p[^>]*>([\s\S]*?)<\/p>/gi;
-                  let matchP;
-                  let sectionParagraphs: string[] = [];
+                // If we didn't find specific sections, fall back to the original H4-based extraction
+                if (Object.keys(extractedSections).length === 0) {
+                  console.log("Oggi.it - Falling back to H4-based extraction");
 
-                  while ((matchP = pTagRegex.exec(contentToSearch)) !== null) {
-                    if (matchP[1]) {
-                      let extractedParagraphContent = matchP[1]
-                        .replace(/<br\s*\/?>/gi, '\n')
-                        .replace(/<[^>]*>/g, ' ')
-                        .replace(/&nbsp;/g, ' ')
-                        .replace(/&amp;/g, '&')
-                        .replace(/&lt;/g, '<')
-                        .replace(/&gt;/g, '>')
-                        .replace(/&quot;/g, '"')
-                        .replace(/&#39;/g, "'")
-                        .replace(/&#8217;/g, "'")
-                        .replace(/&#8220;/g, '"')
-                        .replace(/&#8221;/g, '"')
-                        .replace(/&#8211;/g, '-')
-                        .replace(/&#8212;/g, '—')
-                        .replace(/&hellip;/g, '...')
-                        .replace(/\s+/g, ' ')
-                        .trim();
+                  const h4GenericRegex = /<h4[^>]*>(?:Oroscopo\s+di\s+)?[^<]*<\/h4>/gi;
+                  let matchH4;
+                  let allExtractedParagraphs: string[] = [];
 
-                      // Check if this paragraph contains relevant horoscope content
-                      const hasHoroscopeContent = /\b(oroscopo|previsioni|stelle|fortuna|amore|lavoro|salute|giornata|energia|periodo|eros|denaro|benessere)\b/i.test(extractedParagraphContent);
-                      const hasZodiacSign = extractedParagraphContent.toLowerCase().includes(zodiacName);
-                      const isSubstantial = extractedParagraphContent.length > 30;
+                  while ((matchH4 = h4GenericRegex.exec(cleanHtml)) !== null) {
+                    if (matchH4.index === undefined) continue;
 
-                      if (isSubstantial && (hasZodiacSign || hasHoroscopeContent)) {
-                        sectionParagraphs.push(extractedParagraphContent);
-                        console.log(`Oggi.it - Found relevant paragraph: ${extractedParagraphContent.substring(0, 100)}...`);
+                    const commentStartIndex = cleanHtml.indexOf('<!-- GIORNALIERO -->', matchH4.index);
+                    let contentToSearch = '';
+
+                    if (commentStartIndex !== -1) {
+                      contentToSearch = cleanHtml.substring(matchH4.index + matchH4[0].length, commentStartIndex);
+                    } else {
+                      contentToSearch = cleanHtml.substring(matchH4.index + matchH4[0].length, matchH4.index + matchH4[0].length + 2000);
+                    }
+
+                    // Extract ALL paragraphs from this section
+                    const pTagRegex = /<p[^>]*>([\s\S]*?)<\/p>/gi;
+                    let matchP;
+
+                    while ((matchP = pTagRegex.exec(contentToSearch)) !== null) {
+                      if (matchP[1]) {
+                        let extractedParagraphContent = matchP[1]
+                          .replace(/<br\s*\/?>/gi, '\n')
+                          .replace(/<[^>]*>/g, ' ')
+                          .replace(/&nbsp;/g, ' ')
+                          .replace(/&amp;/g, '&')
+                          .replace(/&lt;/g, '<')
+                          .replace(/&gt;/g, '>')
+                          .replace(/&quot;/g, '"')
+                          .replace(/&#39;/g, "'")
+                          .replace(/&#8217;/g, "'")
+                          .replace(/&#8220;/g, '"')
+                          .replace(/&#8221;/g, '"')
+                          .replace(/&#8211;/g, '-')
+                          .replace(/&#8212;/g, '—')
+                          .replace(/&hellip;/g, '...')
+                          .replace(/\s+/g, ' ')
+                          .trim();
+
+                        // Check if this paragraph contains relevant horoscope content
+                        const hasHoroscopeContent = /\b(oroscopo|previsioni|stelle|fortuna|amore|lavoro|salute|giornata|energia|periodo|eros|denaro|benessere)\b/i.test(extractedParagraphContent);
+                        const hasZodiacSign = extractedParagraphContent.toLowerCase().includes(zodiacName);
+                        const isSubstantial = extractedParagraphContent.length > 30;
+
+                        if (isSubstantial && (hasZodiacSign || hasHoroscopeContent)) {
+                          allExtractedParagraphs.push(extractedParagraphContent);
+                          console.log(`Oggi.it - Found relevant paragraph: ${extractedParagraphContent.substring(0, 100)}...`);
+                        }
                       }
                     }
                   }
 
-                  // If we found paragraphs in this section, add them to our collection
-                  if (sectionParagraphs.length > 0) {
-                    allExtractedParagraphs.push(...sectionParagraphs);
-                  }
-                }
+                  if (allExtractedParagraphs.length > 0) {
+                    const combinedText = allExtractedParagraphs.join('\n\n');
+                    console.log(`Oggi.it - Successfully extracted ${allExtractedParagraphs.length} paragraphs using fallback method`);
 
-                // Combine all extracted paragraphs
-                if (allExtractedParagraphs.length > 0) {
-                  const combinedText = allExtractedParagraphs.join('\n\n');
-                  console.log(`Oggi.it - Successfully extracted ${allExtractedParagraphs.length} paragraphs for ${input.signSlugIt}`);
+                    return {
+                      success: true,
+                      text: combinedText.substring(0, 3500),
+                      url,
+                      actualUrl: url
+                    };
+                  }
+                } else {
+                  // Combine all found sections in a structured way
+                  let combinedContent = '';
+
+                  if (extractedSections['PREVISIONI GENERALI']) {
+                    combinedContent += `PREVISIONI GENERALI:\n${extractedSections['PREVISIONI GENERALI']}\n\n`;
+                  }
+
+                  if (extractedSections['AMORE ED EROS']) {
+                    combinedContent += `---AMORE_SECTION_START---\n${extractedSections['AMORE ED EROS']}\n\n`;
+                  }
+
+                  if (extractedSections['LAVORO E DENARO']) {
+                    combinedContent += `---LAVORO_SECTION_START---\n${extractedSections['LAVORO E DENARO']}\n\n`;
+                  }
+
+                  if (extractedSections['BENESSERE']) {
+                    combinedContent += `---SALUTE_SECTION_START---\n${extractedSections['BENESSERE']}\n\n`;
+                  }
+
+                  console.log(`Oggi.it - Successfully extracted structured content with ${Object.keys(extractedSections).length} sections`);
 
                   return {
                     success: true,
-                    text: combinedText.substring(0, 3500),
+                    text: combinedContent.trim().substring(0, 3500),
                     url,
                     actualUrl: url
                   };

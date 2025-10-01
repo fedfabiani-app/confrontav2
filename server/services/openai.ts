@@ -378,11 +378,35 @@ INTEGRAZIONE SKYTG24: Assicurati che il riassunto (summary) catturi l'essenza di
         role: 'user',
         content: `Analizza questo oroscopo per ${input.signSlugIt}.
 
-IMPORTANTE: Se questo contenuto proviene da Oggi.it, cerca le sezioni specifiche:
-- "AMORE ED EROS" per le previsioni sentimentali (rating relazioni)
-- "LAVORO E DENARO" per le previsioni lavorative e finanziarie (rating lavoro)  
-- "BENESSERE" per le previsioni di salute e benessere (rating salute)
-- "PREVISIONI GENERALI" per il tono generale
+IMPORTANTE: Se questo contenuto proviene da Oggi.it, cerca le sezioni specifiche con marcatori:
+- "---AMORE_SECTION_START---" per le previsioni sentimentali (rating relazioni)
+- "---LAVORO_SECTION_START---" per le previsioni lavorative e finanziarie (rating lavoro)  
+- "---SALUTE_SECTION_START---" per le previsioni di salute e benessere (rating benessere)
+- "PREVISIONI GENERALI:" per il tono generale
+
+REGOLE SPECIFICHE PER OGGI.IT:
+
+Per RELAZIONI (1-5 stelle):
+- Cerca il marcatore "---AMORE_SECTION_START---"
+- Valuta il contenuto immediatamente successivo a questo marcatore
+- Se il marcatore è presente, assegna SEMPRE un minimo di 1 stella (se il contenuto è neutro, 3 stelle)
+- Applica le parole chiave per RELAZIONI definite nella sezione INTERPRETAZIONE LINGUISTICA AVANZATA
+- Solo se NON c'è alcun contenuto relativo ad amore/relazioni, assegna 0 stelle
+
+Per LAVORO (1-5 stelle):
+- Cerca il marcatore "---LAVORO_SECTION_START---"
+- Valuta il contenuto immediatamente successivo a questo marcatore
+- Se il marcatore è presente, assegna SEMPRE un minimo di 1 stella (se il contenuto è neutro, 3 stelle)
+- Applica le parole chiave per LAVORO definite nella sezione INTERPRETAZIONE LINGUISTICA AVANZATA
+- Solo se NON c'è alcun contenuto relativo a lavoro/denaro/carriera, assegna 0 stelle
+
+Per BENESSERE (1-5 stelle):
+- Cerca il marcatore "---SALUTE_SECTION_START---"
+- Valuta il contenuto immediatamente successivo a questo marcatore per benessere fisico e mentale
+- Se il marcatore è presente, assegna SEMPRE un minimo di 1 stella (se il contenuto è neutro, 3 stelle)
+- Integra anche informazioni dal testo "PREVISIONI GENERALI:" per l'umore generale
+- Applica le parole chiave per BENESSERE definite nella sezione INTERPRETAZIONE LINGUISTICA AVANZATA
+- Solo se NON c'è alcun contenuto relativo a benessere/salute/umore, assegna 0 stelle
 
 IMPORTANTE: Se questo contenuto proviene da Gazzetta dello Sport, cerca le sezioni specifiche:
 - "LA TUA GIORNATA" 
