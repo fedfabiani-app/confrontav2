@@ -321,16 +321,8 @@ export default function Home() {
         {!isLoading && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {zodiacSigns
-              .sort((a, b) => {
-                // Sort favorites first, then by ID
-                const aIsFav = isHomeFavorite(a.name_english);
-                const bIsFav = isHomeFavorite(b.name_english);
-
-                if (aIsFav && !bIsFav) return -1;
-                if (!aIsFav && bIsFav) return 1;
-
-                return a.id - b.id;
-              })
+              .filter(sign => !isHomeFavorite(sign.name_english))
+              .sort((a, b) => a.id - b.id)
               .map((sign) => (
                 <ZodiacCard
                   key={sign.id}
