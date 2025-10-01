@@ -293,6 +293,12 @@ export default function Home() {
     </div>
   </div>
 
+  <div className="mb-6">
+    <h2 className="text-lg font-bold text-foreground">
+      Scegli il tuo segno e leggi gli Oroscopi:
+    </h2>
+  </div>
+
         {/* Loading State */}
         {isLoading && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -319,14 +325,14 @@ export default function Home() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {zodiacSigns
               .sort((a, b) => {
-                // Sort favorites first, then alphabetically
+                // Sort favorites first, then by ID
                 const aIsFav = homeFavorites.has(a.name_english);
                 const bIsFav = homeFavorites.has(b.name_english);
-                
+
                 if (aIsFav && !bIsFav) return -1;
                 if (!aIsFav && bIsFav) return 1;
-                
-                return a.name_italian.localeCompare(b.name_italian);
+
+                return a.id - b.id;
               })
               .map((sign) => (
                 <ZodiacCard
