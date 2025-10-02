@@ -549,6 +549,12 @@ import axios from 'axios';
                         .replace(/&#8211;/g, '-')
                         .replace(/&#8212;/g, '—')
                         .replace(/&hellip;/g, '...')
+                        .replace(/&agrave;/g, 'à')
+                        .replace(/&egrave;/g, 'è')
+                        .replace(/&eacute;/g, 'é')
+                        .replace(/&igrave;/g, 'ì')
+                        .replace(/&ograve;/g, 'ò')
+                        .replace(/&ugrave;/g, 'ù')
                         .replace(/[ \t]+/g, ' ')
                         .replace(/\n[ \t]+/g, '\n')
                         .replace(/\n{3,}/g, '\n\n')
@@ -651,7 +657,7 @@ import axios from 'axios';
                     .replace(/&#8211;/g, '-')
                     .replace(/&#8212;/g, '—')
                     .replace(/&hellip;/g, '...')
-                    .replace(/[ \t]+/g, ' ')
+                    .replace(/\s+/g, ' ')
                     .replace(/\n[ \t]+/g, '\n')
                     .replace(/\n{3,}/g, '\n\n')
                     .trim();
@@ -743,7 +749,7 @@ import axios from 'axios';
 
               const zodiacNameLower = input.signSlugIt.toLowerCase();
               let combinedSectionTexts: string[] = [];
-              
+
               // Regex to find all c-article-section divs
               const sectionDivRegex = /<div[^>]*class="[^"]*\bc-article-section\b[^"]*"[^>]*>([\s\S]*?)<\/div>/gi;
               let match;
@@ -797,7 +803,7 @@ import axios from 'axios';
                   .replace(/\n[ \t]+/g, '\n')
                   .replace(/\n{3,}/g, '\n\n')
                   .trim();
-                
+
                 if (cleanedSectionText.length > 0) {
                   combinedSectionTexts.push(sectionMarker + cleanedSectionText);
                 }
@@ -888,17 +894,17 @@ import axios from 'axios';
               // Source-specific extraction strategies
               if (domain.includes('oggi.it')) {
                 console.log("Oggi.it - Starting specialized extraction for:", zodiacName);
-                
+
                 // Use a generic h4 regex that looks for any h4 tag
                 const h4GenericRegex = /<h4[^>]*>(?:Oroscopo\s+di\s+)?[^<]*<\/h4>/gi;
-                
+
                 let h4Matches = cleanHtml.matchAll(h4GenericRegex);
-                
+
                 for (const matchH4 of h4Matches) {
                   if (matchH4.index === undefined) continue;
-                  
+
                   console.log(`Oggi.it - Found h4 tag: ${matchH4[0]}`);
-                  
+
                   // Find the <!-- GIORNALIERO --> comment AFTER this H4 tag
                   const commentStartIndex = cleanHtml.indexOf('<!-- GIORNALIERO -->', matchH4.index);
 
@@ -912,12 +918,12 @@ import axios from 'axios';
                     contentToSearch = cleanHtml.substring(matchH4.index + matchH4[0].length);
                     console.log(`Oggi.it - <!-- GIORNALIERO --> comment not found after H4. Searching till end.`);
                   }
-                  
+
                   // Find all <p> tags within this restricted content
                   const pTagRegex = /<p[^>]*>([\s\S]*?)<\/p>/gi;
                   let allParagraphs: string[] = [];
                   let matchP;
-                  
+
                   while ((matchP = pTagRegex.exec(contentToSearch)) !== null) {
                     if (matchP[1]) {
                       let paragraphContent = matchP[1]
@@ -950,21 +956,21 @@ import axios from 'axios';
                       // Filter out navigation and very short content
                       const isNavigation = /^(menu|naviga|cookie|privacy|leggi anche|condividi|share|login|registrati|abbonati|tags?:|categor)/i.test(paragraphContent);
                       const isSubstantial = paragraphContent.length > 20;
-                      
+
                       if (!isNavigation && isSubstantial) {
                         allParagraphs.push(paragraphContent);
                       }
                     }
                   }
-                  
+
                   // Validate that the extracted content contains the zodiac sign or horoscope keywords
                   const combinedText = allParagraphs.join(' ');
                   const hasZodiacSign = combinedText.toLowerCase().includes(zodiacName);
                   const hasHoroscopeContent = /\b(oroscopo|previsioni|stelle|fortuna|amore|lavoro|salute|giornata|energia|periodo)\b/i.test(combinedText);
-                  
+
                   if ((hasZodiacSign || hasHoroscopeContent) && combinedText.length > 50) {
                     console.log(`Oggi.it - Successfully extracted and validated content from ${allParagraphs.length} paragraphs.`);
-                    
+
                     // Try to identify sections
                     let extractedSections: Record<string, string[]> = {
                       'GENERALE': [],
@@ -974,7 +980,7 @@ import axios from 'axios';
                     };
 
                     let currentSection = 'GENERALE';
-                    
+
                     for (const paragraph of allParagraphs) {
                       // Check if this is a section header
                       if (paragraph.length < 50) {
@@ -989,7 +995,7 @@ import axios from 'axios';
                           continue;
                         }
                       }
-                      
+
                       extractedSections[currentSection].push(paragraph);
                     }
 
@@ -1026,7 +1032,7 @@ import axios from 'axios';
                     console.log(`Oggi.it - Content validation failed for this h4. Zodiac sign found: ${hasZodiacSign}, Horoscope content: ${hasHoroscopeContent}`);
                   }
                 }
-                
+
                 // If no valid content was found with any h4, return an error
                 return {
                   success: false,
