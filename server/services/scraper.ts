@@ -149,15 +149,23 @@ import axios from 'axios';
 
                 const gazzettaSignSlug = signMap[input.signSlugIt] || input.signSlugIt.toLowerCase();
                 const baseSlug = `oroscopo-${weekday}-${day}-${monthName}-${year}`;
+
+                // Three possible slug variations
                 const slug1 = `${baseSlug}-previsioni-per-12-i-segni`;
                 const slug2 = `${baseSlug}-previsioni-per-tutti-i-segni`;
+                const slug3 = `${baseSlug}-previsioni-per-12-i-segni-zodiaco`;
 
-                const url1 = `${input.baseUrl}/oroscopo/storie/${prevDateFormatted}/${slug1}/${gazzettaSignSlug}.shtml`;
-                const url2 = `${input.baseUrl}/oroscopo/storie/${prevDateFormatted}/${slug2}/${gazzettaSignSlug}.shtml`;
-                const url3 = `${input.baseUrl}/oroscopo/storie/${currentDateFormatted}/${slug1}/${gazzettaSignSlug}.shtml`;
-                const url4 = `${input.baseUrl}/oroscopo/storie/${currentDateFormatted}/${slug2}/${gazzettaSignSlug}.shtml`;
+                // Try all combinations: prev date and current date, with all 3 slug variations
+                const urls = [
+                  `${input.baseUrl}/oroscopo/storie/${prevDateFormatted}/${slug1}/${gazzettaSignSlug}.shtml`,
+                  `${input.baseUrl}/oroscopo/storie/${prevDateFormatted}/${slug2}/${gazzettaSignSlug}.shtml`,
+                  `${input.baseUrl}/oroscopo/storie/${prevDateFormatted}/${slug3}/${gazzettaSignSlug}.shtml`,
+                  `${input.baseUrl}/oroscopo/storie/${currentDateFormatted}/${slug1}/${gazzettaSignSlug}.shtml`,
+                  `${input.baseUrl}/oroscopo/storie/${currentDateFormatted}/${slug2}/${gazzettaSignSlug}.shtml`,
+                  `${input.baseUrl}/oroscopo/storie/${currentDateFormatted}/${slug3}/${gazzettaSignSlug}.shtml`,
+                ];
 
-                return [url1, url2, url3, url4];
+                return urls;
               }
             }
 
