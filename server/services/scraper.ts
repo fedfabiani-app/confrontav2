@@ -771,63 +771,15 @@ import axios from 'axios';
               // Source-specific extraction strategies
               if (domain.includes('oggi.it')) {
                 console.log("Oggi.it - Starting extraction for:", zodiacName);
+                console.log("Oggi.it - URL being scraped:", url);
 
-                // Try multiple approaches to find the content container
-                let containerContent = '';
-                
-                // Approach 1: Look for div.clearfix.rimmed
-                const clearfixRimmedRegex = /<div[^>]*class="[^"]*clearfix[^"]*rimmed[^"]*"[^>]*>([\s\S]*?)<\/div>/gi;
-                let match;
-                let foundContainers: string[] = [];
-                
-                while ((match = clearfixRimmedRegex.exec(cleanHtml)) !== null) {
-                  foundContainers.push(match[1]);
-                }
-                
-                if (foundContainers.length > 0) {
-                  // Use the longest container (likely the main content)
-                  containerContent = foundContainers.reduce((a, b) => a.length > b.length ? a : b);
-                  console.log(`Oggi.it - Found ${foundContainers.length} clearfix.rimmed containers, using longest (${containerContent.length} chars)`);
-                }
-                
-                // Approach 2: If no container found, look for the main article/content area
-                if (!containerContent) {
-                  const articleRegex = /<article[^>]*>([\s\S]*?)<\/article>/i;
-                  const articleMatch = cleanHtml.match(articleRegex);
-                  if (articleMatch) {
-                    containerContent = articleMatch[1];
-                    console.log(`Oggi.it - Found article container (${containerContent.length} chars)`);
-                  }
-                }
-                
-                // Approach 3: Look for any div with substantial paragraph content
-                if (!containerContent) {
-                  const mainDivRegex = /<div[^>]*class="[^"]*(?:content|main|article|post|entry)[^"]*"[^>]*>([\s\S]*?)<\/div>/gi;
-                  let divMatch;
-                  while ((divMatch = mainDivRegex.exec(cleanHtml)) !== null) {
-                    if (divMatch[1].length > containerContent.length) {
-                      containerContent = divMatch[1];
-                    }
-                  }
-                  if (containerContent) {
-                    console.log(`Oggi.it - Found content div (${containerContent.length} chars)`);
-                  }
-                }
-
-                if (!containerContent || containerContent.length < 100) {
-                  console.log("Oggi.it - Could not find content container");
-                  return {
-                    success: false,
-                    error: `Could not find content container for ${input.signSlugIt} on Oggi.it`
-                  };
-                }
-
-                // Extract all paragraphs from the container
+                // Extract all paragraphs directly from the cleaned HTML
+                // Don't rely on finding a specific container first
                 const pTagRegex = /<p[^>]*>([\s\S]*?)<\/p>/gi;
                 let allParagraphs: string[] = [];
                 let matchP;
 
-                while ((matchP = pTagRegex.exec(containerContent)) !== null) {
+                while ((matchP = pTagRegex.exec(cleanHtml)) !== null) {
                   if (matchP[1]) {
                     let paragraphContent = matchP[1]
                       .replace(/<br\s*\/?>/gi, '\n')
@@ -847,91 +799,121 @@ import axios from 'axios';
                       .replace(/\s+/g, ' ')
                       .trim();
 
-                    // Filter out navigation/boilerplate text
-                    const isNavigation = /^(menu|naviga|cookie|privacy|leggi anche|condividi|share)/i.test(paragraphContent);
-                    const tooShort = paragraphContent.length < 10;
+                    // Filter out very short content and obvious navigation
+                    const isNavigation = /^(menu|naviga|cookie|privacy|leggi anche|condividi|share|login|registrati|abbonati)/i.test(paragraphContent);
+                    const isSubstantial = paragraphContent.length > 20;
                     
-                    if (!isNavigation && !tooShort) {
+                    if (!isNavigation && isSubstantial) {
                       allParagraphs.push(paragraphContent);
+                      console.log(`Oggi.it - Found paragraph (${paragraphContent.length} chars): ${paragraphContent.substring(0, 80)}...`);
                     }
                   }
                 }
 
-                console.log(`Oggi.it - Extracted ${allParagraphs.length} paragraphs from container`);
+                console.log(`Oggi.it - Total paragraphs found: ${allParagraphs.length}`);
 
                 if (allParagraphs.length === 0) {
+                  console.log("Oggi.it - No paragraphs found in HTML");
                   return {
                     success: false,
                     error: `No paragraphs found for ${input.signSlugIt} on Oggi.it`
                   };
                 }
 
-                // Identify sections by looking for specific keywords
+                // Filter paragraphs that likely belong to horoscope content
+                // Look for paragraphs that mention the zodiac sign or have horoscope keywords
+                let relevantParagraphs = allParagraphs.filter(p => {
+                  const hasZodiacMention = p.toLowerCase().includes(zodiacName);
+                  const hasHoroscopeKeywords = /\b(stelle|fortuna|giornata|energia|amore|lavoro|salute|eros|denaro|benessere)\b/i.test(p);
+                  const isLongEnough = p.length > 30;
+                  return isLongEnough && (hasZodiacMention || hasHoroscopeKeywords);
+                });
+
+                console.log(`Oggi.it - Relevant paragraphs after filtering: ${relevantParagraphs.length}`);
+
+                // If we have very few relevant paragraphs, be more lenient
+                if (relevantParagraphs.length < 3) {
+                  console.log("Oggi.it - Few relevant paragraphs found, using all substantial paragraphs");
+                  relevantParagraphs = allParagraphs.filter(p => p.length > 30);
+                }
+
+                if (relevantParagraphs.length === 0) {
+                  console.log("Oggi.it - No relevant content found");
+                  return {
+                    success: false,
+                    error: `No horoscope content found for ${input.signSlugIt} on Oggi.it`
+                  };
+                }
+
+                // Try to identify sections
                 let extractedSections: Record<string, string[]> = {
-                  'PREVISIONI GENERALI': [],
-                  'AMORE ED EROS': [],
-                  'LAVORO E DENARO': [],
+                  'GENERALE': [],
+                  'AMORE': [],
+                  'LAVORO': [],
                   'BENESSERE': []
                 };
 
-                let currentSection = 'PREVISIONI GENERALI';
+                let currentSection = 'GENERALE';
                 
-                for (const paragraph of allParagraphs) {
-                  // Check if this paragraph is a section header (typically short and contains section name)
-                  if (paragraph.length < 30) {
-                    if (/amore\s+ed?\s+eros/i.test(paragraph)) {
-                      currentSection = 'AMORE ED EROS';
+                for (const paragraph of relevantParagraphs) {
+                  const lowerPara = paragraph.toLowerCase();
+                  
+                  // Check if this is a section header
+                  if (paragraph.length < 50) {
+                    if (/amore|eros/i.test(paragraph)) {
+                      currentSection = 'AMORE';
+                      console.log(`Oggi.it - Detected AMORE section: "${paragraph}"`);
                       continue;
-                    } else if (/lavoro\s+e\s+denaro/i.test(paragraph)) {
-                      currentSection = 'LAVORO E DENARO';
+                    } else if (/lavoro|denaro/i.test(paragraph)) {
+                      currentSection = 'LAVORO';
+                      console.log(`Oggi.it - Detected LAVORO section: "${paragraph}"`);
                       continue;
-                    } else if (/benessere/i.test(paragraph) && paragraph.length < 20) {
+                    } else if (/benessere|salute/i.test(paragraph)) {
                       currentSection = 'BENESSERE';
+                      console.log(`Oggi.it - Detected BENESSERE section: "${paragraph}"`);
                       continue;
                     }
                   }
                   
-                  // Add substantial paragraphs to current section
-                  if (paragraph.length > 20) {
-                    extractedSections[currentSection].push(paragraph);
-                  }
+                  // Add paragraph to current section
+                  extractedSections[currentSection].push(paragraph);
                 }
 
-                // Build the final combined content with section markers
+                // Build combined content with section markers
                 let combinedContent = '';
 
-                if (extractedSections['PREVISIONI GENERALI'].length > 0) {
-                  combinedContent += `PREVISIONI GENERALI:\n${extractedSections['PREVISIONI GENERALI'].join(' ')}\n\n`;
+                if (extractedSections['GENERALE'].length > 0) {
+                  combinedContent += extractedSections['GENERALE'].join(' ') + '\n\n';
                 }
 
-                if (extractedSections['AMORE ED EROS'].length > 0) {
-                  combinedContent += `---AMORE_SECTION_START---\n${extractedSections['AMORE ED EROS'].join(' ')}\n\n`;
+                if (extractedSections['AMORE'].length > 0) {
+                  combinedContent += `---AMORE_SECTION_START---\n${extractedSections['AMORE'].join(' ')}\n\n`;
                 }
 
-                if (extractedSections['LAVORO E DENARO'].length > 0) {
-                  combinedContent += `---LAVORO_SECTION_START---\n${extractedSections['LAVORO E DENARO'].join(' ')}\n\n`;
+                if (extractedSections['LAVORO'].length > 0) {
+                  combinedContent += `---LAVORO_SECTION_START---\n${extractedSections['LAVORO'].join(' ')}\n\n`;
                 }
 
                 if (extractedSections['BENESSERE'].length > 0) {
                   combinedContent += `---SALUTE_SECTION_START---\n${extractedSections['BENESSERE'].join(' ')}\n\n`;
                 }
 
-                // If no sections were identified, just combine all paragraphs
+                // If no section markers were added, just use all paragraphs
                 if (!combinedContent.trim()) {
-                  combinedContent = allParagraphs.join('\n\n');
-                  console.log("Oggi.it - No sections identified, using all paragraphs");
+                  combinedContent = relevantParagraphs.join('\n\n');
+                  console.log("Oggi.it - No sections identified, combining all relevant paragraphs");
                 }
+
+                console.log(`Oggi.it - Final content length: ${combinedContent.length}`);
+                console.log(`Oggi.it - Sections: Generale=${extractedSections['GENERALE'].length}, Amore=${extractedSections['AMORE'].length}, Lavoro=${extractedSections['LAVORO'].length}, Benessere=${extractedSections['BENESSERE'].length}`);
 
                 if (!combinedContent.trim() || combinedContent.length < 50) {
-                  console.log("Oggi.it - Not enough content extracted");
+                  console.log("Oggi.it - Insufficient content after processing");
                   return {
                     success: false,
-                    error: `Insufficient horoscope content found for ${input.signSlugIt} (${combinedContent.length} chars)`
+                    error: `Insufficient content for ${input.signSlugIt} (${combinedContent.length} chars)`
                   };
                 }
-
-                console.log(`Oggi.it - Successfully extracted content, total length: ${combinedContent.length}`);
-                console.log(`Oggi.it - Sections found: General=${extractedSections['PREVISIONI GENERALI'].length}, Amore=${extractedSections['AMORE ED EROS'].length}, Lavoro=${extractedSections['LAVORO E DENARO'].length}, Benessere=${extractedSections['BENESSERE'].length}`);
 
                 return {
                   success: true,
