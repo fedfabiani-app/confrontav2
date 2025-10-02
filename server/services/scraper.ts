@@ -727,6 +727,118 @@ import axios from 'axios';
             }
           }
 
+          async function scrapeSkyTG24HoroscopeText(url: string, input: ScraperInput): Promise<ScrapeResult> {
+            try {
+              console.log('Sky TG24 - Starting specialized extraction for:', input.signSlugIt);
+
+              const html = await fetchHtml(url, input.userAgent);
+
+              // Clean HTML but preserve structure
+              let cleanHtml = html
+                .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+                .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+                .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
+                .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '')
+                .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '');
+
+              const zodiacNameLower = input.signSlugIt.toLowerCase();
+              let combinedSectionTexts: string[] = [];
+              
+              // Regex to find all c-article-section divs
+              const sectionDivRegex = /<div[^>]*class="[^"]*\bc-article-section\b[^"]*"[^>]*>([\s\S]*?)<\/div>/gi;
+              let match;
+
+              while ((match = sectionDivRegex.exec(cleanHtml)) !== null) {
+                let sectionHtml = match[1];
+                let sectionText = '';
+                let sectionMarker = '';
+
+                // Check for H2 headers to identify specific sections
+                if (/<h2[^>]*>\s*Amore\s*<\/h2>/i.test(sectionHtml)) {
+                  sectionMarker = '\n\n---AMORE_SECTION_START---\n';
+                  sectionText = sectionHtml.replace(/<h2[^>]*>\s*Amore\s*<\/h2>/i, '');
+                } else if (/<h2[^>]*>\s*Lavoro\s*<\/h2>/i.test(sectionHtml)) {
+                  sectionMarker = '\n\n---LAVORO_SECTION_START---\n';
+                  sectionText = sectionHtml.replace(/<h2[^>]*>\s*Lavoro\s*<\/h2>/i, '');
+                } else if (/<h2[^>]*>\s*Salute\s*<\/h2>/i.test(sectionHtml)) {
+                  sectionMarker = '\n\n---SALUTE_SECTION_START---\n';
+                  sectionText = sectionHtml.replace(/<h2[^>]*>\s*Salute\s*<\/h2>/i, '');
+                } else {
+                  sectionMarker = '\n\n---GENERAL_SECTION_START---\n';
+                  sectionText = sectionHtml;
+                }
+
+                // Clean the section HTML to plain text
+                let cleanedSectionText = sectionText
+                  .replace(/<br[^>]*>/gi, '\n')
+                  .replace(/<\/p>\s*<p[^>]*>/gi, '\n\n')
+                  .replace(/<p[^>]*>/gi, '\n')
+                  .replace(/<\/p>/gi, '\n')
+                  .replace(/<[^>]*>/g, ' ')
+                  .replace(/&nbsp;/g, ' ')
+                  .replace(/&amp;/g, '&')
+                  .replace(/&lt;/g, '<')
+                  .replace(/&gt;/g, '>')
+                  .replace(/&quot;/g, '"')
+                  .replace(/&#39;/g, "'")
+                  .replace(/&#8217;/g, "'")
+                  .replace(/&#8220;/g, '"')
+                  .replace(/&#8221;/g, '"')
+                  .replace(/&#8211;/g, '-')
+                  .replace(/&#8212;/g, '—')
+                  .replace(/&hellip;/g, '...')
+                  .replace(/&agrave;/g, 'à')
+                  .replace(/&egrave;/g, 'è')
+                  .replace(/&eacute;/g, 'é')
+                  .replace(/&igrave;/g, 'ì')
+                  .replace(/&ograve;/g, 'ò')
+                  .replace(/&ugrave;/g, 'ù')
+                  .replace(/[ \t]+/g, ' ')
+                  .replace(/\n[ \t]+/g, '\n')
+                  .replace(/\n{3,}/g, '\n\n')
+                  .trim();
+                
+                if (cleanedSectionText.length > 0) {
+                  combinedSectionTexts.push(sectionMarker + cleanedSectionText);
+                }
+              }
+
+              let extractedText = combinedSectionTexts.join('\n').trim();
+
+              console.log(`Sky TG24 - Extracted ${combinedSectionTexts.length} sections, total length: ${extractedText.length}`);
+
+              if (!extractedText || extractedText.length < 50) {
+                return {
+                  success: false,
+                  error: `No substantial horoscope content found for ${input.signSlugIt} on Sky TG24`
+                };
+              }
+
+              const score = scoreHoroscopeContent(extractedText, zodiacNameLower, 'skytg24.it');
+              console.log(`Sky TG24 - Content score: ${score}`);
+
+              if (score < 15 && extractedText.length < 100) {
+                return {
+                  success: false,
+                  error: `Extracted content quality too low (score: ${score}) for ${input.signSlugIt} on Sky TG24`
+                };
+              }
+
+              return {
+                success: true,
+                text: extractedText.substring(0, 3500),
+                url,
+                actualUrl: url
+              };
+
+            } catch (error) {
+              return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown Sky TG24 scraping error'
+              };
+            }
+          }
+
           async function scrapeHoroscopeText(url: string, input: ScraperInput): Promise<ScrapeResult> {
             try {
               console.log(`Starting scrape for ${input.signSlugIt} at URL: ${url}`);
@@ -780,127 +892,6 @@ import axios from 'axios';
                 // Use a generic h4 regex that looks for any h4 tag
                 const h4GenericRegex = /<h4[^>]*>(?:Oroscopo\s+di\s+)?[^<]*<\/h4>/gi;
                 
-
-
-async function scrapeSkyTG24HoroscopeText(url: string, input: ScraperInput): Promise<ScrapeResult> {
-  try {
-    console.log('Sky TG24 - Starting specialized extraction for:', input.signSlugIt);
-
-    const html = await fetchHtml(url, input.userAgent);
-
-    // Clean HTML but preserve structure
-    let cleanHtml = html
-      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-      .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
-      .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '')
-      .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '');
-
-    const zodiacNameLower = input.signSlugIt.toLowerCase();
-    let combinedSectionTexts: string[] = [];
-    
-    // Regex to find all c-article-section divs
-    const sectionDivRegex = /<div[^>]*class="[^"]*\bc-article-section\b[^"]*"[^>]*>([\s\S]*?)<\/div>/gi;
-    let match;
-
-    while ((match = sectionDivRegex.exec(cleanHtml)) !== null) {
-      let sectionHtml = match[1];
-      let sectionText = '';
-      let sectionMarker = '';
-
-      // Check for H2 headers to identify specific sections
-      if (/<h2[^>]*>\s*Amore\s*<\/h2>/i.test(sectionHtml)) {
-        sectionMarker = '\n\n---AMORE_SECTION_START---\n';
-        // Extract content after H2
-        sectionText = sectionHtml.replace(/<h2[^>]*>\s*Amore\s*<\/h2>/i, '');
-      } else if (/<h2[^>]*>\s*Lavoro\s*<\/h2>/i.test(sectionHtml)) {
-        sectionMarker = '\n\n---LAVORO_SECTION_START---\n';
-        // Extract content after H2
-        sectionText = sectionHtml.replace(/<h2[^>]*>\s*Lavoro\s*<\/h2>/i, '');
-      } else if (/<h2[^>]*>\s*Salute\s*<\/h2>/i.test(sectionHtml)) {
-        sectionMarker = '\n\n---SALUTE_SECTION_START---\n';
-        sectionText = sectionHtml.replace(/<h2[^>]*>\s*Salute\s*<\/h2>/i, '');
-      } else {
-        // This is the general section (overall daily horoscope)
-        sectionMarker = '\n\n---GENERAL_SECTION_START---\n';
-        sectionText = sectionHtml;
-      }
-
-      // Clean the section HTML to plain text
-      let cleanedSectionText = sectionText
-        .replace(/<br[^>]*>/gi, '\n')
-        .replace(/<\/p>\s*<p[^>]*>/gi, '\n\n')
-        .replace(/<p[^>]*>/gi, '\n')
-        .replace(/<\/p>/gi, '\n')
-        .replace(/<[^>]*>/g, ' ')
-        // Decode HTML entities
-        .replace(/&nbsp;/g, ' ')
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'")
-        .replace(/&#8217;/g, "'")
-        .replace(/&#8220;/g, '"')
-        .replace(/&#8221;/g, '"')
-        .replace(/&#8211;/g, '-')
-        .replace(/&#8212;/g, '—')
-        .replace(/&hellip;/g, '...')
-        .replace(/&agrave;/g, 'à')
-        .replace(/&egrave;/g, 'è')
-        .replace(/&eacute;/g, 'é')
-        .replace(/&igrave;/g, 'ì')
-        .replace(/&ograve;/g, 'ò')
-        .replace(/&ugrave;/g, 'ù')
-        // Clean up whitespace
-        .replace(/[ \t]+/g, ' ')
-        .replace(/\n[ \t]+/g, '\n')
-        .replace(/\n{3,}/g, '\n\n')
-        .trim();
-      
-      if (cleanedSectionText.length > 0) {
-        combinedSectionTexts.push(sectionMarker + cleanedSectionText);
-      }
-    }
-
-    let extractedText = combinedSectionTexts.join('\n').trim();
-
-    console.log(`Sky TG24 - Extracted ${combinedSectionTexts.length} sections, total length: ${extractedText.length}`);
-
-    // Validate the structured content
-    if (!extractedText || extractedText.length < 50) {
-      return {
-        success: false,
-        error: `No substantial horoscope content found for ${input.signSlugIt} on Sky TG24`
-      };
-    }
-
-    // Validate content quality
-    const score = scoreHoroscopeContent(extractedText, zodiacNameLower, 'skytg24.it');
-    console.log(`Sky TG24 - Content score: ${score}`);
-
-    if (score < 15 && extractedText.length < 100) {
-      return {
-        success: false,
-        error: `Extracted content quality too low (score: ${score}) for ${input.signSlugIt} on Sky TG24`
-      };
-    }
-
-    return {
-      success: true,
-      text: extractedText.substring(0, 3500),
-      url,
-      actualUrl: url
-    };
-
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown Sky TG24 scraping error'
-    };
-  }
-}
-
                 let h4Matches = cleanHtml.matchAll(h4GenericRegex);
                 
                 for (const matchH4 of h4Matches) {
