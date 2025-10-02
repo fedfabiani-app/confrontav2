@@ -1,0 +1,120 @@
+  // If no valid content was found with any h4, return an error
+      return {
+        success: false,
+        error: `Specific Oggi.it scraping failed for ${zodiacSign.name_italian} on ${date}. No valid horoscope content found between h4 tags and <!-- GIORNALIERO --> comment.`
+      };
+    } else if (domain.includes('gazzetta.it')) {
+      console.log("Gazzetta.it - Starting specialized extraction for:", zodiacName);
+      
+      // Enhanced Gazzetta.it extraction with multiple strategies
+      let bestContent = '';
+      let highestScore = 0;
+      
+      // Strategy 1: Look for the main article content
+      const articlePatterns = [
+        // Main article content
+        /<article[^>]*>([\s\S]*?)<\/article>/gi,
+        /<div[^>]*class="[^"]*article-content[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
+        /<div[^>]*class="[^"]*story-content[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
+        /<div[^>]*class="[^"]*content-body[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
+        // Gazzetta specific containers
+        /<div[^>]*class="[^"]*story-text[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
+        /<div[^>]*id="story-text"[^>]*>([\s\S]*?)<\/div>/gi,
+        // Generic content containers
+        /<main[^>]*>([\s\S]*?)<\/main>/gi,
+        /<section[^>]*class="[^"]*content[^"]*"[^>]*>([\s\S]*?)<\/section>/gi
+      ];
+      
+      for (const pattern of articlePatterns) {
+        const matches = cleanHtml.match(pattern);
+        if (matches) {
+          for (const match of matches) {
+            // Look for Gazzetta-style sections within the content
+            let processedContent = match;
+            
+            // Check for Gazzetta's specific section headers
+            const hasGazzettaSections = /LA TUA GIORNATA|AMORE|AMICIZIA|LAVORO|VALUTAZIONE/i.test(match);
+            if (hasGazzettaSections) {
+              console.log("Gazzetta.it - Found structured sections in content");
+              
+              // Convert Gazzetta section headers to markers
+              processedContent = processedContent
+                .replace(/(?:<[^>]*>)*\s*LA TUA GIORNATA\s*(?:<[^>]*>)*/gi, '\n\nLA TUA GIORNATA:\n')
+                .replace(/(?:<[^>]*>)*\s*AMORE\s*(?:<[^>]*>)*/gi, '\n\nAMORE:\n')
+                .replace(/(?:<[^>]*>)*\s*AMICIZIA\s*(?:<[^>]*>)*/gi, '\n\nAMICIZIA:\n')
+                .replace(/(?:<[^>]*>)*\s*LAVORO\s*(?:<[^>]*>)*/gi, '\n\nLAVORO:\n')
+                .replace(/(?:<[^>]*>)*\s*VALUTAZIONE(?:\s+GENERALE)?\s*(?:<[^>]*>)*/gi, '\n\nVALUTAZIONE:\n');
+            }
+            
+            // Clean HTML and extract text
+            let cleanContent = processedContent
+              .replace(/<br[^>]*>/gi, '\n')
+              .replace(/<\/p>\s*<p[^>]*>/gi, '\n\n')
+              .replace(/<p[^>]*>/gi, '\n')
+              .replace(/<\/p>/gi, '\n')
+              .replace(/<[^>]*>/g, ' ')
+              .replace(/&nbsp;/g, ' ')
+              .replace(/&amp;/g, '&')
+              .replace(/&lt;/g, '<')
+              .replace(/&gt;/g, '>')
+              .replace(/&quot;/g, '"')
+              .replace(/&#39;/g, "'")
+              .replace(/&#8217;/g, "'")
+              .replace(/&#8220;/g, '"')
+              .replace(/&#8221;/g, '"')
+              .replace(/&#8211;/g, '-')
+              .replace(/&#8212;/g, '—')
+              .replace(/&hellip;/g, '...')
+              .replace(/[ \t]+/g, ' ')
+              .replace(/\n[ \t]+/g, '\n')
+              .replace(/\n{3,}/g, '\n\n')
+              .trim();
+            
+            // Score this content
+            if (cleanContent.length > 50) {
+              const currentScore = scoreHoroscopeContent(cleanContent, zodiacName, domain);
+              console.log(`Gazzetta.it - Content candidate scored ${currentScore} (length: ${cleanContent.length})`);
+              
+              if (currentScore > highestScore) {
+                highestScore = currentScore;
+                bestContent = cleanContent;
+              }
+            }
+          }
+        }
+      }
+      
+      // Strategy 2: If no good content found, try paragraph extraction
+      if (!bestContent || highestScore < 30) {
+        console.log("Gazzetta.it - Trying paragraph extraction fallback");
+        
+        const paragraphPattern = /<p[^>]*>([^<]*(?:<[^>]*>[^<]*)*)<\/p>/gi;
+        const paragraphs = [];
+        let match;
+        
+        while ((match = paragraphPattern.exec(cleanHtml)) !== null) {
+          const pContent = match[1]
+            .replace(/<[^>]*>/g, ' ')
+            .replace(/&[^;]+;/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+          
+          if (pContent.length > 20 && scoreHoroscopeContent(pContent, zodiacName, domain) > 15) {
+            paragraphs.push(pContent);
+          }
+        }
+        
+        if (paragraphs.length > 0) {
+          const combinedContent = paragraphs.join('\n\n');
+          const combinedScore = scoreHoroscopeContent(combinedContent, zodiacName, domain);
+          
+          if (combinedScore > highestScore) {
+            bestContent = combinedContent;
+            highestScore = combinedScore;
+          }
+        }
+      }
+      
+      extractedText = bestContent;
+      console.log(`Gazzetta.it - Final extraction score: ${highestScore}, length: ${extractedText.length}`);
+      

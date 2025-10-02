@@ -58,7 +58,7 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
           role: 'system',
           content: `Sei un esperto analista di oroscopi italiani specializzato nell'interpretazione di contenuti da fonti giornalistiche sportive e mainstream. Analizza esclusivamente il testo dell'oroscopo fornito come input, senza usare conoscenza esterna.
 
-OBIETTIVO: Estrarre il massimo significato dal testo per produrre riassunti dettagliati e valutazioni accurate che riflettano il vero sentiment del contenuto.
+OBIETTIVO: Estrarre il massimo significato dal testo per produrre riassunti dettagliati e valutazioni accurate che riflettano il vero sentiment del contenuto, che provino ad includere le tre categorie principali (amore/relazioni, lavoro, benessere) e che NON violino MAI il copyright delle fonti.
 
 Regole di inclusione/esclusione:
 - Ignora elementi non di contenuto: menu, navigation, cookie/privacy, pubblicità, link correlati, social, newsletter, disclaimer, header/footer, metadati, date/crediti
