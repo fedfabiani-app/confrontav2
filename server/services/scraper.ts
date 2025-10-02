@@ -773,17 +773,63 @@ import axios from 'axios';
                 console.log("Oggi.it - Starting extraction for:", zodiacName);
                 console.log("Oggi.it - URL being scraped:", url);
 
-                // Extract all paragraphs directly from the cleaned HTML
-                // Don't rely on finding a specific container first
+                // Step 1: Find the zodiac sign in <h2 class="entry-title">
+                const h2EntryTitleRegex = /<h2[^>]*class="[^"]*entry-title[^"]*"[^>]*>([\s\S]*?)<\/h2>/i;
+                const h2Match = cleanHtml.match(h2EntryTitleRegex);
+                
+                if (!h2Match) {
+                  console.log("Oggi.it - Could not find h2.entry-title");
+                  return {
+                    success: false,
+                    error: `Could not find h2.entry-title for ${input.signSlugIt} on Oggi.it`
+                  };
+                }
+
+                const h2Content = h2Match[1].replace(/<[^>]*>/g, ' ').trim();
+                console.log(`Oggi.it - Found h2.entry-title: "${h2Content}"`);
+
+                // Verify it contains the zodiac sign
+                if (!h2Content.toLowerCase().includes(zodiacName)) {
+                  console.log(`Oggi.it - h2.entry-title does not contain zodiac sign "${zodiacName}"`);
+                  return {
+                    success: false,
+                    error: `h2.entry-title does not contain zodiac sign for ${input.signSlugIt}`
+                  };
+                }
+
+                // Step 2: Find the date in <h4> that appears after the h2
+                const h2Index = cleanHtml.indexOf(h2Match[0]);
+                const htmlAfterH2 = cleanHtml.substring(h2Index + h2Match[0].length);
+                
+                const h4DateRegex = /<h4[^>]*>([\s\S]*?)<\/h4>/i;
+                const h4Match = htmlAfterH2.match(h4DateRegex);
+                
+                if (!h4Match) {
+                  console.log("Oggi.it - Could not find h4 with date after h2.entry-title");
+                  return {
+                    success: false,
+                    error: `Could not find h4 date for ${input.signSlugIt} on Oggi.it`
+                  };
+                }
+
+                const h4Content = h4Match[1].replace(/<[^>]*>/g, ' ').trim();
+                console.log(`Oggi.it - Found h4 date: "${h4Content}"`);
+
+                // Step 3: Extract all <p> tags that appear after the h4 date
+                const h4Index = htmlAfterH2.indexOf(h4Match[0]);
+                const htmlAfterH4 = htmlAfterH2.substring(h4Index + h4Match[0].length);
+
                 const pTagRegex = /<p[^>]*>([\s\S]*?)<\/p>/gi;
                 let allParagraphs: string[] = [];
                 let matchP;
 
-                while ((matchP = pTagRegex.exec(cleanHtml)) !== null) {
+                while ((matchP = pTagRegex.exec(htmlAfterH4)) !== null) {
                   if (matchP[1]) {
                     let paragraphContent = matchP[1]
+                      // Clean HTML tags
                       .replace(/<br\s*\/?>/gi, '\n')
                       .replace(/<[^>]*>/g, ' ')
+                      // Decode HTML entities
                       .replace(/&nbsp;/g, ' ')
                       .replace(/&amp;/g, '&')
                       .replace(/&lt;/g, '<')
@@ -796,11 +842,19 @@ import axios from 'axios';
                       .replace(/&#8211;/g, '-')
                       .replace(/&#8212;/g, '—')
                       .replace(/&hellip;/g, '...')
+                      .replace(/&agrave;/g, 'à')
+                      .replace(/&egrave;/g, 'è')
+                      .replace(/&eacute;/g, 'é')
+                      .replace(/&igrave;/g, 'ì')
+                      .replace(/&ograve;/g, 'ò')
+                      .replace(/&ugrave;/g, 'ù')
+                      // Clean up whitespace
                       .replace(/\s+/g, ' ')
+                      .replace(/\n\s+/g, '\n')
                       .trim();
 
-                    // Filter out very short content and obvious navigation
-                    const isNavigation = /^(menu|naviga|cookie|privacy|leggi anche|condividi|share|login|registrati|abbonati)/i.test(paragraphContent);
+                    // Filter out navigation and very short content
+                    const isNavigation = /^(menu|naviga|cookie|privacy|leggi anche|condividi|share|login|registrati|abbonati|tags?:|categor)/i.test(paragraphContent);
                     const isSubstantial = paragraphContent.length > 20;
                     
                     if (!isNavigation && isSubstantial) {
@@ -810,42 +864,17 @@ import axios from 'axios';
                   }
                 }
 
-                console.log(`Oggi.it - Total paragraphs found: ${allParagraphs.length}`);
+                console.log(`Oggi.it - Total paragraphs extracted: ${allParagraphs.length}`);
 
                 if (allParagraphs.length === 0) {
-                  console.log("Oggi.it - No paragraphs found in HTML");
+                  console.log("Oggi.it - No paragraphs found after h4 date");
                   return {
                     success: false,
-                    error: `No paragraphs found for ${input.signSlugIt} on Oggi.it`
+                    error: `No paragraphs found after h4 date for ${input.signSlugIt} on Oggi.it`
                   };
                 }
 
-                // Filter paragraphs that likely belong to horoscope content
-                // Look for paragraphs that mention the zodiac sign or have horoscope keywords
-                let relevantParagraphs = allParagraphs.filter(p => {
-                  const hasZodiacMention = p.toLowerCase().includes(zodiacName);
-                  const hasHoroscopeKeywords = /\b(stelle|fortuna|giornata|energia|amore|lavoro|salute|eros|denaro|benessere)\b/i.test(p);
-                  const isLongEnough = p.length > 30;
-                  return isLongEnough && (hasZodiacMention || hasHoroscopeKeywords);
-                });
-
-                console.log(`Oggi.it - Relevant paragraphs after filtering: ${relevantParagraphs.length}`);
-
-                // If we have very few relevant paragraphs, be more lenient
-                if (relevantParagraphs.length < 3) {
-                  console.log("Oggi.it - Few relevant paragraphs found, using all substantial paragraphs");
-                  relevantParagraphs = allParagraphs.filter(p => p.length > 30);
-                }
-
-                if (relevantParagraphs.length === 0) {
-                  console.log("Oggi.it - No relevant content found");
-                  return {
-                    success: false,
-                    error: `No horoscope content found for ${input.signSlugIt} on Oggi.it`
-                  };
-                }
-
-                // Try to identify sections
+                // Try to identify sections based on short paragraphs with section keywords
                 let extractedSections: Record<string, string[]> = {
                   'GENERALE': [],
                   'AMORE': [],
@@ -855,10 +884,8 @@ import axios from 'axios';
 
                 let currentSection = 'GENERALE';
                 
-                for (const paragraph of relevantParagraphs) {
-                  const lowerPara = paragraph.toLowerCase();
-                  
-                  // Check if this is a section header
+                for (const paragraph of allParagraphs) {
+                  // Check if this is a section header (short paragraph with section keyword)
                   if (paragraph.length < 50) {
                     if (/amore|eros/i.test(paragraph)) {
                       currentSection = 'AMORE';
@@ -900,8 +927,8 @@ import axios from 'axios';
 
                 // If no section markers were added, just use all paragraphs
                 if (!combinedContent.trim()) {
-                  combinedContent = relevantParagraphs.join('\n\n');
-                  console.log("Oggi.it - No sections identified, combining all relevant paragraphs");
+                  combinedContent = allParagraphs.join('\n\n');
+                  console.log("Oggi.it - No sections identified, combining all paragraphs");
                 }
 
                 console.log(`Oggi.it - Final content length: ${combinedContent.length}`);
