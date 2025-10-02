@@ -1,0 +1,88 @@
+  // Try domain-specific patterns first
+    if (domain.includes('oggi.it')) {
+      console.log("Oggi.it - Starting specialized extraction for:", zodiacName);
+      
+      // Use a more generic h4 regex that looks for any h4 tag that might contain horoscope content
+      // This could be "Oroscopo di [weekday] [date]" or similar variations
+      const h4GenericRegex = /<h4[^>]*>(?:Oroscopo\s+di\s+)?[^<]*<\/h4>/gi;
+      
+      let h4Matches = cleanHtml.matchAll(h4GenericRegex);
+      
+      for (const matchH4 of h4Matches) {
+        if (matchH4.index === undefined) continue;
+        
+        console.log(`Oggi.it - Found h4 tag: ${matchH4[0]}`);
+        
+        // Find the <!-- GIORNALIERO --> comment AFTER this H4 tag
+        const commentStartIndex = cleanHtml.indexOf('<!-- GIORNALIERO -->', matchH4.index);
+
+        let contentToSearch = '';
+        if (commentStartIndex !== -1) {
+          // If the comment is found after the H4, restrict the search scope up to the comment
+          contentToSearch = cleanHtml.substring(matchH4.index + matchH4[0].length, commentStartIndex);
+          console.log(`Oggi.it - Found <!-- GIORNALIERO --> comment at index ${commentStartIndex}. Restricting search scope.`);
+        } else {
+          // If the comment is not found after the H4, search from H4 till the end of the HTML (as a fallback)
+          contentToSearch = cleanHtml.substring(matchH4.index + matchH4[0].length);
+          console.log(`Oggi.it - <!-- GIORNALIERO --> comment not found after H4. Searching till end.`);
+        }
+        
+        // Find the first <p> tag within this restricted content
+        const pTagRegex = /<p[^>]*>([\s\S]*?)<\/p>/i; 
+        let matchP = contentToSearch.match(pTagRegex);
+        
+        if (matchP && matchP[1]) {
+          // The content of the paragraph
+          let extractedParagraphContent = matchP[1];
+          
+          // Clean the content: convert <br> tags to newlines, remove any other HTML tags, and normalize whitespace
+          extractedParagraphContent = extractedParagraphContent
+            .replace(/<br\s*\/?>/gi, '\n') // Convert <br> or <br/> to single newline
+            .replace(/<[^>]*>/g, ' ')     // Remove any other HTML tags (e.g., strong, em)
+            // Decode common HTML entities
+            .replace(/&nbsp;/g, ' ')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'")
+            .replace(/&#8217;/g, "'")
+            .replace(/&#8220;/g, '"')
+            .replace(/&#8221;/g, '"')
+            .replace(/&#8211;/g, '-')
+            .replace(/&#8212;/g, '—')
+            .replace(/&hellip;/g, '...')
+            .replace(/\s+/g, ' ') // Consolidate multiple spaces
+            .trim();
+          
+          // Validate that the extracted content contains the zodiac sign we're looking for
+          const hasZodiacSign = extractedParagraphContent.toLowerCase().includes(zodiacName);
+          const hasHoroscopeContent = /\b(oroscopo|previsioni|stelle|fortuna|amore|lavoro|salute|giornata|energia|periodo)\b/i.test(extractedParagraphContent);
+          
+          if (hasZodiacSign || (hasHoroscopeContent && extractedParagraphContent.length > 50)) {
+            extractedText = extractedParagraphContent;
+            console.log(`Oggi.it - Successfully extracted and validated content from paragraph.`);
+            console.log(`Oggi.it - Extracted text (first 200 chars): ${extractedText.substring(0, 200)}`);
+            
+            // If successful, return the result directly
+            return {
+              success: true,
+              text: extractedText.substring(0, 3500), // Limit text length for OpenAI
+              url,
+              actualUrl: url
+            };
+          } else {
+            console.log(`Oggi.it - Content validation failed. Zodiac sign found: ${hasZodiacSign}, Horoscope content: ${hasHoroscopeContent}`);
+          }
+        } else {
+          console.log(`Oggi.it - Could not find paragraph within the specified range for this h4.`);
+        }
+      }
+      
+      // If no valid content was found with any h4, return an error
+      return {
+        success: false,
+        error: `Specific Oggi.it scraping failed for ${zodiacSign.name_italian} on ${date}. No valid horoscope content found between h4 tags and <!-- GIORNALIERO --> comment.`
+      };
+    } else if (domain.includes('gazzetta.it')) {
+      console.log("Gazzetta.it - Starting specialized extraction for:", zodiacName);
