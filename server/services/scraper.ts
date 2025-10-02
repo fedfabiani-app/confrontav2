@@ -770,183 +770,150 @@ import axios from 'axios';
 
               // Source-specific extraction strategies
               if (domain.includes('oggi.it')) {
-                console.log("Oggi.it - Starting extraction for:", zodiacName);
-                console.log("Oggi.it - URL being scraped:", url);
-
-                // Step 1: Find the zodiac sign in <h2 class="entry-title">
-                const h2EntryTitleRegex = /<h2[^>]*class="[^"]*entry-title[^"]*"[^>]*>([\s\S]*?)<\/h2>/i;
-                const h2Match = cleanHtml.match(h2EntryTitleRegex);
+                console.log("Oggi.it - Starting specialized extraction for:", zodiacName);
                 
-                if (!h2Match) {
-                  console.log("Oggi.it - Could not find h2.entry-title");
-                  return {
-                    success: false,
-                    error: `Could not find h2.entry-title for ${input.signSlugIt} on Oggi.it`
-                  };
-                }
-
-                const h2Content = h2Match[1].replace(/<[^>]*>/g, ' ').trim();
-                console.log(`Oggi.it - Found h2.entry-title: "${h2Content}"`);
-
-                // Verify it contains the zodiac sign
-                if (!h2Content.toLowerCase().includes(zodiacName)) {
-                  console.log(`Oggi.it - h2.entry-title does not contain zodiac sign "${zodiacName}"`);
-                  return {
-                    success: false,
-                    error: `h2.entry-title does not contain zodiac sign for ${input.signSlugIt}`
-                  };
-                }
-
-                // Step 2: Find the date in <h4> that appears after the h2
-                const h2Index = cleanHtml.indexOf(h2Match[0]);
-                const htmlAfterH2 = cleanHtml.substring(h2Index + h2Match[0].length);
+                // Use a generic h4 regex that looks for any h4 tag
+                const h4GenericRegex = /<h4[^>]*>(?:Oroscopo\s+di\s+)?[^<]*<\/h4>/gi;
                 
-                const h4DateRegex = /<h4[^>]*>([\s\S]*?)<\/h4>/i;
-                const h4Match = htmlAfterH2.match(h4DateRegex);
+                let h4Matches = cleanHtml.matchAll(h4GenericRegex);
                 
-                if (!h4Match) {
-                  console.log("Oggi.it - Could not find h4 with date after h2.entry-title");
-                  return {
-                    success: false,
-                    error: `Could not find h4 date for ${input.signSlugIt} on Oggi.it`
-                  };
-                }
+                for (const matchH4 of h4Matches) {
+                  if (matchH4.index === undefined) continue;
+                  
+                  console.log(`Oggi.it - Found h4 tag: ${matchH4[0]}`);
+                  
+                  // Find the <!-- GIORNALIERO --> comment AFTER this H4 tag
+                  const commentStartIndex = cleanHtml.indexOf('<!-- GIORNALIERO -->', matchH4.index);
 
-                const h4Content = h4Match[1].replace(/<[^>]*>/g, ' ').trim();
-                console.log(`Oggi.it - Found h4 date: "${h4Content}"`);
-
-                // Step 3: Extract all <p> tags that appear after the h4 date
-                const h4Index = htmlAfterH2.indexOf(h4Match[0]);
-                const htmlAfterH4 = htmlAfterH2.substring(h4Index + h4Match[0].length);
-
-                const pTagRegex = /<p[^>]*>([\s\S]*?)<\/p>/gi;
-                let allParagraphs: string[] = [];
-                let matchP;
-
-                while ((matchP = pTagRegex.exec(htmlAfterH4)) !== null) {
-                  if (matchP[1]) {
-                    let paragraphContent = matchP[1]
-                      // Clean HTML tags
-                      .replace(/<br\s*\/?>/gi, '\n')
-                      .replace(/<[^>]*>/g, ' ')
-                      // Decode HTML entities
-                      .replace(/&nbsp;/g, ' ')
-                      .replace(/&amp;/g, '&')
-                      .replace(/&lt;/g, '<')
-                      .replace(/&gt;/g, '>')
-                      .replace(/&quot;/g, '"')
-                      .replace(/&#39;/g, "'")
-                      .replace(/&#8217;/g, "'")
-                      .replace(/&#8220;/g, '"')
-                      .replace(/&#8221;/g, '"')
-                      .replace(/&#8211;/g, '-')
-                      .replace(/&#8212;/g, '—')
-                      .replace(/&hellip;/g, '...')
-                      .replace(/&agrave;/g, 'à')
-                      .replace(/&egrave;/g, 'è')
-                      .replace(/&eacute;/g, 'é')
-                      .replace(/&igrave;/g, 'ì')
-                      .replace(/&ograve;/g, 'ò')
-                      .replace(/&ugrave;/g, 'ù')
-                      // Clean up whitespace
-                      .replace(/\s+/g, ' ')
-                      .replace(/\n\s+/g, '\n')
-                      .trim();
-
-                    // Filter out navigation and very short content
-                    const isNavigation = /^(menu|naviga|cookie|privacy|leggi anche|condividi|share|login|registrati|abbonati|tags?:|categor)/i.test(paragraphContent);
-                    const isSubstantial = paragraphContent.length > 20;
-                    
-                    if (!isNavigation && isSubstantial) {
-                      allParagraphs.push(paragraphContent);
-                      console.log(`Oggi.it - Found paragraph (${paragraphContent.length} chars): ${paragraphContent.substring(0, 80)}...`);
-                    }
+                  let contentToSearch = '';
+                  if (commentStartIndex !== -1) {
+                    // If the comment is found after the H4, restrict the search scope up to the comment
+                    contentToSearch = cleanHtml.substring(matchH4.index + matchH4[0].length, commentStartIndex);
+                    console.log(`Oggi.it - Found <!-- GIORNALIERO --> comment at index ${commentStartIndex}. Restricting search scope.`);
+                  } else {
+                    // If the comment is not found after the H4, search from H4 till the end of the HTML (as a fallback)
+                    contentToSearch = cleanHtml.substring(matchH4.index + matchH4[0].length);
+                    console.log(`Oggi.it - <!-- GIORNALIERO --> comment not found after H4. Searching till end.`);
                   }
-                }
+                  
+                  // Find all <p> tags within this restricted content
+                  const pTagRegex = /<p[^>]*>([\s\S]*?)<\/p>/gi;
+                  let allParagraphs: string[] = [];
+                  let matchP;
+                  
+                  while ((matchP = pTagRegex.exec(contentToSearch)) !== null) {
+                    if (matchP[1]) {
+                      let paragraphContent = matchP[1]
+                        // Clean HTML tags
+                        .replace(/<br\s*\/?>/gi, '\n')
+                        .replace(/<[^>]*>/g, ' ')
+                        // Decode HTML entities
+                        .replace(/&nbsp;/g, ' ')
+                        .replace(/&amp;/g, '&')
+                        .replace(/&lt;/g, '<')
+                        .replace(/&gt;/g, '>')
+                        .replace(/&quot;/g, '"')
+                        .replace(/&#39;/g, "'")
+                        .replace(/&#8217;/g, "'")
+                        .replace(/&#8220;/g, '"')
+                        .replace(/&#8221;/g, '"')
+                        .replace(/&#8211;/g, '-')
+                        .replace(/&#8212;/g, '—')
+                        .replace(/&hellip;/g, '...')
+                        .replace(/&agrave;/g, 'à')
+                        .replace(/&egrave;/g, 'è')
+                        .replace(/&eacute;/g, 'é')
+                        .replace(/&igrave;/g, 'ì')
+                        .replace(/&ograve;/g, 'ò')
+                        .replace(/&ugrave;/g, 'ù')
+                        // Clean up whitespace
+                        .replace(/\s+/g, ' ')
+                        .trim();
 
-                console.log(`Oggi.it - Total paragraphs extracted: ${allParagraphs.length}`);
-
-                if (allParagraphs.length === 0) {
-                  console.log("Oggi.it - No paragraphs found after h4 date");
-                  return {
-                    success: false,
-                    error: `No paragraphs found after h4 date for ${input.signSlugIt} on Oggi.it`
-                  };
-                }
-
-                // Try to identify sections based on short paragraphs with section keywords
-                let extractedSections: Record<string, string[]> = {
-                  'GENERALE': [],
-                  'AMORE': [],
-                  'LAVORO': [],
-                  'BENESSERE': []
-                };
-
-                let currentSection = 'GENERALE';
-                
-                for (const paragraph of allParagraphs) {
-                  // Check if this is a section header (short paragraph with section keyword)
-                  if (paragraph.length < 50) {
-                    if (/amore|eros/i.test(paragraph)) {
-                      currentSection = 'AMORE';
-                      console.log(`Oggi.it - Detected AMORE section: "${paragraph}"`);
-                      continue;
-                    } else if (/lavoro|denaro/i.test(paragraph)) {
-                      currentSection = 'LAVORO';
-                      console.log(`Oggi.it - Detected LAVORO section: "${paragraph}"`);
-                      continue;
-                    } else if (/benessere|salute/i.test(paragraph)) {
-                      currentSection = 'BENESSERE';
-                      console.log(`Oggi.it - Detected BENESSERE section: "${paragraph}"`);
-                      continue;
+                      // Filter out navigation and very short content
+                      const isNavigation = /^(menu|naviga|cookie|privacy|leggi anche|condividi|share|login|registrati|abbonati|tags?:|categor)/i.test(paragraphContent);
+                      const isSubstantial = paragraphContent.length > 20;
+                      
+                      if (!isNavigation && isSubstantial) {
+                        allParagraphs.push(paragraphContent);
+                      }
                     }
                   }
                   
-                  // Add paragraph to current section
-                  extractedSections[currentSection].push(paragraph);
+                  // Validate that the extracted content contains the zodiac sign or horoscope keywords
+                  const combinedText = allParagraphs.join(' ');
+                  const hasZodiacSign = combinedText.toLowerCase().includes(zodiacName);
+                  const hasHoroscopeContent = /\b(oroscopo|previsioni|stelle|fortuna|amore|lavoro|salute|giornata|energia|periodo)\b/i.test(combinedText);
+                  
+                  if ((hasZodiacSign || hasHoroscopeContent) && combinedText.length > 50) {
+                    console.log(`Oggi.it - Successfully extracted and validated content from ${allParagraphs.length} paragraphs.`);
+                    
+                    // Try to identify sections
+                    let extractedSections: Record<string, string[]> = {
+                      'GENERALE': [],
+                      'AMORE': [],
+                      'LAVORO': [],
+                      'BENESSERE': []
+                    };
+
+                    let currentSection = 'GENERALE';
+                    
+                    for (const paragraph of allParagraphs) {
+                      // Check if this is a section header
+                      if (paragraph.length < 50) {
+                        if (/amore|eros/i.test(paragraph)) {
+                          currentSection = 'AMORE';
+                          continue;
+                        } else if (/lavoro|denaro/i.test(paragraph)) {
+                          currentSection = 'LAVORO';
+                          continue;
+                        } else if (/benessere|salute/i.test(paragraph)) {
+                          currentSection = 'BENESSERE';
+                          continue;
+                        }
+                      }
+                      
+                      extractedSections[currentSection].push(paragraph);
+                    }
+
+                    // Build combined content with section markers
+                    let finalContent = '';
+
+                    if (extractedSections['GENERALE'].length > 0) {
+                      finalContent += extractedSections['GENERALE'].join(' ') + '\n\n';
+                    }
+
+                    if (extractedSections['AMORE'].length > 0) {
+                      finalContent += `---AMORE_SECTION_START---\n${extractedSections['AMORE'].join(' ')}\n\n`;
+                    }
+
+                    if (extractedSections['LAVORO'].length > 0) {
+                      finalContent += `---LAVORO_SECTION_START---\n${extractedSections['LAVORO'].join(' ')}\n\n`;
+                    }
+
+                    if (extractedSections['BENESSERE'].length > 0) {
+                      finalContent += `---SALUTE_SECTION_START---\n${extractedSections['BENESSERE'].join(' ')}\n\n`;
+                    }
+
+                    if (!finalContent.trim()) {
+                      finalContent = allParagraphs.join('\n\n');
+                    }
+
+                    return {
+                      success: true,
+                      text: finalContent.trim().substring(0, 3500),
+                      url,
+                      actualUrl: url
+                    };
+                  } else {
+                    console.log(`Oggi.it - Content validation failed for this h4. Zodiac sign found: ${hasZodiacSign}, Horoscope content: ${hasHoroscopeContent}`);
+                  }
                 }
-
-                // Build combined content with section markers
-                let combinedContent = '';
-
-                if (extractedSections['GENERALE'].length > 0) {
-                  combinedContent += extractedSections['GENERALE'].join(' ') + '\n\n';
-                }
-
-                if (extractedSections['AMORE'].length > 0) {
-                  combinedContent += `---AMORE_SECTION_START---\n${extractedSections['AMORE'].join(' ')}\n\n`;
-                }
-
-                if (extractedSections['LAVORO'].length > 0) {
-                  combinedContent += `---LAVORO_SECTION_START---\n${extractedSections['LAVORO'].join(' ')}\n\n`;
-                }
-
-                if (extractedSections['BENESSERE'].length > 0) {
-                  combinedContent += `---SALUTE_SECTION_START---\n${extractedSections['BENESSERE'].join(' ')}\n\n`;
-                }
-
-                // If no section markers were added, just use all paragraphs
-                if (!combinedContent.trim()) {
-                  combinedContent = allParagraphs.join('\n\n');
-                  console.log("Oggi.it - No sections identified, combining all paragraphs");
-                }
-
-                console.log(`Oggi.it - Final content length: ${combinedContent.length}`);
-                console.log(`Oggi.it - Sections: Generale=${extractedSections['GENERALE'].length}, Amore=${extractedSections['AMORE'].length}, Lavoro=${extractedSections['LAVORO'].length}, Benessere=${extractedSections['BENESSERE'].length}`);
-
-                if (!combinedContent.trim() || combinedContent.length < 50) {
-                  console.log("Oggi.it - Insufficient content after processing");
-                  return {
-                    success: false,
-                    error: `Insufficient content for ${input.signSlugIt} (${combinedContent.length} chars)`
-                  };
-                }
-
+                
+                // If no valid content was found with any h4, return an error
                 return {
-                  success: true,
-                  text: combinedContent.trim().substring(0, 3500),
-                  url,
-                  actualUrl: url
+                  success: false,
+                  error: `Specific Oggi.it scraping failed for ${input.signSlugIt}. No valid horoscope content found between h4 tags and <!-- GIORNALIERO --> comment.`
                 };
               }
 
