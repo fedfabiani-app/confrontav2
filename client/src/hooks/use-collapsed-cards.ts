@@ -66,6 +66,6 @@ export function useCollapsedCards() {
     collapsedCards,
     toggleCollapsed,
     initializeCollapsedState,
-    isCollapsed: (signEnglish: string) => collapsedCards[signEnglish] ?? false
+    isCollapsed: (signEnglish: string) => collapsedCards[signEnglish] ?? true
   };
 }
