@@ -1,4 +1,4 @@
-                                  import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
                                   import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
                                   import { Button } from "@/components/ui/button";
                                   import { Card, CardContent } from "@/components/ui/card";
@@ -571,9 +571,13 @@
                                           {!horoscopesLoading && horoscopes.length > 0 && (
                                             <div className="space-y-4 mb-8">
                                               <h2 className="text-xl font-semibold text-card-foreground mb-4">Tutti gli Oroscopi di oggi</h2>
-                                              {reorderSources(horoscopes)
-                                                .sort((a, b) => a.source.name.localeCompare(b.source.name))
-                                                .map((horoscope) => {
+                                              {(() => {
+                                                // First sort alphabetically, then reorder to pin favorites
+                                                const sortedHoroscopes = [...horoscopes].sort((a, b) => 
+                                                  a.source.name.localeCompare(b.source.name)
+                                                );
+                                                return reorderSources(sortedHoroscopes);
+                                              })().map((horoscope) => {
                                                 const isCollapsed = collapsedCards[horoscope.source.id] ?? true;
 
                                                 return (
