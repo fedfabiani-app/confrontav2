@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { HOROSCOPE_SOURCES } from '../shared/constants';
+import XLSX from 'xlsx';
 
 const prisma = new PrismaClient();
 
@@ -49,6 +50,34 @@ async function main() {
   }
 
   console.log('Sources seeded');
+
+  // Seed weekly sources from Excel file
+  try {
+    const workbook = XLSX.readFile('attached_assets/weekly_source_1759745594382.xlt');
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const weeklySources = XLSX.utils.sheet_to_json(sheet);
+
+    for (const source of weeklySources as any[]) {
+      await prisma.weeklySource.upsert({
+        where: { domain: source.domain },
+        update: {},
+        create: {
+          name: source.name,
+          domain: source.domain,
+          logo_url: source.logo_url || null,
+          base_url: source.base_url,
+          url_pattern: source.url_pattern,
+          reliability_score: 3.5, // Default reliability score
+          is_active: true,
+        },
+      });
+    }
+
+    console.log(`Weekly sources seeded (${weeklySources.length} sources)`);
+  } catch (error) {
+    console.error('Error seeding weekly sources:', error);
+  }
 
   // Create demo user
   await prisma.user.upsert({
