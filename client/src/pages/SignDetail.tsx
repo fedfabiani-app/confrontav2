@@ -647,7 +647,7 @@ export default function SignDetail({ sign }: SignDetailProps) {
         )}
 
         {/* Individual Source Cards */}
-        {!horoscopesLoading && horoscopes.length > 0 && (
+        {!horoscopesLoading && horoscopes.length > 0 ? (
           <div className="space-y-4 mb-8">
             <h2 className="text-xl font-semibold text-[#F0C169] mb-4">
               {selectedTab === 'daily' ? 'Tutti gli Oroscopi di oggi' : 'Tutti gli Oroscopi della settimana'}
@@ -825,11 +825,9 @@ export default function SignDetail({ sign }: SignDetailProps) {
               );
             })}
           </div>
-        )}
-
-        {/* No data state */}
-        {!horoscopesLoading && horoscopes.length === 0 && (
-          <Card>
+        ) : !horoscopesLoading ? (
+          /* No data state */
+          <Card className="mb-8">
             <CardContent className="p-8">
               <h3 className="text-lg font-semibold mb-2">
                 Nessun dato disponibile
@@ -839,17 +837,9 @@ export default function SignDetail({ sign }: SignDetailProps) {
                   ? 'Non ci sono previsioni disponibili per oggi. Prova ad aggiornare i dati.'
                   : 'Non ci sono previsioni settimanali disponibili. Prova ad aggiornare i dati.'}
               </p>
-              <Button
-                onClick={() => refreshSignMutation.mutate()}
-                className="bg-gradient-to-r from-orange-500 to-red-500 text-white"
-                data-testid="button-refresh-empty"
-              >
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Aggiorna Dati
-              </Button>
             </CardContent>
           </Card>
-        )}
+        ) : null}
 
         {/* Refresh Button - Always visible */}
         <div className="flex justify-center mt-8">
