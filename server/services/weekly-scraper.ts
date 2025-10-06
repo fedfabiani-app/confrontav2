@@ -174,7 +174,7 @@ async function findSuperGuidaTVWeeklyUrl(input: WeeklyScraperInput): Promise<str
   }
 }
 
-async function findMarieClaire WeeklyUrl(input: WeeklyScraperInput): Promise<string | null> {
+async function findMarieClairWeeklyUrl(input: WeeklyScraperInput): Promise<string | null> {
   try {
     const archiveUrl = 'https://www.marieclaire.it/oroscopo/';
     console.log(`[WeeklyScraper] Searching Marie Claire archive: ${archiveUrl}`);
@@ -387,7 +387,7 @@ export async function scrapeWeeklyHoroscope(input: WeeklyScraperInput): Promise<
     }
     // Special handling for Marie Claire - find URL from archive
     else if (input.domain.includes('marieclaire.it')) {
-      const foundUrl = await findMarieClaire WeeklyUrl(input);
+      const foundUrl = await findMarieClairWeeklyUrl(input);
       if (!foundUrl) {
         throw new Error('Could not find current week\'s horoscope URL in Marie Claire archive');
       }
