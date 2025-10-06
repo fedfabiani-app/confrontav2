@@ -1,6 +1,6 @@
 import axios from 'axios';
           import * as cheerio from 'cheerio';
-          import { ScraperInput, ScraperOutput, scraperOutputSchema } from '@shared/schema';
+          import { ScraperInput, ScraperOutput, scraperOutputSchema, WeeklyScraperInput, WeeklyScraperOutput, weeklyScraperOutputSchema } from '@shared/schema';
           import { ITALIAN_WEEKDAYS, ITALIAN_MONTHS } from '@shared/constants';
 
           // Rate limiting and domain backoff
@@ -1156,6 +1156,130 @@ import axios from 'axios';
                 // Exponential backoff
                 const delay = Math.pow(2, attempt) * 1000;
                 console.log(`Scraping attempt ${attempt} failed for ${input.sourceName}, retrying in ${delay}ms...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+              }
+            }
+
+            throw lastError!;
+          }
+
+          // Weekly horoscope URL building
+          function buildWeeklyHoroscopeUrl(input: WeeklyScraperInput): string {
+            const signMap: Record<string, string> = {
+              'Ariete': 'ariete', 'Toro': 'toro', 'Gemelli': 'gemelli', 'Cancro': 'cancro',
+              'Leone': 'leone', 'Vergine': 'vergine', 'Bilancia': 'bilancia', 'Scorpione': 'scorpione',
+              'Sagittario': 'sagittario', 'Capricorno': 'capricorno', 'Acquario': 'acquario', 'Pesci': 'pesci'
+            };
+
+            let url = input.baseUrl + input.urlPattern;
+            
+            // Parse week start and end dates
+            const weekStart = new Date(input.weekStartDate);
+            const weekEnd = new Date(input.weekEndDate);
+
+            // Standard sign replacement
+            const signSlug = signMap[input.signSlugIt] || input.signSlugIt.toLowerCase();
+            url = url.replace('{sign}', signSlug);
+
+            // Week start date components
+            const startDay = weekStart.getDate();
+            const startMonth = weekStart.getMonth();
+            const startYear = weekStart.getFullYear();
+            const startWeekday = ITALIAN_WEEKDAYS[weekStart.getDay()];
+            const startMonthName = ITALIAN_MONTHS[startMonth];
+
+            // Week end date components
+            const endDay = weekEnd.getDate();
+            const endMonth = weekEnd.getMonth();
+            const endYear = weekEnd.getFullYear();
+            const endWeekday = ITALIAN_WEEKDAYS[weekEnd.getDay()];
+            const endMonthName = ITALIAN_MONTHS[endMonth];
+
+            // Replace week start placeholders
+            url = url.replace('{week_start_day}', startDay.toString());
+            url = url.replace('{start_day}', startDay.toString());
+            url = url.replace('{week_start_month}', startMonthName);
+            
+            // Replace week end placeholders
+            url = url.replace('{week_end_day}', endDay.toString());
+            url = url.replace('{end_day}', endDay.toString());
+            url = url.replace('{week_end_month}', endMonthName);
+            
+            // Generic placeholders (use start date by default)
+            url = url.replace('{day}', startDay.toString());
+            url = url.replace('{dd}', startDay.toString().padStart(2, '0'));
+            url = url.replace('{month}', startMonthName);
+            url = url.replace('{mm}', (startMonth + 1).toString().padStart(2, '0'));
+            url = url.replace('{year}', startYear.toString());
+            url = url.replace('{yyyy}', startYear.toString());
+            url = url.replace('{weekday}', startWeekday);
+
+            return url;
+          }
+
+          // Weekly horoscope scraping
+          export async function scrapeWeeklyHoroscope(input: WeeklyScraperInput): Promise<WeeklyScraperOutput> {
+            try {
+              const url = buildWeeklyHoroscopeUrl(input);
+              console.log(`Attempting to scrape weekly URL: ${url}`);
+
+              // Respect domain rate limiting
+              await respectDomainRateLimit(input.domain);
+
+              // Reuse the general scraping logic
+              const scrapeResult = await scrapeHoroscopeText(url, {
+                sourceId: input.sourceId,
+                sourceName: input.sourceName,
+                domain: input.domain,
+                baseUrl: input.baseUrl,
+                urlPattern: input.urlPattern,
+                signSlugIt: input.signSlugIt,
+                dateISO: input.weekStartDate,
+                weekdayItNoAccent: '',
+                gazzettaDatePath: '',
+                userAgent: input.userAgent,
+              });
+
+              if (!scrapeResult.success || !scrapeResult.text) {
+                throw new Error(`Failed to scrape weekly horoscope: ${scrapeResult.error}`);
+              }
+
+              const result: WeeklyScraperOutput = {
+                sourceId: input.sourceId,
+                signSlugIt: input.signSlugIt,
+                weekStartDate: input.weekStartDate,
+                original_url: url,
+                scraped_at: new Date(),
+                extracted_text: scrapeResult.text,
+              };
+
+              return weeklyScraperOutputSchema.parse(result);
+            } catch (error) {
+              console.error(`Weekly scraping error for ${input.sourceName} - ${input.signSlugIt}:`, error);
+              throw new Error(`Failed to scrape weekly ${input.sourceName}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            }
+          }
+
+          // Weekly scraping with retry logic
+          export async function scrapeWeeklyWithRetry(
+            input: WeeklyScraperInput,
+            maxRetries: number = 3
+          ): Promise<WeeklyScraperOutput> {
+            let lastError: Error;
+
+            for (let attempt = 1; attempt <= maxRetries; attempt++) {
+              try {
+                return await scrapeWeeklyHoroscope(input);
+              } catch (error) {
+                lastError = error instanceof Error ? error : new Error('Unknown error');
+
+                if (attempt === maxRetries) {
+                  break;
+                }
+
+                // Exponential backoff
+                const delay = Math.pow(2, attempt) * 1000;
+                console.log(`Weekly scraping attempt ${attempt} failed for ${input.sourceName}, retrying in ${delay}ms...`);
                 await new Promise(resolve => setTimeout(resolve, delay));
               }
             }

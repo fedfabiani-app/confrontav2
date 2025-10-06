@@ -213,6 +213,16 @@ export const weeklyScraperInputSchema = z.object({
   userAgent: z.string(),
 });
 
+// Weekly Scraper Output Schema
+export const weeklyScraperOutputSchema = z.object({
+  sourceId: z.number(),
+  signSlugIt: z.string(),
+  weekStartDate: z.string(), // ISO date for Monday of the week
+  original_url: z.string(),
+  scraped_at: z.date(),
+  extracted_text: z.string(),
+});
+
 // Type exports
 export type ZodiacSign = z.infer<typeof zodiacSignSchema>;
 export type InsertZodiacSign = z.infer<typeof insertZodiacSignSchema>;
@@ -234,3 +244,4 @@ export type InsertWeeklySource = z.infer<typeof insertWeeklySourceSchema>;
 export type WeeklyHoroscopeData = z.infer<typeof weeklyHoroscopeDataSchema>;
 export type InsertWeeklyHoroscopeData = z.infer<typeof insertWeeklyHoroscopeDataSchema>;
 export type WeeklyScraperInput = z.infer<typeof weeklyScraperInputSchema>;
+export type WeeklyScraperOutput = z.infer<typeof weeklyScraperOutputSchema>;
