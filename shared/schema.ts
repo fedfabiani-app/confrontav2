@@ -144,6 +144,75 @@ export const openaiOutputSchema = z.object({
   tone: z.enum(['positive', 'neutral', 'negative']),
 });
 
+// Weekly Sources Schema
+export const weeklySourceSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  domain: z.string(),
+  logo_url: z.string().nullable(),
+  base_url: z.string(),
+  url_pattern: z.string(),
+  reliability_score: z.number(),
+  is_active: z.boolean(),
+  created_at: z.date(),
+  updated_at: z.date(),
+});
+
+export const insertWeeklySourceSchema = z.object({
+  name: z.string(),
+  domain: z.string(),
+  logo_url: z.string().optional(),
+  base_url: z.string(),
+  url_pattern: z.string(),
+  reliability_score: z.number().min(0).max(5),
+  is_active: z.boolean().default(true),
+});
+
+// Weekly Horoscope Data Schema
+export const weeklyHoroscopeDataSchema = z.object({
+  id: z.number(),
+  source_id: z.number(),
+  zodiac_sign_id: z.number(),
+  week_start_date: z.string(), // DATE format YYYY-MM-DD
+  original_text: z.string(),
+  summary: z.string(),
+  relazioni_rating: z.number().min(0).max(5),
+  lavoro_rating: z.number().min(0).max(5),
+  salute_rating: z.number().min(0).max(5),
+  tone_analysis: z.enum(['positive', 'neutral', 'negative']),
+  original_url: z.string(),
+  scraped_at: z.date(),
+  created_at: z.date(),
+  updated_at: z.date(),
+});
+
+export const insertWeeklyHoroscopeDataSchema = z.object({
+  source_id: z.number(),
+  zodiac_sign_id: z.number(),
+  week_start_date: z.string(),
+  original_text: z.string(),
+  summary: z.string().max(580),
+  relazioni_rating: z.number().min(0).max(5),
+  lavoro_rating: z.number().min(0).max(5),
+  salute_rating: z.number().min(0).max(5),
+  tone_analysis: z.enum(['positive', 'neutral', 'negative']),
+  original_url: z.string(),
+  scraped_at: z.date(),
+});
+
+// Weekly Scraper Input Schema
+export const weeklyScraperInputSchema = z.object({
+  sourceId: z.number(),
+  sourceName: z.string(),
+  domain: z.string(),
+  baseUrl: z.string(),
+  urlPattern: z.string(),
+  signSlugIt: z.string(),
+  weekStartDate: z.string(), // ISO date for Monday of the week
+  weekEndDate: z.string(), // ISO date for Sunday of the week
+  userAgent: z.string(),
+});
+
 // Type exports
 export type ZodiacSign = z.infer<typeof zodiacSignSchema>;
 export type InsertZodiacSign = z.infer<typeof insertZodiacSignSchema>;
@@ -159,3 +228,9 @@ export type ScraperInput = z.infer<typeof scraperInputSchema>;
 export type ScraperOutput = z.infer<typeof scraperOutputSchema>;
 export type OpenAIInput = z.infer<typeof openaiInputSchema>;
 export type OpenAIOutput = z.infer<typeof openaiOutputSchema>;
+
+export type WeeklySource = z.infer<typeof weeklySourceSchema>;
+export type InsertWeeklySource = z.infer<typeof insertWeeklySourceSchema>;
+export type WeeklyHoroscopeData = z.infer<typeof weeklyHoroscopeDataSchema>;
+export type InsertWeeklyHoroscopeData = z.infer<typeof insertWeeklyHoroscopeDataSchema>;
+export type WeeklyScraperInput = z.infer<typeof weeklyScraperInputSchema>;
