@@ -125,6 +125,55 @@ async function findCosmopolitanWeeklyUrl(input: WeeklyScraperInput): Promise<str
   }
 }
 
+async function findSuperGuidaTVWeeklyUrl(input: WeeklyScraperInput): Promise<string | null> {
+  try {
+    const archiveUrl = 'https://www.superguidatv.it/oroscopo-branko/';
+    console.log(`[WeeklyScraper] Searching SuperGuidaTV archive: ${archiveUrl}`);
+    
+    const html = await fetchHtml(archiveUrl, input.userAgent);
+    const $ = cheerio.load(html);
+    
+    const weekStart = new Date(input.weekStartDate);
+    const weekEnd = new Date(input.weekEndDate);
+    const startDay = weekStart.getDate();
+    const endDay = weekEnd.getDate();
+    const startMonth = ITALIAN_MONTHS[weekStart.getMonth()].toLowerCase();
+    const endMonth = ITALIAN_MONTHS[weekEnd.getMonth()].toLowerCase();
+    
+    // Build search patterns - SuperGuidaTV uses various formats
+    // e.g., "dal-7-al-13-ottobre" or "dall-7-al-13-ottobre"
+    const searchPatterns = [
+      `dal-${startDay}-al-${endDay}-${startMonth}`,
+      `dall-${startDay}-al-${endDay}-${startMonth}`,
+      `dal ${startDay} al ${endDay} ${startMonth}`,
+      `dall ${startDay} al ${endDay} ${startMonth}`,
+      `${startDay}-${endDay} ${startMonth}`,
+    ];
+    
+    // Look for article links in the archive
+    let foundUrl: string | null = null;
+    $('a').each((_, element) => {
+      const href = $(element).attr('href');
+      const text = $(element).text().toLowerCase();
+      
+      if (href && href.includes('oroscopo')) {
+        for (const pattern of searchPatterns) {
+          if (href.toLowerCase().includes(pattern) || text.includes(pattern)) {
+            foundUrl = href.startsWith('http') ? href : `https://www.superguidatv.it${href}`;
+            console.log(`[WeeklyScraper] Found SuperGuidaTV URL: ${foundUrl}`);
+            return false; // break the loop
+          }
+        }
+      }
+    });
+    
+    return foundUrl;
+  } catch (error) {
+    console.error('[WeeklyScraper] Error finding SuperGuidaTV URL:', error);
+    return null;
+  }
+}
+
 function buildWeeklyUrl(input: WeeklyScraperInput): string {
   const signMap: Record<string, string> = {
     'Ariete': 'ariete', 'Toro': 'toro', 'Gemelli': 'gemelli', 'Cancro': 'cancro',
@@ -278,7 +327,16 @@ export async function scrapeWeeklyHoroscope(input: WeeklyScraperInput): Promise<
         throw new Error('Could not find current week\'s horoscope URL in Cosmopolitan archive');
       }
       url = foundUrl;
-    } else {
+    } 
+    // Special handling for SuperGuidaTV - find URL from archive
+    else if (input.domain.includes('superguidatv.it')) {
+      const foundUrl = await findSuperGuidaTVWeeklyUrl(input);
+      if (!foundUrl) {
+        throw new Error('Could not find current week\'s horoscope URL in SuperGuidaTV archive');
+      }
+      url = foundUrl;
+    } 
+    else {
       url = buildWeeklyUrl(input);
     }
     
