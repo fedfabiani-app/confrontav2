@@ -1,5 +1,6 @@
+
 import { WeeklyScraperInput, WeeklyScraperOutput } from '@shared/schema';
-import { scrapeWeeklyWithRetry } from '../services/scraper';
+import { scrapeWeeklyWithRetry } from '../services/weekly-scraper';
 
 export class WeeklyScraperWorker {
   async process(input: WeeklyScraperInput): Promise<WeeklyScraperOutput> {
