@@ -835,8 +835,9 @@ export default function SignDetail({ sign }: SignDetailProps) {
                 Nessun dato disponibile
               </h3>
               <p className="text-muted-foreground mb-4">
-                Non ci sono previsioni disponibili per oggi. Prova ad aggiornare
-                i dati.
+                {selectedTab === 'daily' 
+                  ? 'Non ci sono previsioni disponibili per oggi. Prova ad aggiornare i dati.'
+                  : 'Non ci sono previsioni settimanali disponibili. Prova ad aggiornare i dati.'}
               </p>
               <Button
                 onClick={() => refreshSignMutation.mutate()}
@@ -850,7 +851,7 @@ export default function SignDetail({ sign }: SignDetailProps) {
           </Card>
         )}
 
-        {/* Refresh Button */}
+        {/* Refresh Button - Always visible */}
         <div className="flex justify-center mt-8">
           <Button
             onClick={() => refreshSignMutation.mutate()}
@@ -861,7 +862,7 @@ export default function SignDetail({ sign }: SignDetailProps) {
             <RefreshCw
               className={`w-4 h-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
             />
-            Aggiorna Previsioni
+            {selectedTab === 'daily' ? 'Aggiorna Previsioni' : 'Aggiorna Previsioni Settimanali'}
           </Button>
         </div>
       </main>
