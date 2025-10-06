@@ -538,8 +538,20 @@ export default function SignDetail({ sign }: SignDetailProps) {
         <div className="mb-6">
           <Tabs value={selectedTab} onValueChange={handleTabChange} className="w-full">
             <TabsList className="grid w-full sm:w-[400px] grid-cols-2" data-testid="horoscope-type-tabs">
-              <TabsTrigger value="daily" data-testid="tab-daily">Giornaliero</TabsTrigger>
-              <TabsTrigger value="weekly" data-testid="tab-weekly">Settimanale</TabsTrigger>
+              <TabsTrigger 
+                value="daily" 
+                data-testid="tab-daily"
+                className="data-[state=active]:bg-[#F0C169] data-[state=active]:hover:bg-transparent"
+              >
+                Giornaliero
+              </TabsTrigger>
+              <TabsTrigger 
+                value="weekly" 
+                data-testid="tab-weekly"
+                className="data-[state=active]:bg-[#F0C169] data-[state=active]:hover:bg-transparent"
+              >
+                Settimanale
+              </TabsTrigger>
             </TabsList>
           </Tabs>
         </div>

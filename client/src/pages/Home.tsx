@@ -264,15 +264,9 @@ export default function Home() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Tab Selector and Date Selector Section */}
-        <div className="mb-8 space-y-4">
-          <Tabs value={selectedTab} onValueChange={handleTabChange} className="w-full">
-            <TabsList className="grid w-full sm:w-[400px] grid-cols-2" data-testid="horoscope-type-tabs">
-              <TabsTrigger value="daily" data-testid="tab-daily">Giornaliero</TabsTrigger>
-              <TabsTrigger value="weekly" data-testid="tab-weekly">Settimanale</TabsTrigger>
-            </TabsList>
-          </Tabs>
-          
+                 {/* Tab Selector and Date Selector Section */}
+                 <div className="mb-8 space-y-4">
+                  
           <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
             <PopoverTrigger asChild>
               <Button 
