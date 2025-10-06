@@ -481,18 +481,6 @@ export default function SignDetail({ sign }: SignDetailProps) {
     );
   }
 
-  // Ensure horoscope exists before accessing it
-  if (!horoscopes || horoscopes.length === 0) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-muted-foreground">Oroscopo non trovato</p>
-          <Button onClick={() => navigate("/")}>Torna alla Home</Button>
-        </div>
-      </div>
-    );
-  }
-
   const currentSign = zodiacSign; // Renamed for clarity with the fetched sign data
 
   return (
