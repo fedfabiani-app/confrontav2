@@ -213,9 +213,8 @@ export default function Home() {
 
   const handleTabChange = (value: string) => {
     setSelectedTab(value as 'daily' | 'weekly');
-    // Invalidate queries when switching tabs
-    queryClient.invalidateQueries({ queryKey: ['/api/horoscopes/aggregates'] });
-    queryClient.invalidateQueries({ queryKey: ['/api/weekly-horoscopes/aggregates'] });
+    // React Query automatically refetches when query keys change (based on selectedTab)
+    // No manual invalidation needed
   };
 
   // Initialize collapsed state

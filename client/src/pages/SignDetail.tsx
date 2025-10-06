@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ArrowLeft,
   RefreshCw,
@@ -47,6 +48,7 @@ interface HoroscopeData {
     name: string;
     domain: string;
     logo_url: string | null;
+    reliability_score: number;
   };
 }
 
@@ -178,6 +180,7 @@ export default function SignDetail({ sign }: SignDetailProps) {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [selectedTab, setSelectedTab] = useState<'daily' | 'weekly'>('daily');
   const [refreshProgress, setRefreshProgress] = useState({
     current: 0,
     total: 0,
@@ -234,6 +237,17 @@ export default function SignDetail({ sign }: SignDetailProps) {
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const today = new Date().toISOString().split("T")[0];
+  
+  // Calculate week start date (Monday) for weekly horoscopes
+  const getWeekStartDate = (date: Date = new Date()): string => {
+    const dayOfWeek = date.getDay();
+    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const monday = new Date(date);
+    monday.setDate(date.getDate() - daysToMonday);
+    return monday.toISOString().split('T')[0];
+  };
+  
+  const weekStartDate = getWeekStartDate();
 
   // Fetch zodiac sign details
   const { data: zodiacSign } = useQuery<ZodiacSign>({
@@ -245,17 +259,20 @@ export default function SignDetail({ sign }: SignDetailProps) {
     },
   });
 
-  // Fetch horoscope data for this sign
+  // Fetch horoscope data for this sign (daily or weekly based on selected tab)
   const {
     data: horoscopes = [],
     isLoading: horoscopesLoading,
     error: horoscopesError,
   } = useQuery<HoroscopeData[]>({
-    queryKey: ["/api/horoscopes", today, sign],
+    queryKey: [selectedTab === 'daily' ? '/api/horoscopes' : '/api/weekly-horoscopes', selectedTab === 'daily' ? today : weekStartDate, sign],
     queryFn: async () => {
-      const response = await fetch(
-        `/api/horoscopes?date=${today}&sign=${sign}`,
-      );
+      let response;
+      if (selectedTab === 'daily') {
+        response = await fetch(`/api/horoscopes?date=${today}&sign=${sign}`);
+      } else {
+        response = await fetch(`/api/weekly-horoscopes?weekStartDate=${weekStartDate}&sign=${sign}`);
+      }
       if (!response.ok) throw new Error("Failed to fetch horoscopes");
       return response.json();
     },
@@ -297,13 +314,16 @@ export default function SignDetail({ sign }: SignDetailProps) {
     });
   };
 
-  // Fetch aggregates for this sign
+  // Fetch aggregates for this sign (daily or weekly based on selected tab)
   const { data: aggregate } = useQuery<HoroscopeAggregate>({
-    queryKey: ["/api/horoscopes/aggregate", today, sign],
+    queryKey: [selectedTab === 'daily' ? '/api/horoscopes/aggregate' : '/api/weekly-horoscopes/aggregate', selectedTab === 'daily' ? today : weekStartDate, sign],
     queryFn: async () => {
-      const response = await fetch(
-        `/api/horoscopes/aggregate?date=${today}&sign=${sign}`,
-      );
+      let response;
+      if (selectedTab === 'daily') {
+        response = await fetch(`/api/horoscopes/aggregate?date=${today}&sign=${sign}`);
+      } else {
+        response = await fetch(`/api/weekly-horoscopes/aggregate?weekStartDate=${weekStartDate}&sign=${sign}`);
+      }
       if (!response.ok) throw new Error("Failed to fetch aggregate");
       return response.json();
     },
@@ -312,11 +332,14 @@ export default function SignDetail({ sign }: SignDetailProps) {
   // Refresh this sign mutation
   const refreshSignMutation = useMutation({
     mutationFn: async () => {
-      const italianSign = ZODIAC_SIGNS_EN_IT[sign] || sign;
-      const response = await apiRequest(
-        "POST",
-        `/api/refresh/sign/${italianSign}?date=${today}`,
-      );
+      let response;
+      if (selectedTab === 'daily') {
+        const italianSign = ZODIAC_SIGNS_EN_IT[sign] || sign;
+        response = await apiRequest("POST", `/api/refresh/sign/${italianSign}?date=${today}`);
+      } else {
+        // Weekly endpoint expects English sign name
+        response = await apiRequest("POST", `/api/refresh/weekly?weekStartDate=${weekStartDate}&sign=${sign}`);
+      }
       return response.json();
     },
     onSuccess: (data) => {
@@ -350,11 +373,15 @@ export default function SignDetail({ sign }: SignDetailProps) {
               setRefreshDismissed(false);
 
               // Invalidate cache to refresh data
+              const queryKeyPrefix = selectedTab === 'daily' ? '/api/horoscopes' : '/api/weekly-horoscopes';
+              const queryKeyAggregatePrefix = selectedTab === 'daily' ? '/api/horoscopes/aggregate' : '/api/weekly-horoscopes/aggregate';
+              const dateParam = selectedTab === 'daily' ? today : weekStartDate;
+              
               queryClient.invalidateQueries({
-                queryKey: ["/api/horoscopes", today, sign],
+                queryKey: [queryKeyPrefix, dateParam, sign],
               });
               queryClient.invalidateQueries({
-                queryKey: ["/api/horoscopes/aggregate", today, sign],
+                queryKey: [queryKeyAggregatePrefix, dateParam, sign],
               });
 
               toast({
@@ -417,6 +444,12 @@ export default function SignDetail({ sign }: SignDetailProps) {
     setRefreshDismissed(true);
     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
+  };
+
+  const handleTabChange = (value: string) => {
+    setSelectedTab(value as 'daily' | 'weekly');
+    // React Query automatically refetches when query keys change (based on selectedTab)
+    // No manual invalidation needed
   };
 
   // Check if we're in a loading state
@@ -501,6 +534,16 @@ export default function SignDetail({ sign }: SignDetailProps) {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Tab Selector */}
+        <div className="mb-6">
+          <Tabs value={selectedTab} onValueChange={handleTabChange} className="w-full">
+            <TabsList className="grid w-full sm:w-[400px] grid-cols-2" data-testid="horoscope-type-tabs">
+              <TabsTrigger value="daily" data-testid="tab-daily">Giornaliero</TabsTrigger>
+              <TabsTrigger value="weekly" data-testid="tab-weekly">Settimanale</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+
         {/* Overview Cards */}
         {aggregate && (
           <div className="grid grid-cols-3 md:grid-cols-4 gap-2 md:gap-4 mb-8">
@@ -595,7 +638,7 @@ export default function SignDetail({ sign }: SignDetailProps) {
         {!horoscopesLoading && horoscopes.length > 0 && (
           <div className="space-y-4 mb-8">
             <h2 className="text-xl font-semibold text-[#F0C169] mb-4">
-              Tutti gli Oroscopi di oggi
+              {selectedTab === 'daily' ? 'Tutti gli Oroscopi di oggi' : 'Tutti gli Oroscopi della settimana'}
             </h2>
             {(() => {
               // First sort alphabetically, then reorder to pin favorites
