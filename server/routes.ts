@@ -3,7 +3,8 @@ import { createServer, type Server } from "http";
 import { z } from "zod";
 import prisma from "./services/database";
 import { enqueueScrapeJob, getAllJobStatuses, getJobStatus } from "./jobs";
-import { ScraperInput } from "@shared/schema";
+import { enqueueWeeklyScrapeJob, getAllWeeklyJobStatuses } from "./jobs/weekly";
+import { ScraperInput, WeeklyScraperInput } from "@shared/schema";
 import { ZODIAC_SIGNS_IT_EN, ITALIAN_WEEKDAYS, ITALIAN_MONTHS } from "@shared/constants";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -411,6 +412,282 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/weekly-horoscopes
+  app.get("/api/weekly-horoscopes", async (req, res) => {
+    try {
+      const { weekStartDate, sign } = req.query;
+
+      if (!weekStartDate || !sign) {
+        return res.status(400).json({ error: 'weekStartDate and sign parameters are required' });
+      }
+
+      // Validate date format (YYYY-MM-DD)
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(weekStartDate as string)) {
+        return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
+      }
+
+      // Validate sign and convert to English if needed
+      const signString = sign as string;
+      let englishSign = signString;
+
+      if (signString in ZODIAC_SIGNS_IT_EN) {
+        englishSign = ZODIAC_SIGNS_IT_EN[signString as keyof typeof ZODIAC_SIGNS_IT_EN];
+      } else if (!Object.values(ZODIAC_SIGNS_IT_EN).includes(signString as any)) {
+        return res.status(400).json({ error: 'Invalid zodiac sign' });
+      }
+
+      const zodiacSign = await prisma.zodiacSign.findFirst({
+        where: { name_english: englishSign }
+      });
+
+      if (!zodiacSign) {
+        return res.status(404).json({ error: 'Zodiac sign not found' });
+      }
+
+      const weeklyHoroscopes = await prisma.weeklyHoroscopeData.findMany({
+        where: {
+          zodiac_sign_id: zodiacSign.id,
+          week_start_date: new Date(weekStartDate as string),
+        },
+        include: {
+          source: true,
+        },
+        orderBy: {
+          source: { reliability_score: 'desc' }
+        }
+      });
+
+      // Serialize all fields for JSON-safe response
+      const serializedHoroscopes = weeklyHoroscopes.map(h => ({
+        id: h.id,
+        source_id: h.source_id,
+        zodiac_sign_id: h.zodiac_sign_id,
+        week_start_date: h.week_start_date,
+        original_text: h.original_text,
+        summary: h.summary,
+        relazioni_rating: h.relazioni_rating,
+        lavoro_rating: h.lavoro_rating,
+        salute_rating: h.salute_rating,
+        tone_analysis: h.tone_analysis,
+        original_url: h.original_url,
+        scraped_at: h.scraped_at,
+        created_at: h.created_at,
+        updated_at: h.updated_at,
+        source: {
+          id: h.source.id,
+          name: h.source.name,
+          domain: h.source.domain,
+          logo_url: h.source.logo_url,
+          base_url: h.source.base_url,
+          url_pattern: h.source.url_pattern,
+          reliability_score: Number(h.source.reliability_score),
+          is_active: h.source.is_active,
+          created_at: h.source.created_at,
+          updated_at: h.source.updated_at,
+        }
+      }));
+
+      res.json(serializedHoroscopes);
+    } catch (error) {
+      console.error('Error fetching weekly horoscopes:', error);
+      res.status(500).json({ error: 'Failed to fetch weekly horoscopes' });
+    }
+  });
+
+  // GET /api/weekly-horoscopes/aggregate
+  app.get("/api/weekly-horoscopes/aggregate", async (req, res) => {
+    try {
+      const { weekStartDate, sign } = req.query;
+
+      if (!weekStartDate || !sign) {
+        return res.status(400).json({ error: 'weekStartDate and sign parameters are required' });
+      }
+
+      // Validate date format (YYYY-MM-DD)
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(weekStartDate as string)) {
+        return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
+      }
+
+      // Validate sign and convert to English if needed
+      const signString = sign as string;
+      let englishSign = signString;
+
+      if (signString in ZODIAC_SIGNS_IT_EN) {
+        englishSign = ZODIAC_SIGNS_IT_EN[signString as keyof typeof ZODIAC_SIGNS_IT_EN];
+      } else if (!Object.values(ZODIAC_SIGNS_IT_EN).includes(signString as any)) {
+        return res.status(400).json({ error: 'Invalid zodiac sign' });
+      }
+
+      const zodiacSign = await prisma.zodiacSign.findFirst({
+        where: { name_english: englishSign }
+      });
+
+      if (!zodiacSign) {
+        return res.status(404).json({ error: 'Zodiac sign not found' });
+      }
+
+      const weeklyHoroscopes = await prisma.weeklyHoroscopeData.findMany({
+        where: {
+          zodiac_sign_id: zodiacSign.id,
+          week_start_date: new Date(weekStartDate as string),
+        },
+      });
+
+      if (weeklyHoroscopes.length === 0) {
+        return res.json({
+          avgRelazioni: null,
+          avgLavoro: null,
+          avgBenessere: null,
+          overallAverage: null,
+          majorityTone: 'neutral'
+        });
+      }
+
+      // Calculate averages excluding 0 ratings
+      const relazioniRatings = weeklyHoroscopes.filter((h: any) => h.relazioni_rating > 0).map((h: any) => h.relazioni_rating);
+      const lavoroRatings = weeklyHoroscopes.filter((h: any) => h.lavoro_rating > 0).map((h: any) => h.lavoro_rating);
+      const benessereRatings = weeklyHoroscopes.filter((h: any) => h.salute_rating > 0).map((h: any) => h.salute_rating);
+      
+      const avgRelazioni = relazioniRatings.length > 0 
+        ? relazioniRatings.reduce((sum: number, rating: number) => sum + rating, 0) / relazioniRatings.length 
+        : null;
+      const avgLavoro = lavoroRatings.length > 0 
+        ? lavoroRatings.reduce((sum: number, rating: number) => sum + rating, 0) / lavoroRatings.length 
+        : null;
+      const avgBenessere = benessereRatings.length > 0 
+        ? benessereRatings.reduce((sum: number, rating: number) => sum + rating, 0) / benessereRatings.length 
+        : null;
+
+      const validAverages = [avgRelazioni, avgLavoro, avgBenessere].filter(avg => avg !== null) as number[];
+      const overallAverage = validAverages.length > 0 
+        ? validAverages.reduce((sum, avg) => sum + avg, 0) / validAverages.length 
+        : null;
+
+      const majorityTone = overallAverage === null ? 'neutral' :
+                           overallAverage < 3 ? 'negative' : 
+                           overallAverage > 3 ? 'positive' : 'neutral';
+
+      res.json({
+        avgRelazioni: avgRelazioni !== null ? Math.round(avgRelazioni * 10) / 10 : null,
+        avgLavoro: avgLavoro !== null ? Math.round(avgLavoro * 10) / 10 : null,
+        avgBenessere: avgBenessere !== null ? Math.round(avgBenessere * 10) / 10 : null,
+        overallAverage: overallAverage !== null ? Math.round(overallAverage * 10) / 10 : null,
+        majorityTone: majorityTone as 'positive' | 'neutral' | 'negative',
+      });
+    } catch (error) {
+      console.error('Error calculating weekly aggregates:', error);
+      res.status(500).json({ error: 'Failed to calculate weekly aggregates' });
+    }
+  });
+
+  // POST /api/refresh/weekly - Refresh weekly horoscopes
+  app.post("/api/refresh/weekly", async (req, res) => {
+    try {
+      const { weekStartDate, sign } = req.query;
+
+      // Calculate next Monday if no date provided
+      const getNextMonday = () => {
+        const today = new Date();
+        const dayOfWeek = today.getDay();
+        const daysUntilMonday = dayOfWeek === 0 ? 1 : (8 - dayOfWeek) % 7 || 7;
+        const nextMonday = new Date(today);
+        nextMonday.setDate(today.getDate() + daysUntilMonday);
+        return nextMonday.toISOString().split('T')[0];
+      };
+
+      const targetWeekStart = weekStartDate as string || getNextMonday();
+
+      // Validate date format
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(targetWeekStart)) {
+        return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
+      }
+
+      // If sign is provided, refresh only that sign
+      if (sign) {
+        const signString = sign as string;
+        let englishSign = signString;
+
+        if (signString in ZODIAC_SIGNS_IT_EN) {
+          englishSign = ZODIAC_SIGNS_IT_EN[signString as keyof typeof ZODIAC_SIGNS_IT_EN];
+        } else if (!Object.values(ZODIAC_SIGNS_IT_EN).includes(signString as any)) {
+          return res.status(400).json({ error: 'Invalid zodiac sign' });
+        }
+
+        const zodiacSign = await prisma.zodiacSign.findFirst({
+          where: { name_english: englishSign }
+        });
+
+        if (!zodiacSign) {
+          return res.status(404).json({ error: 'Zodiac sign not found' });
+        }
+
+        // Get all active weekly sources
+        const weeklySources = await prisma.weeklySource.findMany({ 
+          where: { is_active: true } 
+        });
+
+        const jobIds: string[] = [];
+        const errors: string[] = [];
+
+        for (const source of weeklySources) {
+          try {
+            const jobId = await enqueueWeeklyScrapeJob(createWeeklyScraperInput(source, zodiacSign, targetWeekStart));
+            jobIds.push(jobId);
+          } catch (error) {
+            const errorMsg = `Failed to enqueue ${source.name} - ${sign}`;
+            errors.push(errorMsg);
+            console.error(errorMsg, error);
+          }
+        }
+
+        return res.json({
+          message: `Weekly refresh started for ${sign}`,
+          jobsEnqueued: jobIds.length,
+          errors: errors.length,
+          jobIds,
+          sign,
+          weekStartDate: targetWeekStart,
+        });
+      }
+
+      // Otherwise, refresh all signs
+      const [weeklySources, zodiacSigns] = await Promise.all([
+        prisma.weeklySource.findMany({ where: { is_active: true } }),
+        prisma.zodiacSign.findMany({ orderBy: { id: 'asc' } }),
+      ]);
+
+      const jobIds: string[] = [];
+      const errors: string[] = [];
+
+      for (const source of weeklySources) {
+        for (const zodiacSign of zodiacSigns) {
+          try {
+            const jobId = await enqueueWeeklyScrapeJob(createWeeklyScraperInput(source, zodiacSign, targetWeekStart));
+            jobIds.push(jobId);
+          } catch (error) {
+            const errorMsg = `Failed to enqueue ${source.name} - ${zodiacSign.name_italian}`;
+            errors.push(errorMsg);
+            console.error(errorMsg, error);
+          }
+        }
+      }
+
+      res.json({
+        message: 'Weekly refresh started',
+        jobsEnqueued: jobIds.length,
+        errors: errors.length,
+        jobIds,
+        weekStartDate: targetWeekStart,
+      });
+    } catch (error) {
+      console.error('Error starting weekly refresh:', error);
+      res.status(500).json({ error: 'Failed to start weekly refresh' });
+    }
+  });
+
   // Manual trigger for scraping and processing
   app.post('/api/scrape/trigger', async (req, res) => {
     try {
@@ -558,6 +835,28 @@ function createScraperInput(source: any, zodiacSign: any, dateISO: string): Scra
     dateISO,
     weekdayItNoAccent,
     gazzettaDatePath,
+    userAgent: process.env.SCRAPE_USER_AGENT || 'ItalianHoroscopeComparatorBot/1.0 (+contact)',
+  };
+}
+
+// Helper function to create weekly scraper input
+function createWeeklyScraperInput(source: any, zodiacSign: any, weekStartDate: string): WeeklyScraperInput {
+  // Calculate week end date (6 days after start for Monday-Sunday week)
+  // Use UTC to avoid timezone drift
+  const startDate = new Date(weekStartDate + 'T00:00:00.000Z');
+  const endDate = new Date(startDate);
+  endDate.setUTCDate(startDate.getUTCDate() + 6);
+  const weekEndDate = endDate.toISOString().split('T')[0];
+
+  return {
+    sourceId: source.id,
+    sourceName: source.name,
+    domain: source.domain,
+    baseUrl: source.base_url,
+    urlPattern: source.url_pattern,
+    signSlugIt: zodiacSign.name_italian,
+    weekStartDate,
+    weekEndDate,
     userAgent: process.env.SCRAPE_USER_AGENT || 'ItalianHoroscopeComparatorBot/1.0 (+contact)',
   };
 }
