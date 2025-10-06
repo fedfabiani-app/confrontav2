@@ -40,14 +40,14 @@ export default function Home() {
   const [calendarOpen, setCalendarOpen] = useState(false);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
+
   // Initialize hooks for favorites and collapsed cards
   const { collapsedCards, toggleCollapsed, initializeCollapsedState, isCollapsed } = useCollapsedCards();
   const { homeFavorites, isHomeFavorite, toggleHomeFavorite, hasFavorites } = useHomeFavorites();
-  
+
   // Get date string for API calls using local date (avoid timezone issues)
   const selectedDateString = selectedDate.toLocaleDateString('en-CA'); // YYYY-MM-DD format in local timezone
-  
+
   // Get date range for calendar (90 days back) - use day boundaries
   const today = new Date();
   const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -64,7 +64,7 @@ export default function Home() {
     queryKey: ['/api/horoscopes/aggregates', selectedDateString],
     queryFn: async () => {
       const results: Record<string, HoroscopeAggregate> = {};
-      
+
       for (const sign of zodiacSigns) {
         try {
           const response = await fetch(`/api/horoscopes/aggregate?date=${selectedDateString}&sign=${sign.name_english}`);
@@ -75,7 +75,7 @@ export default function Home() {
           console.error(`Failed to fetch aggregate for ${sign.name_english}:`, error);
         }
       }
-      
+
       return results;
     },
     enabled: zodiacSigns.length > 0,
@@ -92,31 +92,31 @@ export default function Home() {
         title: "Aggiornamento avviato",
         description: `${data.jobsEnqueued} aggiornamenti in corso`,
       });
-      
+
       // Poll for updates (simplified - in production you might use WebSocket)
       setRefreshProgress({ current: 0, total: data.jobsEnqueued });
       setRefreshDismissed(false);
-      
+
       pollIntervalRef.current = setInterval(async () => {
         // Don't update progress if user dismissed the overlay
         if (refreshDismissed) return;
-        
+
         try {
           const statusResponse = await fetch('/api/refresh/status');
           if (statusResponse.ok) {
             const status = await statusResponse.json();
             const completed = status.summary.completed + status.summary.failed;
             setRefreshProgress({ current: completed, total: data.jobsEnqueued });
-            
+
             if (completed >= data.jobsEnqueued) {
               if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
               if (timeoutRef.current) clearTimeout(timeoutRef.current);
               setRefreshProgress({ current: 0, total: 0 });
               setRefreshDismissed(false);
-              
+
               // Invalidate cache to refresh data
               queryClient.invalidateQueries({ queryKey: ['/api/horoscopes/aggregates'] });
-              
+
               toast({
                 title: "Aggiornamento completato",
                 description: `${status.summary.completed} successi, ${status.summary.failed} errori`,
@@ -130,7 +130,7 @@ export default function Home() {
           setRefreshDismissed(false);
         }
       }, 3000);
-      
+
       // Stop polling after 5 minutes
       timeoutRef.current = setTimeout(() => {
         if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
@@ -186,11 +186,11 @@ export default function Home() {
     };
   }, []);
 
-  
+
 
   const isLoading = signsLoading || aggregatesLoading;
   const isRefreshing = !refreshDismissed && (refreshAllMutation.isPending || refreshProgress.total > 0);
-  
+
   const handleDismissRefresh = () => {
     setRefreshDismissed(true);
     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
@@ -199,102 +199,90 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-     {/* Header */}
-<header className="bg-card border-b border-border sticky top-0 z-40">
-  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-    <div className="flex items-center justify-between h-16">
-      <div className="flex items-center space-x-3">
-        <img src={iconImage} alt="Logo" className="w-12 h-12" />
-        <div>
-          <h1 className="text-xl font-bold text-[#382b61]">Confronta Oroscopo</h1>
-          <p className="text-xs font-bold text-muted-foreground">Tutti gli Oroscopi, una sola App</p>
-        </div>
-      </div>
-    </div>
-  </div>
-</header>
-
-{/* Main Content */}
-<main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-  {/* Refresh Section - WITH DATE SELECTOR */}
-  <div className="mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-      <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-        <PopoverTrigger asChild>
-          <Button 
-            variant="outline" 
-            size="default"
-            className="w-full sm:w-auto justify-start"
-            data-testid="date-selector-trigger"
-          >
-            <CalendarDays className="w-4 h-4 mr-2" />
-            {formatDate(selectedDate)}
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
-          <div className="p-3 border-b border-border">
-            <h4 className="text-sm font-medium">Seleziona Data</h4>
-            <p className="text-xs text-muted-foreground">Ultimi 90 giorni disponibili</p>
+      {/* Header */}
+      <header className="bg-card border-b border-border sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center space-x-3">
+              <img src={iconImage} alt="Logo" className="w-12 h-12" />
+              <div>
+                <h1 className="text-xl font-bold text-[#382b61]">Confronta Oroscopo</h1>
+                <p className="text-xs font-bold text-muted-foreground">Tutti gli Oroscopi, una sola App</p>
+              </div>
+            </div>
           </div>
-          <Calendar
-            mode="single"
-            selected={selectedDate}
-            onSelect={handleDateSelect}
-            disabled={(date) => date < earliestStart || date > todayStart}
-            toDate={todayStart}
-            defaultMonth={selectedDate}
-            className="border-0"
-            data-testid="date-calendar"
-          />
-        </PopoverContent>
-      </Popover>
-      
-      <Button
-        onClick={() => refreshAllMutation.mutate()}
-        disabled={isRefreshing}
-        className="w-full sm:w-auto bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-lg hover:shadow-xl transition-all"
-        data-testid="button-refresh-all"
-      >
-        <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-        Aggiorna Tutti i Dati
-      </Button>
-    </div>
-  </div>
+        </div>
+      </header>
 
-  {/* Favorites Section */}
-  {hasFavorites && (
-    <div className="mb-8">
-      <div className="flex items-center space-x-2 mb-4">
-        <h2 className="text-lg font-bold text-foreground">I tuoi Segni Preferiti</h2>
-        <span className="bg-red-100 text-red-600 px-2 py-1 rounded-full text-xs font-medium">
-          {homeFavorites.size}
-        </span>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {zodiacSigns
-          .filter(sign => isHomeFavorite(sign.name_english))
-          .map((sign) => (
-            <ZodiacCard
-              key={`fav-${sign.id}`}
-              sign={sign}
-              aggregate={aggregatesData[sign.name_english]}
-              onClick={() => handleSignClick(sign.name_english)}
-              isFavorite={true}
-              onToggleFavorite={() => toggleHomeFavorite(sign.name_english)}
-              isCollapsed={isCollapsed(sign.name_english)}
-              onToggleCollapse={() => toggleCollapsed(sign.name_english)}
-              className="ring-2 ring-red-200 border-red-300"
-            />
-          ))}
-      </div>
-    </div>
-  )}
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Date Selector Section */}
+        <div className="mb-8 flex">
+          <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+            <PopoverTrigger asChild>
+              <Button 
+                variant="outline" 
+                size="default"
+                className="w-full sm:w-auto justify-start bg-card hover:bg-accent"
+                data-testid="date-selector-trigger"
+              >
+                <CalendarDays className="w-4 h-4 mr-2" />
+                {formatDate(selectedDate)}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0 bg-card" align="start">
+              <div className="p-3 border-b border-border bg-card">
+                <h4 className="text-sm font-medium">Seleziona Data</h4>
+                <p className="text-xs text-muted-foreground">Ultimi 90 giorni disponibili</p>
+              </div>
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={handleDateSelect}
+                disabled={(date) => date < earliestStart || date > todayStart}
+                toDate={todayStart}
+                defaultMonth={selectedDate}
+                className="border-0 bg-card"
+                data-testid="date-calendar"
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
 
-  <div className="mb-6">
-    <h2 className="text-lg font-bold text-foreground">
-      {hasFavorites ? 'Tutti i Segni Zodiacali:' : 'Scegli il tuo segno e leggi gli Oroscopi:'}
-    </h2>
-  </div>
+        {/* Favorites Section */}
+        {hasFavorites && (
+          <div className="mb-8">
+            <div className="flex items-center space-x-2 mb-4">
+              <h2 className="text-lg font-bold text-foreground">I tuoi Segni Preferiti</h2>
+              <span className="bg-red-100 text-red-600 px-2 py-1 rounded-full text-xs font-medium">
+                {homeFavorites.size}
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {zodiacSigns
+                .filter(sign => isHomeFavorite(sign.name_english))
+                .map((sign) => (
+                  <ZodiacCard
+                    key={`fav-${sign.id}`}
+                    sign={sign}
+                    aggregate={aggregatesData[sign.name_english]}
+                    onClick={() => handleSignClick(sign.name_english)}
+                    isFavorite={true}
+                    onToggleFavorite={() => toggleHomeFavorite(sign.name_english)}
+                    isCollapsed={isCollapsed(sign.name_english)}
+                    onToggleCollapse={() => toggleCollapsed(sign.name_english)}
+                    className="ring-2 ring-red-200 border-red-300"
+                  />
+                ))}
+            </div>
+          </div>
+        )}
+
+        <div className="mb-6 text-center">
+          <h2 className="text-lg font-bold text-[#F0C169]">
+            {hasFavorites ? 'Tutti i Segni Zodiacali:' : 'Scegli il tuo segno e leggi gli Oroscopi:'}
+          </h2>
+        </div>
 
         {/* Loading State */}
         {isLoading && (
@@ -337,6 +325,19 @@ export default function Home() {
               ))}
           </div>
         )}
+
+        {/* Refresh Button at Bottom */}
+        <div className="mt-12 mb-8 flex justify-center">
+          <Button
+            onClick={() => refreshAllMutation.mutate()}
+            disabled={isRefreshing}
+            className="w-full sm:w-auto bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-lg hover:shadow-xl transition-all"
+            data-testid="button-refresh-all"
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+            Aggiorna Tutti i Dati
+          </Button>
+        </div>
       </main>
 
       {/* Loading Overlay */}
