@@ -78,6 +78,53 @@ function scoreWeeklyContent(content: string, zodiacName: string): number {
   return score;
 }
 
+async function findCosmopolitanWeeklyUrl(input: WeeklyScraperInput): Promise<string | null> {
+  try {
+    const archiveUrl = 'https://www.cosmopolitan.com/it/oroscopo/oroscopo-settimana/';
+    console.log(`[WeeklyScraper] Searching Cosmopolitan archive: ${archiveUrl}`);
+    
+    const html = await fetchHtml(archiveUrl, input.userAgent);
+    const $ = cheerio.load(html);
+    
+    const weekStart = new Date(input.weekStartDate);
+    const weekEnd = new Date(input.weekEndDate);
+    const startDay = weekStart.getDate();
+    const endDay = weekEnd.getDate();
+    const startMonth = ITALIAN_MONTHS[weekStart.getMonth()].toLowerCase();
+    const endMonth = ITALIAN_MONTHS[weekEnd.getMonth()].toLowerCase();
+    
+    // Build search pattern: "oroscopo settimana {start_day}-{end_day} {month}"
+    // or "oroscopo-settimana-{start_day}-{end_day}-{start_month}-{year}"
+    const searchPatterns = [
+      `oroscopo-settimana-${startDay}-${endDay}-${startMonth}`,
+      `oroscopo settimana ${startDay}-${endDay} ${startMonth}`,
+      `${startDay}-${endDay} ${startMonth}`,
+    ];
+    
+    // Look for article links
+    let foundUrl: string | null = null;
+    $('a[href*="oroscopo-settimana"]').each((_, element) => {
+      const href = $(element).attr('href');
+      const text = $(element).text().toLowerCase();
+      
+      if (href) {
+        for (const pattern of searchPatterns) {
+          if (href.toLowerCase().includes(pattern) || text.includes(pattern)) {
+            foundUrl = href.startsWith('http') ? href : `https://www.cosmopolitan.com${href}`;
+            console.log(`[WeeklyScraper] Found Cosmopolitan URL: ${foundUrl}`);
+            return false; // break the loop
+          }
+        }
+      }
+    });
+    
+    return foundUrl;
+  } catch (error) {
+    console.error('[WeeklyScraper] Error finding Cosmopolitan URL:', error);
+    return null;
+  }
+}
+
 function buildWeeklyUrl(input: WeeklyScraperInput): string {
   const signMap: Record<string, string> = {
     'Ariete': 'ariete', 'Toro': 'toro', 'Gemelli': 'gemelli', 'Cancro': 'cancro',
@@ -222,7 +269,19 @@ async function scrapeWeeklyText(url: string, input: WeeklyScraperInput): Promise
 
 export async function scrapeWeeklyHoroscope(input: WeeklyScraperInput): Promise<WeeklyScraperOutput> {
   try {
-    const url = buildWeeklyUrl(input);
+    let url: string;
+    
+    // Special handling for Cosmopolitan - find URL from archive
+    if (input.domain.includes('cosmopolitan.com')) {
+      const foundUrl = await findCosmopolitanWeeklyUrl(input);
+      if (!foundUrl) {
+        throw new Error('Could not find current week\'s horoscope URL in Cosmopolitan archive');
+      }
+      url = foundUrl;
+    } else {
+      url = buildWeeklyUrl(input);
+    }
+    
     console.log(`[WeeklyScraper] Starting scrape for ${input.sourceName} - ${input.signSlugIt}`);
     console.log(`[WeeklyScraper] URL: ${url}`);
 
