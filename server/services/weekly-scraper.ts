@@ -174,6 +174,55 @@ async function findSuperGuidaTVWeeklyUrl(input: WeeklyScraperInput): Promise<str
   }
 }
 
+async function findMarieClaire WeeklyUrl(input: WeeklyScraperInput): Promise<string | null> {
+  try {
+    const archiveUrl = 'https://www.marieclaire.it/oroscopo/';
+    console.log(`[WeeklyScraper] Searching Marie Claire archive: ${archiveUrl}`);
+    
+    const html = await fetchHtml(archiveUrl, input.userAgent);
+    const $ = cheerio.load(html);
+    
+    const weekStart = new Date(input.weekStartDate);
+    const weekEnd = new Date(input.weekEndDate);
+    const startDay = weekStart.getDate();
+    const endDay = weekEnd.getDate();
+    const startMonth = ITALIAN_MONTHS[weekStart.getMonth()].toLowerCase();
+    const endMonth = ITALIAN_MONTHS[weekEnd.getMonth()].toLowerCase();
+    
+    // Build search patterns - Marie Claire uses formats like:
+    // "oroscopo-settimana-di-marie-claire-dal-6-al-12-ottobre"
+    const searchPatterns = [
+      `oroscopo-settimana-di-marie-claire-dal-${startDay}-al-${endDay}-${startMonth}`,
+      `oroscopo-settimana-dal-${startDay}-al-${endDay}-${startMonth}`,
+      `dal-${startDay}-al-${endDay}-${startMonth}`,
+      `dal ${startDay} al ${endDay} ${startMonth}`,
+      `${startDay} al ${endDay} ${startMonth}`,
+    ];
+    
+    // Look for article links in the archive
+    let foundUrl: string | null = null;
+    $('a').each((_, element) => {
+      const href = $(element).attr('href');
+      const text = $(element).text().toLowerCase();
+      
+      if (href && (href.includes('oroscopo') || href.includes('settimana'))) {
+        for (const pattern of searchPatterns) {
+          if (href.toLowerCase().includes(pattern) || text.includes(pattern)) {
+            foundUrl = href.startsWith('http') ? href : `https://www.marieclaire.it${href}`;
+            console.log(`[WeeklyScraper] Found Marie Claire URL: ${foundUrl}`);
+            return false; // break the loop
+          }
+        }
+      }
+    });
+    
+    return foundUrl;
+  } catch (error) {
+    console.error('[WeeklyScraper] Error finding Marie Claire URL:', error);
+    return null;
+  }
+}
+
 function buildWeeklyUrl(input: WeeklyScraperInput): string {
   const signMap: Record<string, string> = {
     'Ariete': 'ariete', 'Toro': 'toro', 'Gemelli': 'gemelli', 'Cancro': 'cancro',
@@ -335,7 +384,15 @@ export async function scrapeWeeklyHoroscope(input: WeeklyScraperInput): Promise<
         throw new Error('Could not find current week\'s horoscope URL in SuperGuidaTV archive');
       }
       url = foundUrl;
-    } 
+    }
+    // Special handling for Marie Claire - find URL from archive
+    else if (input.domain.includes('marieclaire.it')) {
+      const foundUrl = await findMarieClaire WeeklyUrl(input);
+      if (!foundUrl) {
+        throw new Error('Could not find current week\'s horoscope URL in Marie Claire archive');
+      }
+      url = foundUrl;
+    }
     else {
       url = buildWeeklyUrl(input);
     }
