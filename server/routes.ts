@@ -29,13 +29,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         where: { is_active: true },
         orderBy: { name: 'asc' }
       });
-      
+
       // Convert Decimal to number for JSON serialization
       const serializedSources = sources.map(source => ({
         ...source,
         reliability_score: Number(source.reliability_score)
       }));
-      
+
       res.json(serializedSources);
     } catch (error) {
       console.error('Error fetching sources:', error);
@@ -150,7 +150,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const relazioniRatings = horoscopes.filter((h: any) => h.relazioni_rating > 0).map((h: any) => h.relazioni_rating);
       const lavoroRatings = horoscopes.filter((h: any) => h.lavoro_rating > 0).map((h: any) => h.lavoro_rating);
       const benessereRatings = horoscopes.filter((h: any) => h.salute_rating > 0).map((h: any) => h.salute_rating);
-      
+
       const avgRelazioni = relazioniRatings.length > 0 
         ? relazioniRatings.reduce((sum: number, rating: number) => sum + rating, 0) / relazioniRatings.length 
         : null;
@@ -549,7 +549,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const relazioniRatings = weeklyHoroscopes.filter((h: any) => h.relazioni_rating > 0).map((h: any) => h.relazioni_rating);
       const lavoroRatings = weeklyHoroscopes.filter((h: any) => h.lavoro_rating > 0).map((h: any) => h.lavoro_rating);
       const benessereRatings = weeklyHoroscopes.filter((h: any) => h.salute_rating > 0).map((h: any) => h.salute_rating);
-      
+
       const avgRelazioni = relazioniRatings.length > 0 
         ? relazioniRatings.reduce((sum: number, rating: number) => sum + rating, 0) / relazioniRatings.length 
         : null;
@@ -731,6 +731,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Added route to trigger weekly horoscope scraping
+  app.post('/api/scrape/weekly/trigger', async (req, res) => {
+    try {
+      // The `scrapeWeeklyHoroscopes` function is intended to be called here
+      // to initiate the weekly horoscope scraping process.
+      await scrapeWeeklyHoroscopes(); 
+      res.status(200).json({ message: 'Weekly horoscope scraping job triggered successfully.' });
+    } catch (error) {
+      console.error('Error triggering weekly horoscope scraping:', error);
+      res.status(500).json({ error: 'Failed to trigger weekly horoscope scraping.' });
+    }
+  });
+
+
   const httpServer = createServer(app);
   return httpServer;
 }
@@ -748,7 +762,7 @@ function buildHoroscopeUrl(input: ScraperInput): string | string[] {
   if (input.domain.includes('repubblica.it')) {
     return input.baseUrl + input.urlPattern;
   }
-  
+
   // Handle IO Donna special case - try date-specific URL first
   if (input.domain.includes('iodonna.it')) {
     const signSlug = signMap[input.signSlugIt] || input.signSlugIt.toLowerCase();
@@ -758,10 +772,10 @@ function buildHoroscopeUrl(input: ScraperInput): string | string[] {
     const year = targetDate.getFullYear();
     return `${input.baseUrl}/oroscopo/giorno/${signSlug}-${day}-${month}-${year}/`;
   }
-  
+
   let url = input.baseUrl + input.urlPattern;
   const targetDate = new Date(input.dateISO);
-  
+
   // Handle date-specific URLs for sources that need them
   if ((input.domain.includes('alfemminile.com') || input.domain.includes('fanpage.it') || input.domain.includes('gazzetta.it')) && url.includes('{weekday}')) {
     const day = targetDate.getDate();
@@ -769,41 +783,41 @@ function buildHoroscopeUrl(input: ScraperInput): string | string[] {
     const year = targetDate.getFullYear();
     const weekday = ITALIAN_WEEKDAYS[targetDate.getDay()];
     const monthName = ITALIAN_MONTHS[month];
-    
+
     url = url.replace('{weekday}', weekday);
     url = url.replace('{day}', day.toString());
     url = url.replace('{month}', monthName);
     url = url.replace('{year}', year.toString());
-    
+
     // Enhanced handling for Gazzetta.it - they use multiple URL patterns
     if (input.domain.includes('gazzetta.it')) {
       const prevDate = new Date(targetDate);
       prevDate.setDate(prevDate.getDate() - 1);
       const prevDateFormatted = prevDate.toISOString().split('T')[0].split('-').reverse().join('-');
       const currentDateFormatted = targetDate.toISOString().split('T')[0].split('-').reverse().join('-');
-      
+
       const gazzettaSignSlug = signMap[input.signSlugIt] || input.signSlugIt.toLowerCase();
       const baseSlug = `oroscopo-${weekday}-${day}-${monthName}-${year}`;
       const slug1 = `${baseSlug}-previsioni-per-12-i-segni`;
       const slug2 = `${baseSlug}-previsioni-per-tutti-i-segni`;
-      
+
       const url1 = `${input.baseUrl}/oroscopo/storie/${prevDateFormatted}/${slug1}/${gazzettaSignSlug}.shtml`;
       const url2 = `${input.baseUrl}/oroscopo/storie/${prevDateFormatted}/${slug2}/${gazzettaSignSlug}.shtml`;
       const url3 = `${input.baseUrl}/oroscopo/storie/${currentDateFormatted}/${slug1}/${gazzettaSignSlug}.shtml`;
       const url4 = `${input.baseUrl}/oroscopo/storie/${currentDateFormatted}/${slug2}/${gazzettaSignSlug}.shtml`;
-      
+
       return [url1, url2, url3, url4];
     }
   }
-  
+
   // Standard replacements
   let signSlug = signMap[input.signSlugIt] || input.signSlugIt.toLowerCase();
-  
+
   // Oggi.it uses capitalized zodiac sign names
   if (input.domain.includes('oggi.it')) {
     signSlug = input.signSlugIt;
   }
-  
+
   url = url.replace('{sign}', signSlug);
   url = url.replace('{dd}', targetDate.getDate().toString().padStart(2, '0'));
   url = url.replace('{day}', targetDate.getDate().toString());
@@ -812,7 +826,7 @@ function buildHoroscopeUrl(input: ScraperInput): string | string[] {
   url = url.replace('{yyyy}', targetDate.getFullYear().toString());
   url = url.replace('{year}', targetDate.getFullYear().toString());
   url = url.replace('{weekday}', ITALIAN_WEEKDAYS[targetDate.getDay()]);
-  
+
   return url;
 }
 
