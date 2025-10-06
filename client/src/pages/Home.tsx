@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RefreshCw, CalendarDays } from "lucide-react";
 import { ZodiacCard } from "@/components/ZodiacCard";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
@@ -38,6 +39,7 @@ export default function Home() {
   const [refreshDismissed, setRefreshDismissed] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [selectedTab, setSelectedTab] = useState<'daily' | 'weekly'>('daily');
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -47,6 +49,17 @@ export default function Home() {
 
   // Get date string for API calls using local date (avoid timezone issues)
   const selectedDateString = selectedDate.toLocaleDateString('en-CA'); // YYYY-MM-DD format in local timezone
+
+  // Calculate week start date (Monday) from selected date for weekly horoscopes
+  const getWeekStartDate = (date: Date): string => {
+    const dayOfWeek = date.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Days to subtract to get to Monday
+    const monday = new Date(date);
+    monday.setDate(date.getDate() - daysToMonday);
+    return monday.toLocaleDateString('en-CA'); // YYYY-MM-DD format
+  };
+
+  const weekStartDate = getWeekStartDate(selectedDate);
 
   // Get date range for calendar (90 days back) - use day boundaries
   const today = new Date();
@@ -59,15 +72,21 @@ export default function Home() {
     queryKey: ['/api/zodiac-signs'],
   });
 
-  // Fetch aggregates for all signs
+  // Fetch aggregates for all signs (daily or weekly based on selected tab)
   const { data: aggregatesData = {}, isLoading: aggregatesLoading } = useQuery<Record<string, HoroscopeAggregate>>({
-    queryKey: ['/api/horoscopes/aggregates', selectedDateString],
+    queryKey: [selectedTab === 'daily' ? '/api/horoscopes/aggregates' : '/api/weekly-horoscopes/aggregates', selectedTab === 'daily' ? selectedDateString : weekStartDate],
     queryFn: async () => {
       const results: Record<string, HoroscopeAggregate> = {};
 
       for (const sign of zodiacSigns) {
         try {
-          const response = await fetch(`/api/horoscopes/aggregate?date=${selectedDateString}&sign=${sign.name_english}`);
+          let response;
+          if (selectedTab === 'daily') {
+            response = await fetch(`/api/horoscopes/aggregate?date=${selectedDateString}&sign=${sign.name_english}`);
+          } else {
+            response = await fetch(`/api/weekly-horoscopes/aggregate?weekStartDate=${weekStartDate}&sign=${sign.name_english}`);
+          }
+          
           if (response.ok) {
             results[sign.name_english] = await response.json();
           }
@@ -84,7 +103,12 @@ export default function Home() {
   // Refresh all data mutation
   const refreshAllMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest('POST', `/api/refresh/all?date=${selectedDateString}`);
+      let response;
+      if (selectedTab === 'daily') {
+        response = await apiRequest('POST', `/api/refresh/all?date=${selectedDateString}`);
+      } else {
+        response = await apiRequest('POST', `/api/refresh/weekly?weekStartDate=${weekStartDate}`);
+      }
       return response.json();
     },
     onSuccess: (data) => {
@@ -115,7 +139,8 @@ export default function Home() {
               setRefreshDismissed(false);
 
               // Invalidate cache to refresh data
-              queryClient.invalidateQueries({ queryKey: ['/api/horoscopes/aggregates'] });
+              const queryKeyPrefix = selectedTab === 'daily' ? '/api/horoscopes/aggregates' : '/api/weekly-horoscopes/aggregates';
+              queryClient.invalidateQueries({ queryKey: [queryKeyPrefix] });
 
               toast({
                 title: "Aggiornamento completato",
@@ -152,12 +177,28 @@ export default function Home() {
   };
 
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString('it-IT', { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    });
+    if (selectedTab === 'daily') {
+      return date.toLocaleDateString('it-IT', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      });
+    } else {
+      // For weekly, show the week range (Monday - Sunday)
+      const monday = new Date(date);
+      const dayOfWeek = date.getDay();
+      const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      monday.setDate(date.getDate() - daysToMonday);
+      
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      
+      const mondayStr = monday.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+      const sundayStr = sunday.toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' });
+      
+      return `Settimana: ${mondayStr} - ${sundayStr}`;
+    }
   };
 
   const handleDateSelect = (date: Date | undefined) => {
@@ -165,8 +206,16 @@ export default function Home() {
       setSelectedDate(date);
       setCalendarOpen(false);
       // Invalidate queries to fetch new data for selected date
-      queryClient.invalidateQueries({ queryKey: ['/api/horoscopes/aggregates'] });
+      const queryKeyPrefix = selectedTab === 'daily' ? '/api/horoscopes/aggregates' : '/api/weekly-horoscopes/aggregates';
+      queryClient.invalidateQueries({ queryKey: [queryKeyPrefix] });
     }
+  };
+
+  const handleTabChange = (value: string) => {
+    setSelectedTab(value as 'daily' | 'weekly');
+    // Invalidate queries when switching tabs
+    queryClient.invalidateQueries({ queryKey: ['/api/horoscopes/aggregates'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/weekly-horoscopes/aggregates'] });
   };
 
   // Initialize collapsed state
@@ -216,8 +265,15 @@ export default function Home() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Date Selector Section */}
-        <div className="mb-8 flex">
+        {/* Tab Selector and Date Selector Section */}
+        <div className="mb-8 space-y-4">
+          <Tabs value={selectedTab} onValueChange={handleTabChange} className="w-full">
+            <TabsList className="grid w-full sm:w-[400px] grid-cols-2" data-testid="horoscope-type-tabs">
+              <TabsTrigger value="daily" data-testid="tab-daily">Giornaliero</TabsTrigger>
+              <TabsTrigger value="weekly" data-testid="tab-weekly">Settimanale</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          
           <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
             <PopoverTrigger asChild>
               <Button 
@@ -233,7 +289,9 @@ export default function Home() {
             <PopoverContent className="w-auto p-0 bg-card" align="start">
               <div className="p-3 border-b border-border bg-card">
                 <h4 className="text-sm font-medium">Seleziona Data</h4>
-                <p className="text-xs text-muted-foreground">Ultimi 90 giorni disponibili</p>
+                <p className="text-xs text-muted-foreground">
+                  {selectedTab === 'daily' ? 'Ultimi 90 giorni disponibili' : 'Seleziona un giorno per vedere la settimana'}
+                </p>
               </div>
               <Calendar
                 mode="single"
