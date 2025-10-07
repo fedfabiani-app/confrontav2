@@ -136,6 +136,9 @@ export default function Info() {
         </Card>
 
       </main>
+
+      {/* Bottom spacing for mobile navigation */}
+      <div className="h-14 md:h-0"></div>
     </div>
   );
 }

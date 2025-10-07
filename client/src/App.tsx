@@ -13,23 +13,41 @@ import { useLocation } from "wouter";
 function BottomNavigation() {
   const [location, navigate] = useLocation();
 
-  // Hide navigation on Info page
-  if (location === '/info') {
+  const navItems = [
+    { path: '/', icon: HomeIcon, label: 'Home' },
+    { path: '/info', icon: Info, label: 'Info' },
+  ];
+
+  // Hide navigation on SignDetail pages (paths starting with /sign/)
+  if (location.startsWith('/sign/')) {
     return null;
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-transparent z-50 pointer-events-none">
-      <div className="flex items-center justify-center py-4">
-        <button
-          onClick={() => navigate('/info')}
-          className="text-white text-sm hover:text-gray-300 transition-colors pointer-events-auto"
-          data-testid="nav-info"
-        >
-          Info
-        </button>
+    <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border md:hidden z-50">
+      <div className="flex items-center justify-around py-1">
+        {navItems.map((item) => {
+          const isActive = location === item.path;
+          const Icon = item.icon;
+          
+          return (
+            <button
+              key={item.path}
+              onClick={() => navigate(item.path)}
+              className={`flex flex-col items-center py-1 px-4 transition-colors ${
+                isActive 
+                  ? 'text-orange-500' 
+                  : 'text-muted-foreground hover:text-card-foreground'
+              }`}
+              data-testid={`nav-${item.label.toLowerCase()}`}
+            >
+              <Icon className="w-5 h-5 mb-0.5" />
+              <span className="text-xs">{item.label}</span>
+            </button>
+          );
+        })}
       </div>
-    </div>
+    </nav>
   );
 }
 
