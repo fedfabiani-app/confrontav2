@@ -654,7 +654,10 @@ export default function SignDetail({ sign }: SignDetailProps) {
                   <CardContent className="p-6">
                     {/* Source Header */}
                     <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center space-x-3">
+                      <div 
+                        className="flex items-center space-x-3 cursor-pointer flex-1"
+                        onClick={() => toggleCollapse(horoscope.source.id)}
+                      >
                         <SourceIcon
                           source={horoscope.source}
                           data-testid={`individual-source-icon-${horoscope.source.id}`}
