@@ -304,8 +304,8 @@ export default function Home() {
         {hasFavorites && (
           <div className="mb-8">
             <div className="flex items-center space-x-2 mb-4">
-              <h2 className="text-lg font-bold text-foreground">I tuoi Segni Preferiti</h2>
-              <span className="bg-red-100 text-red-600 px-2 py-1 rounded-full text-xs font-medium">
+              <h2 className="text-lg font-bold text-[#F0C169]">I tuoi Segni Preferiti</h2>
+              <span className="bg-red-100 text-white-500 px-2 py-1 rounded-full text-xs font-medium">
                 {homeFavorites.size}
               </span>
             </div>
