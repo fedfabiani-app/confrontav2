@@ -223,6 +223,64 @@ async function findMarieClairWeeklyUrl(input: WeeklyScraperInput): Promise<strin
   }
 }
 
+async function findRepubblicaWeeklyUrl(input: WeeklyScraperInput): Promise<string | null> {
+  try {
+    const archiveUrl = 'https://d.repubblica.it/oroscopo/oroscopo-della-settimana/';
+    console.log(`[WeeklyScraper] Searching Repubblica archive: ${archiveUrl}`);
+    
+    const html = await fetchHtml(archiveUrl, input.userAgent);
+    const $ = cheerio.load(html);
+    
+    // Repubblica's week starts on Saturday, not Monday
+    // So we need to adjust the dates accordingly
+    const weekStart = new Date(input.weekStartDate);
+    const weekEnd = new Date(input.weekEndDate);
+    
+    // Get Saturday of the week (week start for Repubblica)
+    const saturday = new Date(weekStart);
+    const dayOfWeek = saturday.getDay();
+    const daysUntilSaturday = (6 - dayOfWeek + 7) % 7;
+    saturday.setDate(saturday.getDate() + daysUntilSaturday);
+    
+    const startDay = saturday.getDate();
+    const endDay = weekEnd.getDate();
+    const startMonth = ITALIAN_MONTHS[saturday.getMonth()].toLowerCase();
+    const endMonth = ITALIAN_MONTHS[weekEnd.getMonth()].toLowerCase();
+    
+    // Build search patterns - Repubblica uses formats like:
+    // "oroscopo_settimana_4_al_10_ottobre_2025"
+    // "dal 4 al 10 ottobre"
+    const searchPatterns = [
+      `${startDay}_al_${endDay}_${startMonth}`,
+      `dal_${startDay}_al_${endDay}_${startMonth}`,
+      `dal ${startDay} al ${endDay} ${startMonth}`,
+      `${startDay} al ${endDay} ${startMonth}`,
+    ];
+    
+    // Look for article links in the archive
+    let foundUrl: string | null = null;
+    $('a').each((_, element) => {
+      const href = $(element).attr('href');
+      const text = $(element).text().toLowerCase();
+      
+      if (href && href.includes('oroscopo')) {
+        for (const pattern of searchPatterns) {
+          if (href.toLowerCase().includes(pattern) || text.includes(pattern)) {
+            foundUrl = href.startsWith('http') ? href : `https://d.repubblica.it${href}`;
+            console.log(`[WeeklyScraper] Found Repubblica URL: ${foundUrl}`);
+            return false; // break the loop
+          }
+        }
+      }
+    });
+    
+    return foundUrl;
+  } catch (error) {
+    console.error('[WeeklyScraper] Error finding Repubblica URL:', error);
+    return null;
+  }
+}
+
 async function scrapeMarieClairWeeklyText(url: string, input: WeeklyScraperInput): Promise<WeeklyScrapeResult> {
   try {
     console.log(`[WeeklyScraper] Marie Claire - Fetching ${url} for ${input.signSlugIt}`);
@@ -475,6 +533,14 @@ export async function scrapeWeeklyHoroscope(input: WeeklyScraperInput): Promise<
       }
       url = foundUrl;
     }
+    // Special handling for Repubblica - find URL from archive (week starts Saturday)
+    else if (input.domain.includes('repubblica.it')) {
+      const foundUrl = await findRepubblicaWeeklyUrl(input);
+      if (!foundUrl) {
+        throw new Error('Could not find current week\'s horoscope URL in Repubblica archive');
+      }
+      url = foundUrl;
+    }
     else {
       url = buildWeeklyUrl(input);
     }
@@ -484,8 +550,8 @@ export async function scrapeWeeklyHoroscope(input: WeeklyScraperInput): Promise<
 
     await respectDomainRateLimit(input.domain);
 
-    // Use specialized scraper for Marie Claire
-    const result = input.domain.includes('marieclaire.it') 
+    // Use specialized scraper for Marie Claire and Repubblica (all signs on one page)
+    const result = (input.domain.includes('marieclaire.it') || input.domain.includes('repubblica.it'))
       ? await scrapeMarieClairWeeklyText(url, input)
       : await scrapeWeeklyText(url, input);
 
