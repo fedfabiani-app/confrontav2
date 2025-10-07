@@ -16,7 +16,6 @@ import {
   Loader2,
 } from "lucide-react";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
-import { ToneBadge } from "@/components/ToneBadge";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useFavorites } from "@/hooks/use-favorites";
@@ -670,7 +669,7 @@ export default function SignDetail({ sign }: SignDetailProps) {
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <ToneBadge tone={horoscope.tone_analysis} size="sm" />
+                        {/* Collapse Toggle Button */}
                         <Button
                           variant="ghost"
                           size="sm"
@@ -720,9 +719,25 @@ export default function SignDetail({ sign }: SignDetailProps) {
                         >
                           <Share className="w-4 h-4 text-gray-400 hover:text-blue-500 transition-colors" />
                         </Button>
+                        {/* Tone Badge */}
+                        <div
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            horoscope.tone_analysis === "positive"
+                              ? "bg-green-100 text-green-800"
+                              : horoscope.tone_analysis === "negative"
+                                ? "bg-red-100 text-red-800"
+                                : "bg-gray-100 text-gray-800"
+                          }`}
+                        >
+                          {horoscope.tone_analysis === "positive"
+                            ? "Positivo"
+                            : horoscope.tone_analysis === "negative"
+                              ? "Negativo"
+                              : "Neutrale"}
+                        </div>
                       </div>
+                    </div>
 
-                      
                     {/* Collapsible Content */}
                     <div
                       className={`overflow-hidden transition-all duration-300 ease-in-out ${
