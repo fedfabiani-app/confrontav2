@@ -16,6 +16,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
+import { ToneBadge } from "@/components/ToneBadge";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useFavorites } from "@/hooks/use-favorites";
