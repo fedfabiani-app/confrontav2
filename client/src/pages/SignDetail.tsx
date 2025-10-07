@@ -452,8 +452,14 @@ export default function SignDetail({ sign }: SignDetailProps) {
     // No manual invalidation needed
   };
 
-  // Add swipe gesture support for tabs
+  // Check if we're in a loading state
+  const isLoading = horoscopesLoading || !zodiacSign || !aggregate;
+
+  // Add swipe gesture support for tabs - must be before early returns to maintain hook order
   useEffect(() => {
+    // Only set up listeners if component is fully loaded
+    if (isLoading) return;
+    
     const tabsElement = document.querySelector('[data-testid="horoscope-type-tabs"]');
     if (!tabsElement) return;
 
@@ -491,10 +497,7 @@ export default function SignDetail({ sign }: SignDetailProps) {
       tabsElement.removeEventListener('touchstart', handleTouchStart as EventListener);
       tabsElement.removeEventListener('touchend', handleTouchEnd as EventListener);
     };
-  }, [selectedTab]);
-
-  // Check if we're in a loading state
-  const isLoading = horoscopesLoading || !zodiacSign || !aggregate;
+  }, [selectedTab, isLoading]);
 
   // Early return for loading state
   if (isLoading) {
