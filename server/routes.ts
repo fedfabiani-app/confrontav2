@@ -6,7 +6,7 @@ import { enqueueScrapeJob, getAllJobStatuses, getJobStatus } from "./jobs";
 import { enqueueWeeklyScrapeJob, getAllWeeklyJobStatuses } from "./jobs/weekly";
 import { ScraperInput, WeeklyScraperInput } from "@shared/schema";
 import { ZODIAC_SIGNS_IT_EN, ITALIAN_WEEKDAYS, ITALIAN_MONTHS } from "@shared/constants";
-import { scrapeWeeklyWithRetry } from "./services/scraper"; // Assuming this is where scrapeWeeklyWithRetry is defined
+import { scrapeWeeklyWithRetry } from "./services/weekly-scraper";
 
 export async function registerRoutes(app: Express): Promise<Server> {
 

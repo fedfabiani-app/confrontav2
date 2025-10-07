@@ -316,10 +316,15 @@ async function findSorrisiWeeklyUrl(input: WeeklyScraperInput): Promise<string |
     const $ = cheerio.load(html);
     
     // Sorrisi week starts on Saturday (not Monday)
-    // Calculate Saturday from the given Monday week start
+    // Calculate the Saturday before the given Monday
     const mondayStart = new Date(input.weekStartDate);
+    const dayOfWeek = mondayStart.getDay(); // 0 = Sunday, 1 = Monday
+    
+    // If it's Monday (1), go back 2 days to Saturday
+    // Otherwise adjust accordingly
+    const daysToSaturday = dayOfWeek === 0 ? 1 : (dayOfWeek === 1 ? 2 : (8 - dayOfWeek));
     const saturday = new Date(mondayStart);
-    saturday.setDate(mondayStart.getDate() - 2); // Go back 2 days from Monday to Saturday
+    saturday.setDate(mondayStart.getDate() - daysToSaturday);
     
     // End date is Friday (6 days after Saturday)
     const friday = new Date(saturday);
