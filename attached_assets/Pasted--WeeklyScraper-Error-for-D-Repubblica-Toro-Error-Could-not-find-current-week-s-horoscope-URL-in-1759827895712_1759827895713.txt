@@ -1,0 +1,30 @@
+[WeeklyScraper] Error for D Repubblica - Toro: Error: Could not find current week's horoscope URL in Repubblica archive
+    at scrapeWeeklyHoroscope (/home/runner/workspace/server/services/weekly-scraper.ts:657:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async scrapeWeeklyWithRetry (/home/runner/workspace/server/services/weekly-scraper.ts:708:14)
+    at async WeeklyScraperWorker.process (/home/runner/workspace/server/workers/weekly-scraper.ts:10:22)
+    at async <anonymous> (/home/runner/workspace/server/jobs/weekly.ts:62:22)
+    at async file:///home/runner/workspace/node_modules/p-queue/dist/index.js:230:36
+[WeeklyScraper] Attempt 2 failed, retrying in 4000ms...
+[WeeklyScraper] Searching Repubblica archive: https://d.repubblica.it/oroscopo/oroscopo-della-settimana/
+[WeeklyScraper] Error for D Repubblica - Toro: Error: Could not find current week's horoscope URL in Repubblica archive
+    at scrapeWeeklyHoroscope (/home/runner/workspace/server/services/weekly-scraper.ts:657:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async scrapeWeeklyWithRetry (/home/runner/workspace/server/services/weekly-scraper.ts:708:14)
+    at async WeeklyScraperWorker.process (/home/runner/workspace/server/workers/weekly-scraper.ts:10:22)
+    at async <anonymous> (/home/runner/workspace/server/jobs/weekly.ts:62:22)
+    at async file:///home/runner/workspace/node_modules/p-queue/dist/index.js:230:36
+[WeeklyScraperWorker] Failed to scrape D Repubblica - Toro: Error: Failed to scrape weekly D Repubblica: Could not find current week's horoscope URL in Repubblica archive
+    at scrapeWeeklyHoroscope (/home/runner/workspace/server/services/weekly-scraper.ts:696:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async scrapeWeeklyWithRetry (/home/runner/workspace/server/services/weekly-scraper.ts:708:14)
+    at async WeeklyScraperWorker.process (/home/runner/workspace/server/workers/weekly-scraper.ts:10:22)
+    at async <anonymous> (/home/runner/workspace/server/jobs/weekly.ts:62:22)
+    at async file:///home/runner/workspace/node_modules/p-queue/dist/index.js:230:36
+[WeeklyJobQueue] Weekly scrape job weekly_job_1759827745367_ng9q386e04i failed: Error: Failed to scrape weekly D Repubblica: Could not find current week's horoscope URL in Repubblica archive
+    at scrapeWeeklyHoroscope (/home/runner/workspace/server/services/weekly-scraper.ts:696:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async scrapeWeeklyWithRetry (/home/runner/workspace/server/services/weekly-scraper.ts:708:14)
+    at async WeeklyScraperWorker.process (/home/runner/workspace/server/workers/weekly-scraper.ts:10:22)
+    at async <anonymous> (/home/runner/workspace/server/jobs/weekly.ts:62:22)
+    at async file:///home/runner/workspace/node_modules/p-queue/dist/index.js:230:36
