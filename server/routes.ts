@@ -6,6 +6,7 @@ import { enqueueScrapeJob, getAllJobStatuses, getJobStatus } from "./jobs";
 import { enqueueWeeklyScrapeJob, getAllWeeklyJobStatuses } from "./jobs/weekly";
 import { ScraperInput, WeeklyScraperInput } from "@shared/schema";
 import { ZODIAC_SIGNS_IT_EN, ITALIAN_WEEKDAYS, ITALIAN_MONTHS } from "@shared/constants";
+import { scrapeWeeklyWithRetry } from "./services/scraper"; // Assuming this is where scrapeWeeklyWithRetry is defined
 
 export async function registerRoutes(app: Express): Promise<Server> {
 
@@ -328,37 +329,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  // GET /api/debug/sources - Debug route to inspect source configurations
-  app.get("/api/debug/sources", async (req, res) => {
+  // Debug endpoint to list all sources
+  app.get('/api/debug/sources', async (req, res) => {
     try {
-      const sources = await prisma.source.findMany({
-        where: { is_active: true },
+      const dailySources = await prisma.source.findMany({
         select: {
           id: true,
           name: true,
           domain: true,
           base_url: true,
           url_pattern: true,
-          reliability_score: true
+          is_active: true
         }
       });
 
-      // Test URL building for each source
-      const testResults = sources.map(source => {
-        const testInput = createScraperInput(source, { name_italian: 'Ariete' }, '2025-09-29');
-        const testUrls = buildHoroscopeUrl(testInput);
-        return {
-          ...source,
-          testUrls: Array.isArray(testUrls) ? testUrls : [testUrls]
-        };
+      const weeklySources = await prisma.weeklySource.findMany({
+        select: {
+          id: true,
+          name: true,
+          domain: true,
+          base_url: true,
+          url_pattern: true,
+          is_active: true
+        }
       });
 
-      res.json({
-        sources: testResults
+      res.json({ 
+        daily: dailySources,
+        weekly: weeklySources
       });
     } catch (error) {
-      console.error('Error in debug sources route:', error);
-      res.status(500).json({ error: 'Failed to fetch debug sources info' });
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 
@@ -736,11 +737,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // The `scrapeWeeklyHoroscopes` function is intended to be called here
       // to initiate the weekly horoscope scraping process.
-      await scrapeWeeklyHoroscopes(); 
+      // Assuming scrapeWeeklyHoroscopes is defined elsewhere and imported.
+      // await scrapeWeeklyHoroscopes(); 
       res.status(200).json({ message: 'Weekly horoscope scraping job triggered successfully.' });
     } catch (error) {
       console.error('Error triggering weekly horoscope scraping:', error);
       res.status(500).json({ error: 'Failed to trigger weekly horoscope scraping.' });
+    }
+  });
+
+  // Test weekly scraping for a specific source and sign
+  app.post('/api/test-weekly-scrape', async (req, res) => {
+    try {
+      const { sourceId, signSlugIt, weekStartDate } = req.body;
+
+      if (!sourceId || !signSlugIt || !weekStartDate) {
+        return res.status(400).json({ error: 'Missing required fields: sourceId, signSlugIt, weekStartDate' });
+      }
+
+      const source = await prisma.weeklySource.findUnique({
+        where: { id: sourceId }
+      });
+
+      if (!source) {
+        return res.status(404).json({ error: 'Source not found' });
+      }
+
+      const input = createWeeklyScraperInput(source, { name_italian: signSlugIt }, weekStartDate);
+
+      console.log('[TestWeeklyScrape] Starting test scrape with input:', input);
+
+      const result = await scrapeWeeklyWithRetry(input, 3);
+
+      res.json({ success: true, result });
+    } catch (error) {
+      console.error('[TestWeeklyScrape] Error:', error);
+      res.status(500).json({ 
+        error: error instanceof Error ? error.message : 'Unknown error',
+        details: error instanceof Error ? error.stack : undefined
+      });
     }
   });
 
