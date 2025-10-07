@@ -669,23 +669,22 @@ export default function SignDetail({ sign }: SignDetailProps) {
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
-                        {/* Collapse Toggle Button */}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => toggleCollapse(horoscope.source.id)}
-                          className="p-1 h-8 w-8 hover:bg-gray-50 dark:hover:bg-gray-800"
-                          data-testid={`button-collapse-${horoscope.source.id}`}
-                          title={
-                            isCollapsed ? "Espandi scheda" : "Comprimi scheda"
-                          }
+                        {/* Tone Badge */}
+                        <div
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            horoscope.tone_analysis === "positive"
+                              ? "bg-green-100 text-green-800"
+                              : horoscope.tone_analysis === "negative"
+                                ? "bg-red-100 text-red-800"
+                                : "bg-gray-100 text-gray-800"
+                          }`}
                         >
-                          <ChevronDown
-                            className={`w-4 h-4 text-gray-400 hover:text-gray-600 transition-all duration-200 ${
-                              isCollapsed ? "rotate-180" : "rotate-0"
-                            }`}
-                          />
-                        </Button>
+                          {horoscope.tone_analysis === "positive"
+                            ? "Positivo"
+                            : horoscope.tone_analysis === "negative"
+                              ? "Negativo"
+                              : "Neutrale"}
+                        </div>
                         {/* Favorite Toggle Button */}
                         <Button
                           variant="ghost"
@@ -719,22 +718,23 @@ export default function SignDetail({ sign }: SignDetailProps) {
                         >
                           <Share className="w-4 h-4 text-gray-400 hover:text-blue-500 transition-colors" />
                         </Button>
-                        {/* Tone Badge */}
-                        <div
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            horoscope.tone_analysis === "positive"
-                              ? "bg-green-100 text-green-800"
-                              : horoscope.tone_analysis === "negative"
-                                ? "bg-red-100 text-red-800"
-                                : "bg-gray-100 text-gray-800"
-                          }`}
+                        {/* Collapse Toggle Button */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleCollapse(horoscope.source.id)}
+                          className="p-1 h-8 w-8 hover:bg-gray-50 dark:hover:bg-gray-800"
+                          data-testid={`button-collapse-${horoscope.source.id}`}
+                          title={
+                            isCollapsed ? "Espandi scheda" : "Comprimi scheda"
+                          }
                         >
-                          {horoscope.tone_analysis === "positive"
-                            ? "Positivo"
-                            : horoscope.tone_analysis === "negative"
-                              ? "Negativo"
-                              : "Neutrale"}
-                        </div>
+                          <ChevronDown
+                            className={`w-4 h-4 text-gray-400 hover:text-gray-600 transition-all duration-200 ${
+                              isCollapsed ? "rotate-180" : "rotate-0"
+                            }`}
+                          />
+                        </Button>
                       </div>
                     </div>
 
