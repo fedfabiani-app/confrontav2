@@ -454,6 +454,9 @@ export default function SignDetail({ sign }: SignDetailProps) {
 
   // Add swipe gesture support for tabs
   useEffect(() => {
+    const tabsElement = document.querySelector('[data-testid="horoscope-type-tabs"]');
+    if (!tabsElement) return;
+
     let touchStartX = 0;
     let touchEndX = 0;
     const minSwipeDistance = 50;
@@ -481,12 +484,12 @@ export default function SignDetail({ sign }: SignDetailProps) {
       }
     };
 
-    document.addEventListener('touchstart', handleTouchStart);
-    document.addEventListener('touchend', handleTouchEnd);
+    tabsElement.addEventListener('touchstart', handleTouchStart as EventListener);
+    tabsElement.addEventListener('touchend', handleTouchEnd as EventListener);
 
     return () => {
-      document.removeEventListener('touchstart', handleTouchStart);
-      document.removeEventListener('touchend', handleTouchEnd);
+      tabsElement.removeEventListener('touchstart', handleTouchStart as EventListener);
+      tabsElement.removeEventListener('touchend', handleTouchEnd as EventListener);
     };
   }, [selectedTab]);
 
