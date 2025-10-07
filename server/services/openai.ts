@@ -287,6 +287,46 @@ Non inventare contenuti: se una categoria non è menzionata chiaramente, assegna
 
 In fase di riassunto, conserva il senso complessivo del testo originale ma elimina dettagli superflui e metafore troppo specifiche, mantenendo però il linguaggio sportivo e l’approccio giornalistico tipico di Gazzetta.
 
+REGOLE SPECIFICHE PER MARIE CLAIRE:
+
+Quando analizzi contenuti da marieclaire.it, tieni presente questa struttura tipica:
+
+STRUTTURA MARIE CLAIRE:
+- Ogni segno ha un paragrafo principale con le previsioni della settimana
+- Spesso seguito da una "tip karmica" (consiglio filosofico/spirituale)
+- Il contenuto è poetico, metaforico e ricco di riferimenti planetari
+
+Per RIASSUNTO:
+- Estrai l'essenza delle previsioni dal paragrafo principale
+- Includi i riferimenti planetari chiave (Mercurio, Venere, Luna, Marte, Giove, ecc.)
+- Mantieni il tono poetico ma rendi il contenuto chiaro e actionable
+- La "tip karmica" può essere menzionata se aggiunge valore alle previsioni
+- Concentrati su consigli pratici e outlook della settimana
+
+Per RELAZIONI (1-5 stelle):
+- Cerca menzioni di: Venere, Luna, amore, cuore, sentimenti, passione, relazioni, famiglia
+- Frasi come "libero di amare", "incontrare", "bussare alla fortuna", "cuore" = positive
+- "Distanti", "soli", "mancanza", "paura" = negative
+- Considera il tono emotivo generale delle previsioni
+
+Per LAVORO (1-5 stelle):
+- Cerca menzioni di: progetti, obiettivi, successo, carriera, opportunità, fortuna
+- "Successi e obiettivi", "bastare a voi stessi", "farvi ispirare" = positive
+- "Dubbi", "fermarvi", "lentezza forzata" = negative
+- Valuta la proattività e l'energia descritta per la settimana
+
+Per BENESSERE (mood generale e umore della giornata) (1-5 stelle):
+- Considera l'energia complessiva: Marte (energia), Giove (ottimismo), Luna (emozioni)
+- "Energie migliori", "divertimento", "bellezza", "ottimismo" = stelle alte
+- "Dubbi", "paura", "pesantezza", "arrendersi" = stelle basse
+- Valuta il mood emotivo e la capacità di godersi la settimana
+
+NOTA MARIE CLAIRE:
+- Il linguaggio è spesso metaforico e poetico - interpreta il significato profondo
+- I riferimenti planetari indicano le aree di influenza (Venere=amore, Marte=azione, Mercurio=comunicazione)
+- La "tip karmica" riflette spesso il tema centrale della settimana per quel segno
+- Bilancia poesia e praticità nel riassunto
+
 REGOLE SPECIFICHE PER VIRGILIO:
 
 Per RIASSUNTO:

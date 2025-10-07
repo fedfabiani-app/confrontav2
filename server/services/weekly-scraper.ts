@@ -223,6 +223,88 @@ async function findMarieClairWeeklyUrl(input: WeeklyScraperInput): Promise<strin
   }
 }
 
+async function scrapeMarieClairWeeklyText(url: string, input: WeeklyScraperInput): Promise<WeeklyScrapeResult> {
+  try {
+    console.log(`[WeeklyScraper] Marie Claire - Fetching ${url} for ${input.signSlugIt}`);
+    const html = await fetchHtml(url, input.userAgent);
+    const $ = cheerio.load(html);
+    
+    const zodiacName = input.signSlugIt;
+    const zodiacNameLower = zodiacName.toLowerCase();
+    
+    // Marie Claire has all signs on one page with H2 headings
+    // Find the H2 with the sign name
+    let signContent = '';
+    
+    $('h2').each((_, h2Element) => {
+      const h2Text = $(h2Element).text().trim();
+      
+      // Check if this H2 contains the zodiac sign name
+      if (h2Text.toLowerCase().includes(zodiacNameLower)) {
+        console.log(`[WeeklyScraper] Marie Claire - Found H2 for ${zodiacName}: ${h2Text}`);
+        
+        // Extract all paragraphs after this H2 until the next H2
+        let currentElement = $(h2Element).next();
+        const paragraphs: string[] = [];
+        
+        while (currentElement.length > 0) {
+          const tagName = currentElement.prop('tagName')?.toLowerCase();
+          
+          // Stop if we hit another H2 (next sign)
+          if (tagName === 'h2') {
+            break;
+          }
+          
+          // Extract paragraph content
+          if (tagName === 'p') {
+            const pText = currentElement.text().trim();
+            if (pText.length > 20) {
+              paragraphs.push(pText);
+            }
+          }
+          
+          currentElement = currentElement.next();
+        }
+        
+        if (paragraphs.length > 0) {
+          signContent = paragraphs.join('\n\n');
+          console.log(`[WeeklyScraper] Marie Claire - Extracted ${paragraphs.length} paragraphs for ${zodiacName}`);
+          return false; // break the each loop
+        }
+      }
+    });
+    
+    if (!signContent || signContent.length < 50) {
+      return {
+        success: false,
+        error: `No content found for ${zodiacName} in Marie Claire weekly horoscope`
+      };
+    }
+    
+    const score = scoreWeeklyContent(signContent, zodiacNameLower);
+    console.log(`[WeeklyScraper] Marie Claire - Content score for ${zodiacName}: ${score}`);
+    
+    if (score < 10) {
+      return {
+        success: false,
+        error: `Insufficient weekly content quality for ${zodiacName} (score: ${score})`
+      };
+    }
+    
+    return {
+      success: true,
+      text: signContent.substring(0, 3500),
+      url
+    };
+    
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}
+
 function buildWeeklyUrl(input: WeeklyScraperInput): string {
   const signMap: Record<string, string> = {
     'Ariete': 'ariete', 'Toro': 'toro', 'Gemelli': 'gemelli', 'Cancro': 'cancro',
@@ -402,7 +484,10 @@ export async function scrapeWeeklyHoroscope(input: WeeklyScraperInput): Promise<
 
     await respectDomainRateLimit(input.domain);
 
-    const result = await scrapeWeeklyText(url, input);
+    // Use specialized scraper for Marie Claire
+    const result = input.domain.includes('marieclaire.it') 
+      ? await scrapeMarieClairWeeklyText(url, input)
+      : await scrapeWeeklyText(url, input);
 
     if (!result.success || !result.text) {
       throw new Error(result.error || 'Failed to scrape weekly horoscope');
