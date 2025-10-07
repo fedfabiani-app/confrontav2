@@ -452,6 +452,44 @@ export default function SignDetail({ sign }: SignDetailProps) {
     // No manual invalidation needed
   };
 
+  // Add swipe gesture support for tabs
+  useEffect(() => {
+    let touchStartX = 0;
+    let touchEndX = 0;
+    const minSwipeDistance = 50;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      touchStartX = e.changedTouches[0].screenX;
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      touchEndX = e.changedTouches[0].screenX;
+      handleSwipe();
+    };
+
+    const handleSwipe = () => {
+      const swipeDistance = touchStartX - touchEndX;
+      
+      if (Math.abs(swipeDistance) > minSwipeDistance) {
+        if (swipeDistance > 0 && selectedTab === 'daily') {
+          // Swipe left: switch to weekly
+          setSelectedTab('weekly');
+        } else if (swipeDistance < 0 && selectedTab === 'weekly') {
+          // Swipe right: switch to daily
+          setSelectedTab('daily');
+        }
+      }
+    };
+
+    document.addEventListener('touchstart', handleTouchStart);
+    document.addEventListener('touchend', handleTouchEnd);
+
+    return () => {
+      document.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [selectedTab]);
+
   // Check if we're in a loading state
   const isLoading = horoscopesLoading || !zodiacSign || !aggregate;
 
