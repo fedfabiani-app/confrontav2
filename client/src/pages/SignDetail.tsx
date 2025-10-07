@@ -668,6 +668,8 @@ export default function SignDetail({ sign }: SignDetailProps) {
                           </p>
                         </div>
                       </div>
+                      <div className="flex items-center space-x-2">
+                        <ToneBadge tone={horoscope.tone_analysis} size="sm" />
                         <Button
                           variant="ghost"
                           size="sm"
@@ -717,6 +719,7 @@ export default function SignDetail({ sign }: SignDetailProps) {
                         >
                           <Share className="w-4 h-4 text-gray-400 hover:text-blue-500 transition-colors" />
                         </Button>
+                      </div>
 
                       
                     {/* Collapsible Content */}
