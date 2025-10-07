@@ -39,139 +39,17 @@ export default function Info() {
           <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
             <Star className="text-white w-8 h-8" />
           </div>
-          <h2 className="text-3xl font-bold text-card-foreground mb-4">Oroscopo Italiano</h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            La piattaforma italiana per previsioni astrologiche intelligenti, 
-            utilizzando intelligenza artificiale per analisi approfondite e sintesi copyright-safe.
+          <h2 className="text-3xl font-bold mb-4" style={{ color: '#F0C169' }}>
+            Confronta Oroscopo
+          </h2>
+          <p className="text-lg text-white max-w-2xl mx-auto">
+            Tutti gli Oroscopi, una sola App
           </p>
         </div>
 
-        {/* How It Works */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Brain className="w-5 h-5 text-orange-500" />
-              <span>Come Funziona</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid md:grid-cols-3 gap-6">
-              <div className="text-center">
-                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <Globe className="w-6 h-6 text-blue-500" />
-                </div>
-                <h3 className="font-semibold mb-2">1. Raccolta Dati</h3>
-                <p className="text-sm text-muted-foreground">
-                  Raccolta automatica delle migliori previsioni astrologiche 
-                  per tutti i segni zodiacali.
-                </p>
-              </div>
-              
-              <div className="text-center">
-                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <Brain className="w-6 h-6 text-green-500" />
-                </div>
-                <h3 className="font-semibold mb-2">2. Analisi AI</h3>
-                <p className="text-sm text-muted-foreground">
-                  OpenAI analizza ogni previsione per estrarre valutazioni numeriche 
-                  su Relazioni, Lavoro e Benessere (1-5 stelle).
-                </p>
-              </div>
-              
-              <div className="text-center">
-                <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <Star className="w-6 h-6 text-purple-500" />
-                </div>
-                <h3 className="font-semibold mb-2">3. Aggregazione</h3>
-                <p className="text-sm text-muted-foreground">
-                  Calcolo di medie ponderate e analisi del tono generale per fornire 
-                  una visione completa e bilanciata.
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+       
 
-        {/* Features */}
-        <div className="grid md:grid-cols-2 gap-6 mb-8">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Shield className="w-5 h-5 text-green-500" />
-                <span>Sicurezza e Privacy</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-start space-x-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
-                <div>
-                  <strong className="text-sm">Copyright-Safe:</strong>
-                  <p className="text-sm text-muted-foreground">
-                    Tutti i contenuti sono rielaborati dall'AI per garantire originalità
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start space-x-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
-                <div>
-                  <strong className="text-sm">Dati Sicuri:</strong>
-                  <p className="text-sm text-muted-foreground">
-                    Nessun dato personale viene raccolto o memorizzato
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start space-x-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
-                <div>
-                  <strong className="text-sm">Uso Rispettoso:</strong>
-                  <p className="text-sm text-muted-foreground">
-                    Rispetto dei robots.txt e limiti di velocità per ogni sito
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Clock className="w-5 h-5 text-blue-500" />
-                <span>Aggiornamenti</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-start space-x-2">
-                <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
-                <div>
-                  <strong className="text-sm">Aggiornamento Manuale:</strong>
-                  <p className="text-sm text-muted-foreground">
-                    Controllo completo sui tempi di aggiornamento dei dati
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start space-x-2">
-                <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
-                <div>
-                  <strong className="text-sm">Monitoraggio Jobs:</strong>
-                  <p className="text-sm text-muted-foreground">
-                    Sistema di code avanzato con retry automatico e gestione errori
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start space-x-2">
-                <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
-                <div>
-                  <strong className="text-sm">Cache Intelligente:</strong>
-                  <p className="text-sm text-muted-foreground">
-                    PWA con supporto offline per consultare dati recenti
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-
+       
         {/* Rating System */}
         <Card className="mb-8">
           <CardHeader>
@@ -218,34 +96,30 @@ export default function Info() {
           </CardContent>
         </Card>
 
-        {/* Technical Info */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Specifiche Tecniche</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid md:grid-cols-2 gap-4 text-sm">
-              <div>
-                <strong>Frontend:</strong> React + TypeScript, PWA
+        {/* Features */}
+        <div className="grid md:grid-cols-2 gap-6 mb-8">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Shield className="w-5 h-5 text-green-500" />
+                <span>Sicurezza e Privacy</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">             
+              <div className="flex items-start space-x-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
+                <div>
+                  <strong className="text-sm">Dati Sicuri:</strong>
+                  <p className="text-sm text-muted-foreground">
+                    Nessun dato personale degli utenti viene raccolto o memorizzato dalla app.
+                  </p>
+                </div>
               </div>
-              <div>
-                <strong>Backend:</strong> Node.js + Express, Prisma ORM
-              </div>
-              <div>
-                <strong>Database:</strong> MySQL con indici ottimizzati
-              </div>
-              <div>
-                <strong>AI:</strong> OpenAI GPT-5 per analisi semantica
-              </div>
-              <div>
-                <strong>Web Scraping:</strong> Cheerio + Axios con rate limiting
-              </div>
-              <div>
-                <strong>Cache:</strong> Service Worker + React Query
-              </div>
-            </div>
+
           </CardContent>
-        </Card>
+          </Card>
+
+               </div>
 
         {/* Disclaimer */}
         <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950/20">
