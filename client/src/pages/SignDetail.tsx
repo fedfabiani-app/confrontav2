@@ -455,50 +455,6 @@ export default function SignDetail({ sign }: SignDetailProps) {
   // Check if we're in a loading state
   const isLoading = horoscopesLoading || !zodiacSign || !aggregate;
 
-  // Add swipe gesture support for tabs - must be before early returns to maintain hook order
-  useEffect(() => {
-    // Only set up listeners if component is fully loaded
-    if (isLoading) return;
-    
-    const tabsElement = document.querySelector('[data-testid="horoscope-type-tabs"]');
-    if (!tabsElement) return;
-
-    let touchStartX = 0;
-    let touchEndX = 0;
-    const minSwipeDistance = 50;
-
-    const handleTouchStart = (e: TouchEvent) => {
-      touchStartX = e.changedTouches[0].screenX;
-    };
-
-    const handleTouchEnd = (e: TouchEvent) => {
-      touchEndX = e.changedTouches[0].screenX;
-      handleSwipe();
-    };
-
-    const handleSwipe = () => {
-      const swipeDistance = touchStartX - touchEndX;
-      
-      if (Math.abs(swipeDistance) > minSwipeDistance) {
-        if (swipeDistance > 0 && selectedTab === 'daily') {
-          // Swipe left: switch to weekly
-          setSelectedTab('weekly');
-        } else if (swipeDistance < 0 && selectedTab === 'weekly') {
-          // Swipe right: switch to daily
-          setSelectedTab('daily');
-        }
-      }
-    };
-
-    tabsElement.addEventListener('touchstart', handleTouchStart as EventListener);
-    tabsElement.addEventListener('touchend', handleTouchEnd as EventListener);
-
-    return () => {
-      tabsElement.removeEventListener('touchstart', handleTouchStart as EventListener);
-      tabsElement.removeEventListener('touchend', handleTouchEnd as EventListener);
-    };
-  }, [selectedTab, isLoading]);
-
   // Early return for loading state
   if (isLoading) {
     return (
@@ -713,22 +669,23 @@ export default function SignDetail({ sign }: SignDetailProps) {
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
-                        {/* Tone Badge */}
-                        <div
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            horoscope.tone_analysis === "positive"
-                              ? "bg-green-100 text-green-800"
-                              : horoscope.tone_analysis === "negative"
-                                ? "bg-red-100 text-red-800"
-                                : "bg-gray-100 text-gray-800"
-                          }`}
+                        {/* Collapse Toggle Button */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleCollapse(horoscope.source.id)}
+                          className="p-1 h-8 w-8 hover:bg-gray-50 dark:hover:bg-gray-800"
+                          data-testid={`button-collapse-${horoscope.source.id}`}
+                          title={
+                            isCollapsed ? "Espandi scheda" : "Comprimi scheda"
+                          }
                         >
-                          {horoscope.tone_analysis === "positive"
-                            ? "Positivo"
-                            : horoscope.tone_analysis === "negative"
-                              ? "Negativo"
-                              : "Neutrale"}
-                        </div>
+                          <ChevronDown
+                            className={`w-4 h-4 text-gray-400 hover:text-gray-600 transition-all duration-200 ${
+                              isCollapsed ? "rotate-180" : "rotate-0"
+                            }`}
+                          />
+                        </Button>
                         {/* Favorite Toggle Button */}
                         <Button
                           variant="ghost"
@@ -762,23 +719,22 @@ export default function SignDetail({ sign }: SignDetailProps) {
                         >
                           <Share className="w-4 h-4 text-gray-400 hover:text-blue-500 transition-colors" />
                         </Button>
-                        {/* Collapse Toggle Button */}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => toggleCollapse(horoscope.source.id)}
-                          className="p-1 h-8 w-8 hover:bg-gray-50 dark:hover:bg-gray-800"
-                          data-testid={`button-collapse-${horoscope.source.id}`}
-                          title={
-                            isCollapsed ? "Espandi scheda" : "Comprimi scheda"
-                          }
+                        {/* Tone Badge */}
+                        <div
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            horoscope.tone_analysis === "positive"
+                              ? "bg-green-100 text-green-800"
+                              : horoscope.tone_analysis === "negative"
+                                ? "bg-red-100 text-red-800"
+                                : "bg-gray-100 text-gray-800"
+                          }`}
                         >
-                          <ChevronDown
-                            className={`w-4 h-4 text-gray-400 hover:text-gray-600 transition-all duration-200 ${
-                              isCollapsed ? "rotate-180" : "rotate-0"
-                            }`}
-                          />
-                        </Button>
+                          {horoscope.tone_analysis === "positive"
+                            ? "Positivo"
+                            : horoscope.tone_analysis === "negative"
+                              ? "Negativo"
+                              : "Neutrale"}
+                        </div>
                       </div>
                     </div>
 
