@@ -138,7 +138,7 @@ export default function Info() {
       </main>
 
       {/* Bottom spacing for mobile navigation */}
-      <div className="h-20 md:h-0"></div>
+      <div className="h-14 md:h-0"></div>
     </div>
   );
 }
