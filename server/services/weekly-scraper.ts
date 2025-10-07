@@ -231,30 +231,45 @@ async function findRepubblicaWeeklyUrl(input: WeeklyScraperInput): Promise<strin
     const html = await fetchHtml(archiveUrl, input.userAgent);
     const $ = cheerio.load(html);
     
-    // Repubblica's week starts on Saturday, not Monday
-    // So we need to adjust the dates accordingly
+    // Repubblica's week can start on different days, let's check both Saturday and the actual week start
     const weekStart = new Date(input.weekStartDate);
     const weekEnd = new Date(input.weekEndDate);
     
-    // Get Saturday of the week (week start for Repubblica)
+    // Try with the given week start (Monday)
+    const mondayDay = weekStart.getDate();
+    const mondayMonth = ITALIAN_MONTHS[weekStart.getMonth()].toLowerCase();
+    
+    // Also try with Saturday (Repubblica's typical week start)
     const saturday = new Date(weekStart);
     const dayOfWeek = saturday.getDay();
-    const daysUntilSaturday = (6 - dayOfWeek + 7) % 7;
-    saturday.setDate(saturday.getDate() + daysUntilSaturday);
+    const daysToSaturday = dayOfWeek === 0 ? -1 : (6 - dayOfWeek);
+    saturday.setDate(saturday.getDate() + daysToSaturday);
     
-    const startDay = saturday.getDate();
+    const saturdayDay = saturday.getDate();
+    const saturdayMonth = ITALIAN_MONTHS[saturday.getMonth()].toLowerCase();
+    
     const endDay = weekEnd.getDate();
-    const startMonth = ITALIAN_MONTHS[saturday.getMonth()].toLowerCase();
     const endMonth = ITALIAN_MONTHS[weekEnd.getMonth()].toLowerCase();
     
-    // Build search patterns - Repubblica uses formats like:
-    // "oroscopo_settimana_4_al_10_ottobre_2025"
-    // "dal 4 al 10 ottobre"
+    console.log(`[WeeklyScraper] Searching for Repubblica dates:`, {
+      monday: `${mondayDay} ${mondayMonth}`,
+      saturday: `${saturdayDay} ${saturdayMonth}`,
+      end: `${endDay} ${endMonth}`
+    });
+    
+    // Build flexible search patterns - Repubblica uses various formats
     const searchPatterns = [
-      `${startDay}_al_${endDay}_${startMonth}`,
-      `dal_${startDay}_al_${endDay}_${startMonth}`,
-      `dal ${startDay} al ${endDay} ${startMonth}`,
-      `${startDay} al ${endDay} ${startMonth}`,
+      // With Saturday start
+      `${saturdayDay}_al_${endDay}_${saturdayMonth}`,
+      `dal_${saturdayDay}_al_${endDay}_${saturdayMonth}`,
+      `dal ${saturdayDay} al ${endDay} ${saturdayMonth}`,
+      // With Monday start (fallback)
+      `${mondayDay}_al_${endDay}_${mondayMonth}`,
+      `dal_${mondayDay}_al_${endDay}_${mondayMonth}`,
+      `dal ${mondayDay} al ${endDay} ${mondayMonth}`,
+      // More generic patterns
+      `${saturdayDay} al ${endDay}`,
+      `${mondayDay} al ${endDay}`,
     ];
     
     // Look for article links in the archive
@@ -264,15 +279,26 @@ async function findRepubblicaWeeklyUrl(input: WeeklyScraperInput): Promise<strin
       const text = $(element).text().toLowerCase();
       
       if (href && href.includes('oroscopo')) {
+        const hrefLower = href.toLowerCase();
+        const combinedText = `${hrefLower} ${text}`;
+        
         for (const pattern of searchPatterns) {
-          if (href.toLowerCase().includes(pattern) || text.includes(pattern)) {
+          if (combinedText.includes(pattern.toLowerCase())) {
             foundUrl = href.startsWith('http') ? href : `https://d.repubblica.it${href}`;
-            console.log(`[WeeklyScraper] Found Repubblica URL: ${foundUrl}`);
+            console.log(`[WeeklyScraper] Found Repubblica URL with pattern "${pattern}": ${foundUrl}`);
             return false; // break the loop
           }
         }
       }
     });
+    
+    if (!foundUrl) {
+      console.log(`[WeeklyScraper] No Repubblica URL found. Available links on archive page:`);
+      $('a[href*="oroscopo"]').slice(0, 5).each((_, element) => {
+        console.log(`  - ${$(element).attr('href')}`);
+        console.log(`    Text: ${$(element).text().trim()}`);
+      });
+    }
     
     return foundUrl;
   } catch (error) {
