@@ -217,6 +217,44 @@ export default function Home() {
     // No manual invalidation needed
   };
 
+  // Add swipe gesture support for tabs
+  useEffect(() => {
+    let touchStartX = 0;
+    let touchEndX = 0;
+    const minSwipeDistance = 50;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      touchStartX = e.changedTouches[0].screenX;
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      touchEndX = e.changedTouches[0].screenX;
+      handleSwipe();
+    };
+
+    const handleSwipe = () => {
+      const swipeDistance = touchStartX - touchEndX;
+      
+      if (Math.abs(swipeDistance) > minSwipeDistance) {
+        if (swipeDistance > 0 && selectedTab === 'daily') {
+          // Swipe left: switch to weekly
+          setSelectedTab('weekly');
+        } else if (swipeDistance < 0 && selectedTab === 'weekly') {
+          // Swipe right: switch to daily
+          setSelectedTab('daily');
+        }
+      }
+    };
+
+    document.addEventListener('touchstart', handleTouchStart);
+    document.addEventListener('touchend', handleTouchEnd);
+
+    return () => {
+      document.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [selectedTab]);
+
   // Initialize collapsed state
   useEffect(() => {
     initializeCollapsedState();
@@ -264,8 +302,14 @@ export default function Home() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                 {/* Tab Selector and Date Selector Section */}
-                 <div className="mb-8 space-y-4">
+        {/* Tab Selector and Date Selector Section */}
+        <div className="mb-8 space-y-4">
+          <Tabs value={selectedTab} onValueChange={handleTabChange} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="daily">Giornaliero</TabsTrigger>
+              <TabsTrigger value="weekly">Settimanale</TabsTrigger>
+            </TabsList>
+          </Tabs>
                   
           <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
             <PopoverTrigger asChild>
