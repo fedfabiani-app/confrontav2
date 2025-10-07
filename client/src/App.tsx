@@ -18,6 +18,11 @@ function BottomNavigation() {
     { path: '/info', icon: Info, label: 'Info' },
   ];
 
+  // Hide navigation on SignDetail pages (paths starting with /sign/)
+  if (location.startsWith('/sign/')) {
+    return null;
+  }
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border md:hidden z-50">
       <div className="flex items-center justify-around py-2">
