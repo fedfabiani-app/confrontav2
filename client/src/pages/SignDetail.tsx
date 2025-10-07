@@ -529,14 +529,14 @@ export default function SignDetail({ sign }: SignDetailProps) {
               <TabsTrigger 
                 value="daily" 
                 data-testid="tab-daily"
-                className="data-[state=active]:bg-[#F0C169] data-[state=active]:hover:bg-transparent"
+                className="data-[state=active]:!bg-[#F0C169] data-[state=active]:text-black"
               >
                 Giornaliero
               </TabsTrigger>
               <TabsTrigger 
                 value="weekly" 
                 data-testid="tab-weekly"
-                className="data-[state=active]:bg-[#F0C169] data-[state=active]:hover:bg-transparent"
+                className="data-[state=active]:!bg-[#F0C169] data-[state=active]:text-black"
               >
                 Settimanale
               </TabsTrigger>
