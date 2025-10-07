@@ -857,9 +857,6 @@ export default function SignDetail({ sign }: SignDetailProps) {
         total={refreshProgress.total}
         onDismiss={handleDismissRefresh}
       />
-
-      {/* Bottom spacing for mobile navigation */}
-      <div className="h-20 md:h-0"></div>
     </div>
   );
 }

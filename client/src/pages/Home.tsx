@@ -438,9 +438,6 @@ export default function Home() {
         total={refreshProgress.total}
         onDismiss={handleDismissRefresh}
       />
-
-      {/* Bottom spacing for mobile navigation */}
-      <div className="h-14 md:h-0"></div>
     </div>
   );
 }
