@@ -363,6 +363,123 @@ async function scrapeMarieClairWeeklyText(url: string, input: WeeklyScraperInput
   }
 }
 
+async function scrapeRepubblicaWeeklyText(url: string, input: WeeklyScraperInput): Promise<WeeklyScrapeResult> {
+  try {
+    console.log(`[WeeklyScraper] Repubblica - Fetching ${url} for ${input.signSlugIt}`);
+    const html = await fetchHtml(url, input.userAgent);
+    const $ = cheerio.load(html);
+    
+    const zodiacName = input.signSlugIt;
+    const zodiacNameLower = zodiacName.toLowerCase();
+    
+    // Repubblica has all signs on one page, typically with H2 or H3 headings
+    // Try both H2 and H3 tags
+    let signContent = '';
+    
+    // First try H2
+    $('h2').each((_, headingElement) => {
+      const headingText = $(headingElement).text().trim();
+      
+      if (headingText.toLowerCase().includes(zodiacNameLower)) {
+        console.log(`[WeeklyScraper] Repubblica - Found H2 for ${zodiacName}: ${headingText}`);
+        
+        let currentElement = $(headingElement).next();
+        const paragraphs: string[] = [];
+        
+        while (currentElement.length > 0) {
+          const tagName = currentElement.prop('tagName')?.toLowerCase();
+          
+          // Stop if we hit another heading
+          if (tagName === 'h2' || tagName === 'h3') {
+            break;
+          }
+          
+          if (tagName === 'p') {
+            const pText = currentElement.text().trim();
+            if (pText.length > 20) {
+              paragraphs.push(pText);
+            }
+          }
+          
+          currentElement = currentElement.next();
+        }
+        
+        if (paragraphs.length > 0) {
+          signContent = paragraphs.join('\n\n');
+          console.log(`[WeeklyScraper] Repubblica - Extracted ${paragraphs.length} paragraphs from H2`);
+          return false;
+        }
+      }
+    });
+    
+    // If not found, try H3
+    if (!signContent) {
+      $('h3').each((_, headingElement) => {
+        const headingText = $(headingElement).text().trim();
+        
+        if (headingText.toLowerCase().includes(zodiacNameLower)) {
+          console.log(`[WeeklyScraper] Repubblica - Found H3 for ${zodiacName}: ${headingText}`);
+          
+          let currentElement = $(headingElement).next();
+          const paragraphs: string[] = [];
+          
+          while (currentElement.length > 0) {
+            const tagName = currentElement.prop('tagName')?.toLowerCase();
+            
+            if (tagName === 'h2' || tagName === 'h3') {
+              break;
+            }
+            
+            if (tagName === 'p') {
+              const pText = currentElement.text().trim();
+              if (pText.length > 20) {
+                paragraphs.push(pText);
+              }
+            }
+            
+            currentElement = currentElement.next();
+          }
+          
+          if (paragraphs.length > 0) {
+            signContent = paragraphs.join('\n\n');
+            console.log(`[WeeklyScraper] Repubblica - Extracted ${paragraphs.length} paragraphs from H3`);
+            return false;
+          }
+        }
+      });
+    }
+    
+    if (!signContent || signContent.length < 50) {
+      return {
+        success: false,
+        error: `No content found for ${zodiacName} in Repubblica weekly horoscope`
+      };
+    }
+    
+    const score = scoreWeeklyContent(signContent, zodiacNameLower);
+    console.log(`[WeeklyScraper] Repubblica - Content score for ${zodiacName}: ${score}`);
+    
+    if (score < 10) {
+      return {
+        success: false,
+        error: `Insufficient weekly content quality for ${zodiacName} (score: ${score})`
+      };
+    }
+    
+    return {
+      success: true,
+      text: signContent.substring(0, 3500),
+      url
+    };
+    
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}
+
 function buildWeeklyUrl(input: WeeklyScraperInput): string {
   const signMap: Record<string, string> = {
     'Ariete': 'ariete', 'Toro': 'toro', 'Gemelli': 'gemelli', 'Cancro': 'cancro',
@@ -550,10 +667,15 @@ export async function scrapeWeeklyHoroscope(input: WeeklyScraperInput): Promise<
 
     await respectDomainRateLimit(input.domain);
 
-    // Use specialized scraper for Marie Claire and Repubblica (all signs on one page)
-    const result = (input.domain.includes('marieclaire.it') || input.domain.includes('repubblica.it'))
-      ? await scrapeMarieClairWeeklyText(url, input)
-      : await scrapeWeeklyText(url, input);
+    // Use specialized scrapers for sources with all signs on one page
+    let result: WeeklyScrapeResult;
+    if (input.domain.includes('marieclaire.it')) {
+      result = await scrapeMarieClairWeeklyText(url, input);
+    } else if (input.domain.includes('repubblica.it')) {
+      result = await scrapeRepubblicaWeeklyText(url, input);
+    } else {
+      result = await scrapeWeeklyText(url, input);
+    }
 
     if (!result.success || !result.text) {
       throw new Error(result.error || 'Failed to scrape weekly horoscope');
