@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Star, Brain, Globe, Shield, Clock } from "lucide-react";
 import { useLocation } from "wouter";
+import iconImage from "@assets/icon.png";
 
 export default function Info() {
   const [, navigate] = useLocation();
@@ -36,9 +37,7 @@ export default function Info() {
         
         {/* Hero Section */}
         <div className="text-center mb-12">
-          <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Star className="text-white w-8 h-8" />
-          </div>
+          <img src={iconImage} alt="Logo" className="w-16 h-16 mx-auto mb-4 border border-white" />
           <h2 className="text-3xl font-bold mb-4" style={{ color: '#F0C169' }}>
             Confronta Oroscopo
           </h2>
