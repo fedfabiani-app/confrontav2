@@ -307,6 +307,80 @@ async function findRepubblicaWeeklyUrl(input: WeeklyScraperInput): Promise<strin
   }
 }
 
+async function findSorrisiWeeklyUrl(input: WeeklyScraperInput): Promise<string | null> {
+  try {
+    const archiveUrl = 'https://www.sorrisi.com/lifestyle/oroscopo/';
+    console.log(`[WeeklyScraper] Searching Sorrisi archive: ${archiveUrl}`);
+    
+    const html = await fetchHtml(archiveUrl, input.userAgent);
+    const $ = cheerio.load(html);
+    
+    // Sorrisi week starts on Saturday (not Monday)
+    // Calculate Saturday from the given Monday week start
+    const mondayStart = new Date(input.weekStartDate);
+    const saturday = new Date(mondayStart);
+    saturday.setDate(mondayStart.getDate() - 2); // Go back 2 days from Monday to Saturday
+    
+    // End date is Friday (6 days after Saturday)
+    const friday = new Date(saturday);
+    friday.setDate(saturday.getDate() + 6);
+    
+    const saturdayDay = saturday.getDate();
+    const saturdayMonth = ITALIAN_MONTHS[saturday.getMonth()].toLowerCase();
+    
+    const fridayDay = friday.getDate();
+    const fridayMonth = ITALIAN_MONTHS[friday.getMonth()].toLowerCase();
+    
+    console.log(`[WeeklyScraper] Searching for Sorrisi dates (Saturday-Friday):`, {
+      saturday: `${saturdayDay} ${saturdayMonth}`,
+      friday: `${fridayDay} ${fridayMonth}`
+    });
+    
+    // Build search patterns - Sorrisi uses "dal X al Y mese" format
+    const searchPatterns = [
+      `dal-${saturdayDay}-al-${fridayDay}-${saturdayMonth}`,
+      `dal-${saturdayDay}-al-${fridayDay}-${fridayMonth}`,
+      `dal ${saturdayDay} al ${fridayDay} ${saturdayMonth}`,
+      `dal ${saturdayDay} al ${fridayDay} ${fridayMonth}`,
+      // Generic patterns
+      `${saturdayDay} al ${fridayDay}`,
+    ];
+    
+    // Look for article links in the archive
+    let foundUrl: string | null = null;
+    $('a').each((_, element) => {
+      const href = $(element).attr('href');
+      const text = $(element).text().toLowerCase();
+      
+      if (href && href.includes('oroscopo')) {
+        const hrefLower = href.toLowerCase();
+        const combinedText = `${hrefLower} ${text}`;
+        
+        for (const pattern of searchPatterns) {
+          if (combinedText.includes(pattern.toLowerCase())) {
+            foundUrl = href.startsWith('http') ? href : `https://www.sorrisi.com${href}`;
+            console.log(`[WeeklyScraper] Found Sorrisi URL with pattern "${pattern}": ${foundUrl}`);
+            return false; // break the loop
+          }
+        }
+      }
+    });
+    
+    if (!foundUrl) {
+      console.log(`[WeeklyScraper] No Sorrisi URL found. Available links on archive page:`);
+      $('a[href*="oroscopo"]').slice(0, 5).each((_, element) => {
+        console.log(`  - ${$(element).attr('href')}`);
+        console.log(`    Text: ${$(element).text().trim()}`);
+      });
+    }
+    
+    return foundUrl;
+  } catch (error) {
+    console.error('[WeeklyScraper] Error finding Sorrisi URL:', error);
+    return null;
+  }
+}
+
 async function scrapeMarieClairWeeklyText(url: string, input: WeeklyScraperInput): Promise<WeeklyScrapeResult> {
   try {
     console.log(`[WeeklyScraper] Marie Claire - Fetching ${url} for ${input.signSlugIt}`);
@@ -484,6 +558,87 @@ async function scrapeRepubblicaWeeklyText(url: string, input: WeeklyScraperInput
     
     const score = scoreWeeklyContent(signContent, zodiacNameLower);
     console.log(`[WeeklyScraper] Repubblica - Content score for ${zodiacName}: ${score}`);
+    
+    if (score < 10) {
+      return {
+        success: false,
+        error: `Insufficient weekly content quality for ${zodiacName} (score: ${score})`
+      };
+    }
+    
+    return {
+      success: true,
+      text: signContent.substring(0, 3500),
+      url
+    };
+    
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}
+
+async function scrapeSorrisiWeeklyText(url: string, input: WeeklyScraperInput): Promise<WeeklyScrapeResult> {
+  try {
+    console.log(`[WeeklyScraper] Sorrisi - Fetching ${url} for ${input.signSlugIt}`);
+    const html = await fetchHtml(url, input.userAgent);
+    const $ = cheerio.load(html);
+    
+    const zodiacName = input.signSlugIt;
+    const zodiacNameLower = zodiacName.toLowerCase();
+    
+    // Sorrisi has all signs on one page with H3 headings
+    let signContent = '';
+    
+    $('h3').each((_, headingElement) => {
+      const headingText = $(headingElement).text().trim();
+      
+      // Check if this H3 contains the zodiac sign name
+      if (headingText.toLowerCase().includes(zodiacNameLower)) {
+        console.log(`[WeeklyScraper] Sorrisi - Found H3 for ${zodiacName}: ${headingText}`);
+        
+        // Extract all paragraphs after this H3 until the next H3
+        let currentElement = $(headingElement).next();
+        const paragraphs: string[] = [];
+        
+        while (currentElement.length > 0) {
+          const tagName = currentElement.prop('tagName')?.toLowerCase();
+          
+          // Stop if we hit another H3 (next sign)
+          if (tagName === 'h3') {
+            break;
+          }
+          
+          // Extract paragraph content
+          if (tagName === 'p') {
+            const pText = currentElement.text().trim();
+            if (pText.length > 20) {
+              paragraphs.push(pText);
+            }
+          }
+          
+          currentElement = currentElement.next();
+        }
+        
+        if (paragraphs.length > 0) {
+          signContent = paragraphs.join('\n\n');
+          console.log(`[WeeklyScraper] Sorrisi - Extracted ${paragraphs.length} paragraphs for ${zodiacName}`);
+          return false; // break the each loop
+        }
+      }
+    });
+    
+    if (!signContent || signContent.length < 50) {
+      return {
+        success: false,
+        error: `No content found for ${zodiacName} in Sorrisi weekly horoscope`
+      };
+    }
+    
+    const score = scoreWeeklyContent(signContent, zodiacNameLower);
+    console.log(`[WeeklyScraper] Sorrisi - Content score for ${zodiacName}: ${score}`);
     
     if (score < 10) {
       return {
@@ -684,6 +839,14 @@ export async function scrapeWeeklyHoroscope(input: WeeklyScraperInput): Promise<
       }
       url = foundUrl;
     }
+    // Special handling for Sorrisi - find URL from archive (week starts Saturday)
+    else if (input.domain.includes('sorrisi.com')) {
+      const foundUrl = await findSorrisiWeeklyUrl(input);
+      if (!foundUrl) {
+        throw new Error('Could not find current week\'s horoscope URL in Sorrisi archive');
+      }
+      url = foundUrl;
+    }
     else {
       url = buildWeeklyUrl(input);
     }
@@ -699,6 +862,8 @@ export async function scrapeWeeklyHoroscope(input: WeeklyScraperInput): Promise<
       result = await scrapeMarieClairWeeklyText(url, input);
     } else if (input.domain.includes('repubblica.it')) {
       result = await scrapeRepubblicaWeeklyText(url, input);
+    } else if (input.domain.includes('sorrisi.com')) {
+      result = await scrapeSorrisiWeeklyText(url, input);
     } else {
       result = await scrapeWeeklyText(url, input);
     }
