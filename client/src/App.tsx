@@ -18,8 +18,8 @@ function BottomNavigation() {
     { path: '/info', icon: Info, label: 'Info' },
   ];
 
-  // Hide navigation on SignDetail pages (paths starting with /sign/)
-  if (location.startsWith('/sign/')) {
+  // Show navigation only on Info page
+  if (location !== '/info') {
     return null;
   }
 
@@ -29,14 +29,14 @@ function BottomNavigation() {
         {navItems.map((item) => {
           const isActive = location === item.path;
           const Icon = item.icon;
-          
+
           return (
             <button
               key={item.path}
               onClick={() => navigate(item.path)}
               className={`flex flex-col items-center py-1 px-4 transition-colors ${
-                isActive 
-                  ? 'text-orange-500' 
+                isActive
+                  ? 'text-orange-500'
                   : 'text-muted-foreground hover:text-card-foreground'
               }`}
               data-testid={`nav-${item.label.toLowerCase()}`}
@@ -62,7 +62,7 @@ function Router() {
         <Route path="/info" component={InfoPage} />
         <Route component={NotFound} />
       </Switch>
-      
+
       <BottomNavigation />
     </>
   );

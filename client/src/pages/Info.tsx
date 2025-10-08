@@ -34,7 +34,7 @@ export default function Info() {
 
       {/* Main Content */}
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        
+
         {/* Hero Section */}
         <div className="text-center mb-12">
           <img src={iconImage} alt="Logo" className="w-16 h-16 mx-auto mb-4 border border-white" />
@@ -46,9 +46,9 @@ export default function Info() {
           </p>
         </div>
 
-       
 
-       
+
+
         {/* Rating System */}
         <Card className="mb-8">
           <CardHeader>
@@ -72,7 +72,7 @@ export default function Info() {
                 </div>
               </div>
             </div>
-            
+
             <div>
               <h4 className="font-semibold mb-2">Scala di Valutazione</h4>
               <div className="flex items-center space-x-4 text-sm">
