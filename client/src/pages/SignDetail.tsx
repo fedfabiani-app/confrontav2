@@ -17,6 +17,8 @@ import {
   ChevronDown,
   Loader2,
   CalendarDays,
+  Share2, // Import Share2 for the button
+  ChevronUp, // Import ChevronUp for the button
 } from "lucide-react";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { useToast } from "@/hooks/use-toast";
@@ -25,6 +27,7 @@ import { useFavorites } from "@/hooks/use-favorites";
 import { useSelectedDate } from "@/hooks/use-selected-date";
 import { apiRequest } from "@/lib/queryClient";
 import { ZODIAC_SIGNS_EN_IT } from "@shared/constants";
+import { cn } from "@/lib/utils"; // Import cn for conditional class names
 
 interface SignDetailProps {
   sign: string;
@@ -244,7 +247,7 @@ export default function SignDetail({ sign }: SignDetailProps) {
 
   // Get date string for API calls using selected date
   const selectedDateString = selectedDate.toLocaleDateString('en-CA'); // YYYY-MM-DD format in local timezone
-  
+
   // Calculate week start date (Monday) for weekly horoscopes
   const getWeekStartDate = (date: Date): string => {
     const dayOfWeek = date.getDay();
@@ -253,7 +256,7 @@ export default function SignDetail({ sign }: SignDetailProps) {
     monday.setDate(date.getDate() - daysToMonday);
     return monday.toLocaleDateString('en-CA');
   };
-  
+
   const weekStartDate = getWeekStartDate(selectedDate);
 
   // Get date range for calendar (90 days back)
@@ -389,7 +392,7 @@ export default function SignDetail({ sign }: SignDetailProps) {
               const queryKeyPrefix = selectedTab === 'daily' ? '/api/horoscopes' : '/api/weekly-horoscopes';
               const queryKeyAggregatePrefix = selectedTab === 'daily' ? '/api/horoscopes/aggregate' : '/api/weekly-horoscopes/aggregate';
               const dateParam = selectedTab === 'daily' ? selectedDateString : weekStartDate;
-              
+
               queryClient.invalidateQueries({
                 queryKey: [queryKeyPrefix, dateParam, sign],
               });
@@ -718,14 +721,22 @@ export default function SignDetail({ sign }: SignDetailProps) {
               const isCollapsed = collapsedCards[horoscope.source.id] ?? true;
 
               return (
-                <Card key={horoscope.id} className="relative">
+                <Card
+                  key={horoscope.id}
+                  className="bg-card border border-border cursor-pointer"
+                  data-testid={`source-card-${horoscope.source.id}`}
+                  onClick={(e) => {
+                    // Don't toggle if clicking on control buttons
+                    if ((e.target as HTMLElement).closest('button')) {
+                      return;
+                    }
+                    toggleCollapse(horoscope.source.id);
+                  }}
+                >
                   <CardContent className="p-6">
                     {/* Source Header */}
                     <div className="flex items-center justify-between mb-4">
-                      <div 
-                        className="flex items-center space-x-3 cursor-pointer flex-1"
-                        onClick={() => toggleCollapse(horoscope.source.id)}
-                      >
+                      <div className="flex items-center space-x-3 flex-1">
                         <SourceIcon
                           source={horoscope.source}
                           data-testid={`individual-source-icon-${horoscope.source.id}`}
@@ -760,7 +771,10 @@ export default function SignDetail({ sign }: SignDetailProps) {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => toggleFavorite(horoscope.source.id)}
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent card click
+                            toggleFavorite(horoscope.source.id);
+                          }}
                           className="p-1 h-8 w-8 hover:bg-pink-50 dark:hover:bg-pink-900/20"
                           data-testid={`button-favorite-${horoscope.source.id}`}
                           title={
@@ -781,7 +795,10 @@ export default function SignDetail({ sign }: SignDetailProps) {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={handleShare}
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent card click
+                            handleShare();
+                          }}
                           className="p-1 h-8 w-8 hover:bg-blue-50 dark:hover:bg-blue-900/20"
                           data-testid={`button-share-${horoscope.source.id}`}
                           title="Condividi questo oroscopo"
@@ -793,7 +810,10 @@ export default function SignDetail({ sign }: SignDetailProps) {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => toggleCollapse(horoscope.source.id)}
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent card click
+                            toggleCollapse(horoscope.source.id);
+                          }}
                           className="p-1 h-8 w-8 hover:bg-gray-50 dark:hover:bg-gray-800"
                           data-testid={`button-collapse-${horoscope.source.id}`}
                           title={
