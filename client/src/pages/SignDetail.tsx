@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   ArrowLeft,
   RefreshCw,
@@ -14,11 +16,13 @@ import {
   Share,
   ChevronDown,
   Loader2,
+  CalendarDays,
 } from "lucide-react";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useFavorites } from "@/hooks/use-favorites";
+import { useSelectedDate } from "@/hooks/use-selected-date";
 import { apiRequest } from "@/lib/queryClient";
 import { ZODIAC_SIGNS_EN_IT } from "@shared/constants";
 
@@ -180,6 +184,8 @@ export default function SignDetail({ sign }: SignDetailProps) {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { selectedDate, setSelectedDate } = useSelectedDate();
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [selectedTab, setSelectedTab] = useState<'daily' | 'weekly'>('daily');
   const [refreshProgress, setRefreshProgress] = useState({
     current: 0,
@@ -236,18 +242,25 @@ export default function SignDetail({ sign }: SignDetailProps) {
   };
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const today = new Date().toISOString().split("T")[0];
+  // Get date string for API calls using selected date
+  const selectedDateString = selectedDate.toLocaleDateString('en-CA'); // YYYY-MM-DD format in local timezone
   
   // Calculate week start date (Monday) for weekly horoscopes
-  const getWeekStartDate = (date: Date = new Date()): string => {
+  const getWeekStartDate = (date: Date): string => {
     const dayOfWeek = date.getDay();
     const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
     const monday = new Date(date);
     monday.setDate(date.getDate() - daysToMonday);
-    return monday.toISOString().split('T')[0];
+    return monday.toLocaleDateString('en-CA');
   };
   
-  const weekStartDate = getWeekStartDate();
+  const weekStartDate = getWeekStartDate(selectedDate);
+
+  // Get date range for calendar (90 days back)
+  const today = new Date();
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const earliestStart = new Date(todayStart);
+  earliestStart.setDate(earliestStart.getDate() - 90);
 
   // Fetch zodiac sign details
   const { data: zodiacSign } = useQuery<ZodiacSign>({
@@ -265,11 +278,11 @@ export default function SignDetail({ sign }: SignDetailProps) {
     isLoading: horoscopesLoading,
     error: horoscopesError,
   } = useQuery<HoroscopeData[]>({
-    queryKey: [selectedTab === 'daily' ? '/api/horoscopes' : '/api/weekly-horoscopes', selectedTab === 'daily' ? today : weekStartDate, sign],
+    queryKey: [selectedTab === 'daily' ? '/api/horoscopes' : '/api/weekly-horoscopes', selectedTab === 'daily' ? selectedDateString : weekStartDate, sign],
     queryFn: async () => {
       let response;
       if (selectedTab === 'daily') {
-        response = await fetch(`/api/horoscopes?date=${today}&sign=${sign}`);
+        response = await fetch(`/api/horoscopes?date=${selectedDateString}&sign=${sign}`);
       } else {
         response = await fetch(`/api/weekly-horoscopes?weekStartDate=${weekStartDate}&sign=${sign}`);
       }
@@ -316,11 +329,11 @@ export default function SignDetail({ sign }: SignDetailProps) {
 
   // Fetch aggregates for this sign (daily or weekly based on selected tab)
   const { data: aggregate } = useQuery<HoroscopeAggregate>({
-    queryKey: [selectedTab === 'daily' ? '/api/horoscopes/aggregate' : '/api/weekly-horoscopes/aggregate', selectedTab === 'daily' ? today : weekStartDate, sign],
+    queryKey: [selectedTab === 'daily' ? '/api/horoscopes/aggregate' : '/api/weekly-horoscopes/aggregate', selectedTab === 'daily' ? selectedDateString : weekStartDate, sign],
     queryFn: async () => {
       let response;
       if (selectedTab === 'daily') {
-        response = await fetch(`/api/horoscopes/aggregate?date=${today}&sign=${sign}`);
+        response = await fetch(`/api/horoscopes/aggregate?date=${selectedDateString}&sign=${sign}`);
       } else {
         response = await fetch(`/api/weekly-horoscopes/aggregate?weekStartDate=${weekStartDate}&sign=${sign}`);
       }
@@ -335,7 +348,7 @@ export default function SignDetail({ sign }: SignDetailProps) {
       let response;
       if (selectedTab === 'daily') {
         const italianSign = ZODIAC_SIGNS_EN_IT[sign] || sign;
-        response = await apiRequest("POST", `/api/refresh/sign/${italianSign}?date=${today}`);
+        response = await apiRequest("POST", `/api/refresh/sign/${italianSign}?date=${selectedDateString}`);
       } else {
         // Weekly endpoint expects English sign name
         response = await apiRequest("POST", `/api/refresh/weekly?weekStartDate=${weekStartDate}&sign=${sign}`);
@@ -375,7 +388,7 @@ export default function SignDetail({ sign }: SignDetailProps) {
               // Invalidate cache to refresh data
               const queryKeyPrefix = selectedTab === 'daily' ? '/api/horoscopes' : '/api/weekly-horoscopes';
               const queryKeyAggregatePrefix = selectedTab === 'daily' ? '/api/horoscopes/aggregate' : '/api/weekly-horoscopes/aggregate';
-              const dateParam = selectedTab === 'daily' ? today : weekStartDate;
+              const dateParam = selectedTab === 'daily' ? selectedDateString : weekStartDate;
               
               queryClient.invalidateQueries({
                 queryKey: [queryKeyPrefix, dateParam, sign],
@@ -522,8 +535,8 @@ export default function SignDetail({ sign }: SignDetailProps) {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Tab Selector */}
-        <div className="mb-6">
+        {/* Tab Selector and Date Selector */}
+        <div className="mb-6 space-y-4">
           <Tabs value={selectedTab} onValueChange={handleTabChange} className="w-full">
             <TabsList className="grid w-full sm:w-[400px] grid-cols-2" data-testid="horoscope-type-tabs">
               <TabsTrigger 
@@ -542,6 +555,61 @@ export default function SignDetail({ sign }: SignDetailProps) {
               </TabsTrigger>
             </TabsList>
           </Tabs>
+
+          <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+            <PopoverTrigger asChild>
+              <Button 
+                variant="outline" 
+                size="default"
+                className="w-full sm:w-auto justify-start bg-card hover:bg-accent"
+                data-testid="date-selector-trigger"
+              >
+                <CalendarDays className="w-4 h-4 mr-2" />
+                {selectedTab === 'daily' 
+                  ? selectedDate.toLocaleDateString('it-IT', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+                  : (() => {
+                      const monday = new Date(selectedDate);
+                      const dayOfWeek = selectedDate.getDay();
+                      const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+                      monday.setDate(selectedDate.getDate() - daysToMonday);
+                      const sunday = new Date(monday);
+                      sunday.setDate(monday.getDate() + 6);
+                      const mondayStr = monday.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+                      const sundayStr = sunday.toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' });
+                      return `Settimana: ${mondayStr} - ${sundayStr}`;
+                    })()
+                }
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0 bg-card" align="start">
+              <div className="p-3 border-b border-border bg-card">
+                <h4 className="text-sm font-medium">Seleziona Data</h4>
+                <p className="text-xs text-muted-foreground">
+                  {selectedTab === 'daily' ? 'Ultimi 90 giorni disponibili' : 'Seleziona un giorno per vedere la settimana'}
+                </p>
+              </div>
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={(date) => {
+                  if (date) {
+                    setSelectedDate(date);
+                    setCalendarOpen(false);
+                    // Invalidate queries to fetch new data
+                    const queryKeyPrefix = selectedTab === 'daily' ? '/api/horoscopes' : '/api/weekly-horoscopes';
+                    const queryKeyAggregatePrefix = selectedTab === 'daily' ? '/api/horoscopes/aggregate' : '/api/weekly-horoscopes/aggregate';
+                    queryClient.invalidateQueries({ queryKey: [queryKeyPrefix] });
+                    queryClient.invalidateQueries({ queryKey: [queryKeyAggregatePrefix] });
+                  }
+                }}
+                disabled={(date) => date < earliestStart || date > todayStart}
+                toDate={todayStart}
+                defaultMonth={selectedDate}
+                className="border-0 bg-card"
+                data-testid="date-calendar"
+              />
+            </PopoverContent>
+          </Popover>
         </div>
 
         {/* Overview Cards */}

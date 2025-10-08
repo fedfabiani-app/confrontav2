@@ -10,6 +10,7 @@ import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { useToast } from "@/hooks/use-toast";
 import { useHomeFavorites } from "@/hooks/use-favorites";
 import { useCollapsedCards } from "@/hooks/use-collapsed-cards";
+import { useSelectedDate } from "@/hooks/use-selected-date";
 import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import iconImage from "@assets/icon.png";
@@ -37,7 +38,7 @@ export default function Home() {
   const queryClient = useQueryClient();
   const [refreshProgress, setRefreshProgress] = useState({ current: 0, total: 0 });
   const [refreshDismissed, setRefreshDismissed] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const { selectedDate, setSelectedDate } = useSelectedDate();
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [selectedTab, setSelectedTab] = useState<'daily' | 'weekly'>('daily');
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
