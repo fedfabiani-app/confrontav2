@@ -440,6 +440,16 @@ export default function Home() {
         onDismiss={handleDismissRefresh}
       />
 
+      {/* Info Link */}
+      <div className="text-center py-8">
+        <button
+          onClick={() => navigate('/info')}
+          className="text-white hover:text-gray-300 transition-colors"
+        >
+          Info
+        </button>
+      </div>
+
       {/* Bottom spacing for mobile navigation */}
       <div className="h-10 md:h-0"></div>
     </div>
