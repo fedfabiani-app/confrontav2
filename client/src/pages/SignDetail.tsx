@@ -583,7 +583,11 @@ import { useState, useRef, useEffect } from "react";
                                                 const isCollapsed = collapsedCards[horoscope.source.id] ?? true;
 
                                                 return (
-                                                  <Card key={horoscope.id} className="relative">
+                                                  <Card 
+                                                    key={horoscope.id} 
+                                                    className="relative cursor-pointer hover:shadow-md transition-shadow"
+                                                    onClick={() => toggleCollapse(horoscope.source.id)}
+                                                  >
                                                     <CardContent className="p-6">
                                                       {/* Source Header */}
                                                       <div className="flex items-center justify-between mb-4">
@@ -603,7 +607,10 @@ import { useState, useRef, useEffect } from "react";
                                                           <Button
                                                             variant="ghost"
                                                             size="sm"
-                                                            onClick={() => toggleFavorite(horoscope.source.id)}
+                                                            onClick={(e) => {
+                                                              e.stopPropagation();
+                                                              toggleFavorite(horoscope.source.id);
+                                                            }}
                                                             className="p-1 h-8 w-8 hover:bg-pink-50 dark:hover:bg-pink-900/20"
                                                             data-testid={`button-favorite-${horoscope.source.id}`}
                                                             title={isFavorite(horoscope.source.id) ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
@@ -620,7 +627,10 @@ import { useState, useRef, useEffect } from "react";
                                                           <Button
                                                             variant="ghost"
                                                             size="sm"
-                                                            onClick={handleShare}
+                                                            onClick={(e) => {
+                                                              e.stopPropagation();
+                                                              handleShare();
+                                                            }}
                                                             className="p-1 h-8 w-8 hover:bg-blue-50 dark:hover:bg-blue-900/20"
                                                             data-testid={`button-share-${horoscope.source.id}`}
                                                             title="Condividi questo oroscopo"
@@ -632,7 +642,10 @@ import { useState, useRef, useEffect } from "react";
                                                           <Button
                                                             variant="ghost"
                                                             size="sm"
-                                                            onClick={() => toggleCollapse(horoscope.source.id)}
+                                                            onClick={(e) => {
+                                                              e.stopPropagation();
+                                                              toggleCollapse(horoscope.source.id);
+                                                            }}
                                                             className="p-1 h-8 w-8 hover:bg-gray-50 dark:hover:bg-gray-800"
                                                             data-testid={`button-collapse-${horoscope.source.id}`}
                                                             title={isCollapsed ? 'Espandi scheda' : 'Comprimi scheda'}
