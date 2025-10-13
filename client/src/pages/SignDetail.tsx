@@ -571,8 +571,8 @@ import { useState, useRef, useEffect } from "react";
 
                                           {/* Individual Source Cards */}
                                           {!horoscopesLoading && horoscopes.length > 0 && (
-                                            <div className="space-y-4 mb-8">
-                                              <h2 className="text-xl font-semibold text-card-foreground mb-4">Tutti gli Oroscopi di oggi</h2>
+                                                  <div className="space-y-4 mb-8">
+                                                    <h2 className="text-xl font-semibold text-[#E1B64E] mb-4 text-center">Tutti gli Oroscopi di oggi</h2>
                                               {(() => {
                                                 // First sort alphabetically, then reorder to pin favorites
                                                 const sortedHoroscopes = [...horoscopes].sort((a, b) => 

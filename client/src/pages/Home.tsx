@@ -254,13 +254,13 @@ export default function Home() {
 
         {/* Favorites Section */}
         {hasFavorites && (
-          <div className="mb-8">
-            <div className="flex items-center space-x-2 mb-4">
-              <h2 className="text-lg font-bold text-foreground">I tuoi Segni Preferiti</h2>
-              <span className="bg-red-100 text-red-600 px-2 py-1 rounded-full text-xs font-medium">
-                {homeFavorites.size}
-              </span>
-            </div>
+            <div className="mb-8">
+              <div className="flex items-center space-x-2 mb-4">
+                <h2 className="text-lg font-bold text-[#E1B64E]">I tuoi Segni Preferiti</h2>
+                <span className="px-2 py-1 rounded-full text-xs font-medium" style={{ backgroundColor: '#FEF9E7', color: '#E1B64E' }}>
+                  {homeFavorites.size}
+                </span>
+              </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {zodiacSigns
                 .filter(sign => isHomeFavorite(sign.name_english))
@@ -280,7 +280,7 @@ export default function Home() {
         )}
 
         <div className="mb-6">
-          <h2 className="text-lg font-bold text-foreground">
+          <h2 className="text-lg font-bold text-[#E1B64E]">
             {hasFavorites ? 'Tutti i Segni Zodiacali:' : 'Scegli il tuo segno e leggi gli Oroscopi:'}
           </h2>
         </div>
