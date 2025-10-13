@@ -28,6 +28,12 @@ Preferred communication style: Simple, everyday language.
 
 ### Data Processing Pipeline
 - **Web Scraping**: Axios and Cheerio for fetching and parsing HTML content from Italian horoscope sources
+  - **Dual Scraping Strategies**:
+    - **Pattern-based**: Direct URL construction using date-based patterns for predictable URLs
+    - **Archive-based**: Intelligent archive page parsing for sources with inconsistent URL patterns (e.g., SuperGuida TV)
+  - **Archive Resolution System**: Fetches archive pages, extracts horoscope links, parses Italian date ranges from URLs, and matches the correct week
+  - **Archive Caching**: In-memory cache by source and week to prevent duplicate archive page requests
+  - **Italian Date Parsing**: Robust regex patterns supporting various formats including optional year suffixes (e.g., "dal13-al-19-ottobre-2025")
 - **AI Processing**: OpenAI GPT-5 integration for content summarization, rating extraction, and tone analysis
 - **Content Strategy**: Copyright-safe content generation through AI paraphrasing and synthesis
 - **Rate Limiting**: Domain-specific backoff strategies and OpenAI API rate limiting
@@ -35,7 +41,9 @@ Preferred communication style: Simple, everyday language.
 ### Database Schema
 - **Zodiac Signs**: Italian and English names, date ranges, symbols
 - **Sources**: Daily horoscope source configuration with reliability scores and URL patterns (14+ sources)
-- **Weekly Sources**: Weekly horoscope source configuration with reliability scores and URL patterns (15 sources)
+- **Weekly Sources**: Weekly horoscope source configuration with reliability scores, URL patterns, and scrape strategy (15 sources)
+  - **Scrape Strategy Field**: Enum type ("pattern" or "archive") to specify scraping approach per source
+  - **Archive Strategy**: Used for sources like SuperGuida TV where URL patterns are inconsistent
 - **Horoscopes (Daily)**: Daily predictions with AI-generated summaries, superquotes (max 80 chars), and structured ratings
 - **Weekly Horoscopes**: Weekly predictions with same structure as daily (AI summaries, superquotes, ratings) for Monday-based weeks
 - **Users**: Basic user management for future authentication features
