@@ -55,6 +55,22 @@ export const insertUserSchema = z.object({
   email: z.string().email(),
 });
 
+// User Preferences Schema
+export const userPreferencesSchema = z.object({
+  id: z.number(),
+  user_id: z.number(),
+  favorite_signs: z.array(z.string()),
+  notifications_enabled: z.boolean(),
+  created_at: z.date(),
+  updated_at: z.date(),
+});
+
+export const insertUserPreferencesSchema = z.object({
+  user_id: z.number(),
+  favorite_signs: z.array(z.string()).default([]),
+  notifications_enabled: z.boolean().default(true),
+});
+
 // Horoscope Data Schema
 export const horoscopeDataSchema = z.object({
   id: z.number(),
@@ -151,6 +167,8 @@ export type Source = z.infer<typeof sourceSchema>;
 export type InsertSource = z.infer<typeof insertSourceSchema>;
 export type User = z.infer<typeof userSchema>;
 export type InsertUser = z.infer<typeof insertUserSchema>;
+export type UserPreferences = z.infer<typeof userPreferencesSchema>;
+export type InsertUserPreferences = z.infer<typeof insertUserPreferencesSchema>;
 export type HoroscopeData = z.infer<typeof horoscopeDataSchema>;
 export type InsertHoroscopeData = z.infer<typeof insertHoroscopeDataSchema>;
 export type HoroscopeAggregate = z.infer<typeof horoscopeAggregateSchema>;
