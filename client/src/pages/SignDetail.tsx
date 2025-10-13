@@ -697,30 +697,33 @@ import { useState, useRef, useEffect } from "react";
                                               {(() => {
                                                 // First sort alphabetically, then reorder to pin favorites
                                                 const currentHoroscopes = viewType === "daily" ? horoscopes : weeklyHoroscopes;
-                                                const sortedHoroscopes = [...currentHoroscopes].sort((a, b) => 
-                                                  a.source.name.localeCompare(b.source.name)
-                                                );
+                                                const sortedHoroscopes = [...currentHoroscopes].sort((a, b) => {
+                                                  const sourceA = viewType === "daily" ? a.source : a.weekly_source;
+                                                  const sourceB = viewType === "daily" ? b.source : b.weekly_source;
+                                                  return sourceA.name.localeCompare(sourceB.name);
+                                                });
                                                 return reorderSources(sortedHoroscopes);
                                               })().map((horoscope) => {
-                                                const isCollapsed = collapsedCards[horoscope.source.id] ?? true;
+                                                const source = viewType === "daily" ? horoscope.source : horoscope.weekly_source;
+                                                const isCollapsed = collapsedCards[source.id] ?? true;
 
                                                 return (
                                                   <Card 
                                                     key={horoscope.id} 
                                                     className="relative cursor-pointer hover:shadow-md transition-shadow"
-                                                    onClick={() => toggleCollapse(horoscope.source.id)}
+                                                    onClick={() => toggleCollapse(source.id)}
                                                   >
                                                     <CardContent className="p-6">
                                                       {/* Source Header */}
                                                       <div className="flex items-center justify-between mb-4">
                                                         <div className="flex items-center space-x-3">
                                                           <SourceIcon
-                                                            source={horoscope.source}
-                                                            data-testid={`individual-source-icon-${horoscope.source.id}`}
+                                                            source={source}
+                                                            data-testid={`individual-source-icon-${source.id}`}
                                                           />
                                                           <div>
-                                                            <h3 className="font-semibold text-card-foreground">{horoscope.source.name}</h3>
-                                                            <p className="text-xs text-muted-foreground">{horoscope.source.domain}</p>
+                                                            <h3 className="font-semibold text-card-foreground">{source.name}</h3>
+                                                            <p className="text-xs text-muted-foreground">{source.domain}</p>
                                                           </div>
                                                         </div>
                                                         <div className="flex items-center space-x-2">
@@ -731,15 +734,15 @@ import { useState, useRef, useEffect } from "react";
                                                             size="sm"
                                                             onClick={(e) => {
                                                               e.stopPropagation();
-                                                              toggleFavorite(horoscope.source.id);
+                                                              toggleFavorite(source.id);
                                                             }}
                                                             className="p-1 h-8 w-8 hover:bg-pink-50 dark:hover:bg-pink-900/20"
-                                                            data-testid={`button-favorite-${horoscope.source.id}`}
-                                                            title={isFavorite(horoscope.source.id) ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
+                                                            data-testid={`button-favorite-${source.id}`}
+                                                            title={isFavorite(source.id) ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
                                                           >
                                                             <Heart 
                                                               className={`w-4 h-4 transition-colors ${
-                                                                isFavorite(horoscope.source.id) 
+                                                                isFavorite(source.id) 
                                                                   ? 'fill-pink-500 text-pink-500' 
                                                                   : 'text-gray-400 hover:text-pink-500'
                                                               }`}
@@ -754,7 +757,7 @@ import { useState, useRef, useEffect } from "react";
                                                               handleShare();
                                                             }}
                                                             className="p-1 h-8 w-8 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                                                            data-testid={`button-share-${horoscope.source.id}`}
+                                                            data-testid={`button-share-${source.id}`}
                                                             title="Condividi questo oroscopo"
                                                             aria-label="Condividi"
                                                           >
@@ -766,10 +769,10 @@ import { useState, useRef, useEffect } from "react";
                                                             size="sm"
                                                             onClick={(e) => {
                                                               e.stopPropagation();
-                                                              toggleCollapse(horoscope.source.id);
+                                                              toggleCollapse(source.id);
                                                             }}
                                                             className="p-1 h-8 w-8 hover:bg-gray-50 dark:hover:bg-gray-800"
-                                                            data-testid={`button-collapse-${horoscope.source.id}`}
+                                                            data-testid={`button-collapse-${source.id}`}
                                                             title={isCollapsed ? 'Espandi scheda' : 'Comprimi scheda'}
                                                           >
                                                             <ChevronDown 
