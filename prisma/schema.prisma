@@ -14,6 +14,8 @@ model User {
   created_at       DateTime  @default(now())
   updated_at       DateTime  @updatedAt
 
+  preferences UserPreferences?
+
   @@map("users")
 }
 
@@ -70,4 +72,17 @@ model HoroscopeData {
   @@unique([source_id, zodiac_sign_id, date])
   @@index([date])
   @@map("horoscope_data")
+}
+
+model UserPreferences {
+  id                Int      @id @default(autoincrement())
+  user_id           Int      @unique
+  favorite_signs    String[] // Array of zodiac sign IDs
+  notifications_enabled Boolean @default(true)
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+
+  user User @relation(fields: [user_id], references: [id])
+
+  @@map("user_preferences")
 }
