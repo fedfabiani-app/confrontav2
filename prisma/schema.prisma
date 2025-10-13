@@ -57,7 +57,8 @@ model WeeklySource {
   domain           String   @unique
   logo_url         String?
   base_url         String
-  url_pattern      String
+  url_pattern      String   // For pattern: URL template. For archive: archive page path
+  scrape_strategy  String   @default("pattern") // 'pattern' or 'archive'
   reliability_score Decimal  @db.Decimal(3, 2) @default(3.0)
   is_active        Boolean  @default(true)
   created_at       DateTime @default(now())
