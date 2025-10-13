@@ -26,8 +26,7 @@ model ZodiacSign {
   created_at   DateTime @default(now())
   updated_at   DateTime @updatedAt
 
-  horoscope_data        HoroscopeData[]
-  weekly_horoscope_data WeeklyHoroscopeData[]
+  horoscope_data HoroscopeData[]
 
   @@map("zodiac_signs")
 }
@@ -55,12 +54,11 @@ model HoroscopeData {
   zodiac_sign_id   Int
   date             DateTime @db.Date
   original_text    String   @db.Text
-  summary          String?
-  superquote       String?
-  relazioni_rating Int?      @db.SmallInt
-  lavoro_rating    Int?      @db.SmallInt
-  salute_rating    Int?      @db.SmallInt
-  tone_analysis    String?   // 'positive', 'neutral', 'negative'
+  summary          String   @db.Text
+  relazioni_rating Int      @db.SmallInt
+  lavoro_rating    Int      @db.SmallInt
+  salute_rating    Int      @db.SmallInt
+  tone_analysis    String   // 'positive', 'neutral', 'negative'
   original_url     String   @db.Text
   scraped_at       DateTime
   created_at       DateTime @default(now())
@@ -72,45 +70,4 @@ model HoroscopeData {
   @@unique([source_id, zodiac_sign_id, date])
   @@index([date])
   @@map("horoscope_data")
-}
-
-model WeeklySource {
-  id               Int      @id @default(autoincrement())
-  name             String
-  domain           String   @unique
-  logo_url         String?
-  base_url         String
-  url_pattern      String
-  reliability_score Decimal  @db.Decimal(3, 2) @default(3.0)
-  is_active        Boolean  @default(true)
-  created_at       DateTime @default(now())
-  updated_at       DateTime @updatedAt
-
-  weekly_horoscope_data WeeklyHoroscopeData[]
-
-  @@map("weekly_sources")
-}
-
-model WeeklyHoroscopeData {
-  id               Int      @id @default(autoincrement())
-  source_id        Int
-  zodiac_sign_id   Int
-  week_start_date  DateTime @db.Date
-  original_text    String   @db.Text
-  summary          String   @db.Text
-  relazioni_rating Int      @db.SmallInt
-  lavoro_rating    Int      @db.SmallInt
-  salute_rating    Int      @db.SmallInt
-  tone_analysis    String   // 'positive', 'neutral', 'negative'
-  original_url     String   @db.Text
-  scraped_at       DateTime
-  created_at       DateTime @default(now())
-  updated_at       DateTime @updatedAt
-
-  source      WeeklySource @relation(fields: [source_id], references: [id])
-  zodiac_sign ZodiacSign   @relation(fields: [zodiac_sign_id], references: [id])
-
-  @@unique([source_id, zodiac_sign_id, week_start_date])
-  @@index([week_start_date])
-  @@map("weekly_horoscope_data")
 }

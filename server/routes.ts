@@ -3,10 +3,8 @@ import { createServer, type Server } from "http";
 import { z } from "zod";
 import prisma from "./services/database";
 import { enqueueScrapeJob, getAllJobStatuses, getJobStatus } from "./jobs";
-import { enqueueWeeklyScrapeJob, getAllWeeklyJobStatuses } from "./jobs/weekly";
-import { ScraperInput, WeeklyScraperInput } from "@shared/schema";
+import { ScraperInput } from "@shared/schema";
 import { ZODIAC_SIGNS_IT_EN, ITALIAN_WEEKDAYS, ITALIAN_MONTHS } from "@shared/constants";
-import { scrapeWeeklyWithRetry } from "./services/weekly-scraper";
 
 export async function registerRoutes(app: Express): Promise<Server> {
 
@@ -30,13 +28,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         where: { is_active: true },
         orderBy: { name: 'asc' }
       });
-
+      
       // Convert Decimal to number for JSON serialization
       const serializedSources = sources.map(source => ({
         ...source,
         reliability_score: Number(source.reliability_score)
       }));
-
+      
       res.json(serializedSources);
     } catch (error) {
       console.error('Error fetching sources:', error);
@@ -151,7 +149,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const relazioniRatings = horoscopes.filter((h: any) => h.relazioni_rating > 0).map((h: any) => h.relazioni_rating);
       const lavoroRatings = horoscopes.filter((h: any) => h.lavoro_rating > 0).map((h: any) => h.lavoro_rating);
       const benessereRatings = horoscopes.filter((h: any) => h.salute_rating > 0).map((h: any) => h.salute_rating);
-
+      
       const avgRelazioni = relazioniRatings.length > 0 
         ? relazioniRatings.reduce((sum: number, rating: number) => sum + rating, 0) / relazioniRatings.length 
         : null;
@@ -329,37 +327,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  // Debug endpoint to list all sources
-  app.get('/api/debug/sources', async (req, res) => {
+  // GET /api/debug/sources - Debug route to inspect source configurations
+  app.get("/api/debug/sources", async (req, res) => {
     try {
-      const dailySources = await prisma.source.findMany({
+      const sources = await prisma.source.findMany({
+        where: { is_active: true },
         select: {
           id: true,
           name: true,
           domain: true,
           base_url: true,
           url_pattern: true,
-          is_active: true
+          reliability_score: true
         }
       });
 
-      const weeklySources = await prisma.weeklySource.findMany({
-        select: {
-          id: true,
-          name: true,
-          domain: true,
-          base_url: true,
-          url_pattern: true,
-          is_active: true
-        }
+      // Test URL building for each source
+      const testResults = sources.map(source => {
+        const testInput = createScraperInput(source, { name_italian: 'Ariete' }, '2025-09-29');
+        const testUrls = buildHoroscopeUrl(testInput);
+        return {
+          ...source,
+          testUrls: Array.isArray(testUrls) ? testUrls : [testUrls]
+        };
       });
 
-      res.json({ 
-        daily: dailySources,
-        weekly: weeklySources
+      res.json({
+        sources: testResults
       });
     } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+      console.error('Error in debug sources route:', error);
+      res.status(500).json({ error: 'Failed to fetch debug sources info' });
     }
   });
 
@@ -413,282 +411,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // GET /api/weekly-horoscopes
-  app.get("/api/weekly-horoscopes", async (req, res) => {
-    try {
-      const { weekStartDate, sign } = req.query;
-
-      if (!weekStartDate || !sign) {
-        return res.status(400).json({ error: 'weekStartDate and sign parameters are required' });
-      }
-
-      // Validate date format (YYYY-MM-DD)
-      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-      if (!dateRegex.test(weekStartDate as string)) {
-        return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
-      }
-
-      // Validate sign and convert to English if needed
-      const signString = sign as string;
-      let englishSign = signString;
-
-      if (signString in ZODIAC_SIGNS_IT_EN) {
-        englishSign = ZODIAC_SIGNS_IT_EN[signString as keyof typeof ZODIAC_SIGNS_IT_EN];
-      } else if (!Object.values(ZODIAC_SIGNS_IT_EN).includes(signString as any)) {
-        return res.status(400).json({ error: 'Invalid zodiac sign' });
-      }
-
-      const zodiacSign = await prisma.zodiacSign.findFirst({
-        where: { name_english: englishSign }
-      });
-
-      if (!zodiacSign) {
-        return res.status(404).json({ error: 'Zodiac sign not found' });
-      }
-
-      const weeklyHoroscopes = await prisma.weeklyHoroscopeData.findMany({
-        where: {
-          zodiac_sign_id: zodiacSign.id,
-          week_start_date: new Date(weekStartDate as string),
-        },
-        include: {
-          source: true,
-        },
-        orderBy: {
-          source: { reliability_score: 'desc' }
-        }
-      });
-
-      // Serialize all fields for JSON-safe response
-      const serializedHoroscopes = weeklyHoroscopes.map(h => ({
-        id: h.id,
-        source_id: h.source_id,
-        zodiac_sign_id: h.zodiac_sign_id,
-        week_start_date: h.week_start_date,
-        original_text: h.original_text,
-        summary: h.summary,
-        relazioni_rating: h.relazioni_rating,
-        lavoro_rating: h.lavoro_rating,
-        salute_rating: h.salute_rating,
-        tone_analysis: h.tone_analysis,
-        original_url: h.original_url,
-        scraped_at: h.scraped_at,
-        created_at: h.created_at,
-        updated_at: h.updated_at,
-        source: {
-          id: h.source.id,
-          name: h.source.name,
-          domain: h.source.domain,
-          logo_url: h.source.logo_url,
-          base_url: h.source.base_url,
-          url_pattern: h.source.url_pattern,
-          reliability_score: Number(h.source.reliability_score),
-          is_active: h.source.is_active,
-          created_at: h.source.created_at,
-          updated_at: h.source.updated_at,
-        }
-      }));
-
-      res.json(serializedHoroscopes);
-    } catch (error) {
-      console.error('Error fetching weekly horoscopes:', error);
-      res.status(500).json({ error: 'Failed to fetch weekly horoscopes' });
-    }
-  });
-
-  // GET /api/weekly-horoscopes/aggregate
-  app.get("/api/weekly-horoscopes/aggregate", async (req, res) => {
-    try {
-      const { weekStartDate, sign } = req.query;
-
-      if (!weekStartDate || !sign) {
-        return res.status(400).json({ error: 'weekStartDate and sign parameters are required' });
-      }
-
-      // Validate date format (YYYY-MM-DD)
-      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-      if (!dateRegex.test(weekStartDate as string)) {
-        return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
-      }
-
-      // Validate sign and convert to English if needed
-      const signString = sign as string;
-      let englishSign = signString;
-
-      if (signString in ZODIAC_SIGNS_IT_EN) {
-        englishSign = ZODIAC_SIGNS_IT_EN[signString as keyof typeof ZODIAC_SIGNS_IT_EN];
-      } else if (!Object.values(ZODIAC_SIGNS_IT_EN).includes(signString as any)) {
-        return res.status(400).json({ error: 'Invalid zodiac sign' });
-      }
-
-      const zodiacSign = await prisma.zodiacSign.findFirst({
-        where: { name_english: englishSign }
-      });
-
-      if (!zodiacSign) {
-        return res.status(404).json({ error: 'Zodiac sign not found' });
-      }
-
-      const weeklyHoroscopes = await prisma.weeklyHoroscopeData.findMany({
-        where: {
-          zodiac_sign_id: zodiacSign.id,
-          week_start_date: new Date(weekStartDate as string),
-        },
-      });
-
-      if (weeklyHoroscopes.length === 0) {
-        return res.json({
-          avgRelazioni: null,
-          avgLavoro: null,
-          avgBenessere: null,
-          overallAverage: null,
-          majorityTone: 'neutral'
-        });
-      }
-
-      // Calculate averages excluding 0 ratings
-      const relazioniRatings = weeklyHoroscopes.filter((h: any) => h.relazioni_rating > 0).map((h: any) => h.relazioni_rating);
-      const lavoroRatings = weeklyHoroscopes.filter((h: any) => h.lavoro_rating > 0).map((h: any) => h.lavoro_rating);
-      const benessereRatings = weeklyHoroscopes.filter((h: any) => h.salute_rating > 0).map((h: any) => h.salute_rating);
-
-      const avgRelazioni = relazioniRatings.length > 0 
-        ? relazioniRatings.reduce((sum: number, rating: number) => sum + rating, 0) / relazioniRatings.length 
-        : null;
-      const avgLavoro = lavoroRatings.length > 0 
-        ? lavoroRatings.reduce((sum: number, rating: number) => sum + rating, 0) / lavoroRatings.length 
-        : null;
-      const avgBenessere = benessereRatings.length > 0 
-        ? benessereRatings.reduce((sum: number, rating: number) => sum + rating, 0) / benessereRatings.length 
-        : null;
-
-      const validAverages = [avgRelazioni, avgLavoro, avgBenessere].filter(avg => avg !== null) as number[];
-      const overallAverage = validAverages.length > 0 
-        ? validAverages.reduce((sum, avg) => sum + avg, 0) / validAverages.length 
-        : null;
-
-      const majorityTone = overallAverage === null ? 'neutral' :
-                           overallAverage < 3 ? 'negative' : 
-                           overallAverage > 3 ? 'positive' : 'neutral';
-
-      res.json({
-        avgRelazioni: avgRelazioni !== null ? Math.round(avgRelazioni * 10) / 10 : null,
-        avgLavoro: avgLavoro !== null ? Math.round(avgLavoro * 10) / 10 : null,
-        avgBenessere: avgBenessere !== null ? Math.round(avgBenessere * 10) / 10 : null,
-        overallAverage: overallAverage !== null ? Math.round(overallAverage * 10) / 10 : null,
-        majorityTone: majorityTone as 'positive' | 'neutral' | 'negative',
-      });
-    } catch (error) {
-      console.error('Error calculating weekly aggregates:', error);
-      res.status(500).json({ error: 'Failed to calculate weekly aggregates' });
-    }
-  });
-
-  // POST /api/refresh/weekly - Refresh weekly horoscopes
-  app.post("/api/refresh/weekly", async (req, res) => {
-    try {
-      const { weekStartDate, sign } = req.query;
-
-      // Calculate next Monday if no date provided
-      const getNextMonday = () => {
-        const today = new Date();
-        const dayOfWeek = today.getDay();
-        const daysUntilMonday = dayOfWeek === 0 ? 1 : (8 - dayOfWeek) % 7 || 7;
-        const nextMonday = new Date(today);
-        nextMonday.setDate(today.getDate() + daysUntilMonday);
-        return nextMonday.toISOString().split('T')[0];
-      };
-
-      const targetWeekStart = weekStartDate as string || getNextMonday();
-
-      // Validate date format
-      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-      if (!dateRegex.test(targetWeekStart)) {
-        return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
-      }
-
-      // If sign is provided, refresh only that sign
-      if (sign) {
-        const signString = sign as string;
-        let englishSign = signString;
-
-        if (signString in ZODIAC_SIGNS_IT_EN) {
-          englishSign = ZODIAC_SIGNS_IT_EN[signString as keyof typeof ZODIAC_SIGNS_IT_EN];
-        } else if (!Object.values(ZODIAC_SIGNS_IT_EN).includes(signString as any)) {
-          return res.status(400).json({ error: 'Invalid zodiac sign' });
-        }
-
-        const zodiacSign = await prisma.zodiacSign.findFirst({
-          where: { name_english: englishSign }
-        });
-
-        if (!zodiacSign) {
-          return res.status(404).json({ error: 'Zodiac sign not found' });
-        }
-
-        // Get all active weekly sources
-        const weeklySources = await prisma.weeklySource.findMany({ 
-          where: { is_active: true } 
-        });
-
-        const jobIds: string[] = [];
-        const errors: string[] = [];
-
-        for (const source of weeklySources) {
-          try {
-            const jobId = await enqueueWeeklyScrapeJob(createWeeklyScraperInput(source, zodiacSign, targetWeekStart));
-            jobIds.push(jobId);
-          } catch (error) {
-            const errorMsg = `Failed to enqueue ${source.name} - ${sign}`;
-            errors.push(errorMsg);
-            console.error(errorMsg, error);
-          }
-        }
-
-        return res.json({
-          message: `Weekly refresh started for ${sign}`,
-          jobsEnqueued: jobIds.length,
-          errors: errors.length,
-          jobIds,
-          sign,
-          weekStartDate: targetWeekStart,
-        });
-      }
-
-      // Otherwise, refresh all signs
-      const [weeklySources, zodiacSigns] = await Promise.all([
-        prisma.weeklySource.findMany({ where: { is_active: true } }),
-        prisma.zodiacSign.findMany({ orderBy: { id: 'asc' } }),
-      ]);
-
-      const jobIds: string[] = [];
-      const errors: string[] = [];
-
-      for (const source of weeklySources) {
-        for (const zodiacSign of zodiacSigns) {
-          try {
-            const jobId = await enqueueWeeklyScrapeJob(createWeeklyScraperInput(source, zodiacSign, targetWeekStart));
-            jobIds.push(jobId);
-          } catch (error) {
-            const errorMsg = `Failed to enqueue ${source.name} - ${zodiacSign.name_italian}`;
-            errors.push(errorMsg);
-            console.error(errorMsg, error);
-          }
-        }
-      }
-
-      res.json({
-        message: 'Weekly refresh started',
-        jobsEnqueued: jobIds.length,
-        errors: errors.length,
-        jobIds,
-        weekStartDate: targetWeekStart,
-      });
-    } catch (error) {
-      console.error('Error starting weekly refresh:', error);
-      res.status(500).json({ error: 'Failed to start weekly refresh' });
-    }
-  });
-
   // Manual trigger for scraping and processing
   app.post('/api/scrape/trigger', async (req, res) => {
     try {
@@ -732,54 +454,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Added route to trigger weekly horoscope scraping
-  app.post('/api/scrape/weekly/trigger', async (req, res) => {
-    try {
-      // The `scrapeWeeklyHoroscopes` function is intended to be called here
-      // to initiate the weekly horoscope scraping process.
-      // Assuming scrapeWeeklyHoroscopes is defined elsewhere and imported.
-      // await scrapeWeeklyHoroscopes(); 
-      res.status(200).json({ message: 'Weekly horoscope scraping job triggered successfully.' });
-    } catch (error) {
-      console.error('Error triggering weekly horoscope scraping:', error);
-      res.status(500).json({ error: 'Failed to trigger weekly horoscope scraping.' });
-    }
-  });
-
-  // Test weekly scraping for a specific source and sign
-  app.post('/api/test-weekly-scrape', async (req, res) => {
-    try {
-      const { sourceId, signSlugIt, weekStartDate } = req.body;
-
-      if (!sourceId || !signSlugIt || !weekStartDate) {
-        return res.status(400).json({ error: 'Missing required fields: sourceId, signSlugIt, weekStartDate' });
-      }
-
-      const source = await prisma.weeklySource.findUnique({
-        where: { id: sourceId }
-      });
-
-      if (!source) {
-        return res.status(404).json({ error: 'Source not found' });
-      }
-
-      const input = createWeeklyScraperInput(source, { name_italian: signSlugIt }, weekStartDate);
-
-      console.log('[TestWeeklyScrape] Starting test scrape with input:', input);
-
-      const result = await scrapeWeeklyWithRetry(input, 3);
-
-      res.json({ success: true, result });
-    } catch (error) {
-      console.error('[TestWeeklyScrape] Error:', error);
-      res.status(500).json({ 
-        error: error instanceof Error ? error.message : 'Unknown error',
-        details: error instanceof Error ? error.stack : undefined
-      });
-    }
-  });
-
-
   const httpServer = createServer(app);
   return httpServer;
 }
@@ -797,7 +471,7 @@ function buildHoroscopeUrl(input: ScraperInput): string | string[] {
   if (input.domain.includes('repubblica.it')) {
     return input.baseUrl + input.urlPattern;
   }
-
+  
   // Handle IO Donna special case - try date-specific URL first
   if (input.domain.includes('iodonna.it')) {
     const signSlug = signMap[input.signSlugIt] || input.signSlugIt.toLowerCase();
@@ -807,10 +481,10 @@ function buildHoroscopeUrl(input: ScraperInput): string | string[] {
     const year = targetDate.getFullYear();
     return `${input.baseUrl}/oroscopo/giorno/${signSlug}-${day}-${month}-${year}/`;
   }
-
+  
   let url = input.baseUrl + input.urlPattern;
   const targetDate = new Date(input.dateISO);
-
+  
   // Handle date-specific URLs for sources that need them
   if ((input.domain.includes('alfemminile.com') || input.domain.includes('fanpage.it') || input.domain.includes('gazzetta.it')) && url.includes('{weekday}')) {
     const day = targetDate.getDate();
@@ -818,41 +492,41 @@ function buildHoroscopeUrl(input: ScraperInput): string | string[] {
     const year = targetDate.getFullYear();
     const weekday = ITALIAN_WEEKDAYS[targetDate.getDay()];
     const monthName = ITALIAN_MONTHS[month];
-
+    
     url = url.replace('{weekday}', weekday);
     url = url.replace('{day}', day.toString());
     url = url.replace('{month}', monthName);
     url = url.replace('{year}', year.toString());
-
+    
     // Enhanced handling for Gazzetta.it - they use multiple URL patterns
     if (input.domain.includes('gazzetta.it')) {
       const prevDate = new Date(targetDate);
       prevDate.setDate(prevDate.getDate() - 1);
       const prevDateFormatted = prevDate.toISOString().split('T')[0].split('-').reverse().join('-');
       const currentDateFormatted = targetDate.toISOString().split('T')[0].split('-').reverse().join('-');
-
+      
       const gazzettaSignSlug = signMap[input.signSlugIt] || input.signSlugIt.toLowerCase();
       const baseSlug = `oroscopo-${weekday}-${day}-${monthName}-${year}`;
       const slug1 = `${baseSlug}-previsioni-per-12-i-segni`;
       const slug2 = `${baseSlug}-previsioni-per-tutti-i-segni`;
-
+      
       const url1 = `${input.baseUrl}/oroscopo/storie/${prevDateFormatted}/${slug1}/${gazzettaSignSlug}.shtml`;
       const url2 = `${input.baseUrl}/oroscopo/storie/${prevDateFormatted}/${slug2}/${gazzettaSignSlug}.shtml`;
       const url3 = `${input.baseUrl}/oroscopo/storie/${currentDateFormatted}/${slug1}/${gazzettaSignSlug}.shtml`;
       const url4 = `${input.baseUrl}/oroscopo/storie/${currentDateFormatted}/${slug2}/${gazzettaSignSlug}.shtml`;
-
+      
       return [url1, url2, url3, url4];
     }
   }
-
+  
   // Standard replacements
   let signSlug = signMap[input.signSlugIt] || input.signSlugIt.toLowerCase();
-
+  
   // Oggi.it uses capitalized zodiac sign names
   if (input.domain.includes('oggi.it')) {
     signSlug = input.signSlugIt;
   }
-
+  
   url = url.replace('{sign}', signSlug);
   url = url.replace('{dd}', targetDate.getDate().toString().padStart(2, '0'));
   url = url.replace('{day}', targetDate.getDate().toString());
@@ -861,7 +535,7 @@ function buildHoroscopeUrl(input: ScraperInput): string | string[] {
   url = url.replace('{yyyy}', targetDate.getFullYear().toString());
   url = url.replace('{year}', targetDate.getFullYear().toString());
   url = url.replace('{weekday}', ITALIAN_WEEKDAYS[targetDate.getDay()]);
-
+  
   return url;
 }
 
@@ -884,28 +558,6 @@ function createScraperInput(source: any, zodiacSign: any, dateISO: string): Scra
     dateISO,
     weekdayItNoAccent,
     gazzettaDatePath,
-    userAgent: process.env.SCRAPE_USER_AGENT || 'ItalianHoroscopeComparatorBot/1.0 (+contact)',
-  };
-}
-
-// Helper function to create weekly scraper input
-function createWeeklyScraperInput(source: any, zodiacSign: any, weekStartDate: string): WeeklyScraperInput {
-  // Calculate week end date (6 days after start for Monday-Sunday week)
-  // Use UTC to avoid timezone drift
-  const startDate = new Date(weekStartDate + 'T00:00:00.000Z');
-  const endDate = new Date(startDate);
-  endDate.setUTCDate(startDate.getUTCDate() + 6);
-  const weekEndDate = endDate.toISOString().split('T')[0];
-
-  return {
-    sourceId: source.id,
-    sourceName: source.name,
-    domain: source.domain,
-    baseUrl: source.base_url,
-    urlPattern: source.url_pattern,
-    signSlugIt: zodiacSign.name_italian,
-    weekStartDate,
-    weekEndDate,
     userAgent: process.env.SCRAPE_USER_AGENT || 'ItalianHoroscopeComparatorBot/1.0 (+contact)',
   };
 }

@@ -45,7 +45,7 @@ const signColors = {
   pesci: 'from-blue-300 to-blue-500',
 };
 
-export function ZodiacCard({ 
+  export function ZodiacCard({ 
   sign, 
   aggregate, 
   summary, 
@@ -76,7 +76,7 @@ export function ZodiacCard({
     e.stopPropagation();
     onToggleCollapse?.();
   };
-
+  
   return (
     <Card 
       className={cn(
@@ -102,44 +102,49 @@ export function ZodiacCard({
               <p className="text-xs text-muted-foreground">{sign.date_range}</p>
             </div>
           </div>
-          {/* Control Buttons - ToneBadge rimosso da qui */}
-          <div className="flex items-center space-x-1">
-            {onToggleFavorite && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleFavoriteClick}
-                className="p-1 h-8 w-8 hover:bg-gray-50 dark:hover:bg-gray-800"
-                data-testid={`button-favorite-${sign.name_english}`}
-                title={isFavorite ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
-              >
-                <Heart 
-                  className={cn(
-                    "w-4 h-4",
-                    isFavorite ? "text-red-500 fill-red-500" : "text-muted-foreground"
-                  )} 
-                />
-              </Button>
+          <div className="flex items-center space-x-2">
+            {aggregate?.majorityTone && (
+              <ToneBadge tone={aggregate.majorityTone} size="sm" />
             )}
-            {onToggleCollapse && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleCollapseClick}
-                className="p-1 h-8 w-8 hover:bg-gray-50 dark:hover:bg-gray-800"
-                data-testid={`button-collapse-${sign.name_english}`}
-                title={isCollapsed ? 'Espandi dettagli' : 'Comprimi dettagli'}
-              >
-                {isCollapsed ? (
-                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                ) : (
-                  <ChevronUp className="w-4 h-4 text-muted-foreground" />
-                )}
-              </Button>
-            )}
+            {/* Control Buttons */}
+            <div className="flex items-center space-x-1">
+              {onToggleFavorite && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleFavoriteClick}
+                  className="p-1 h-8 w-8 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  data-testid={`button-favorite-${sign.name_english}`}
+                  title={isFavorite ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
+                >
+                  <Heart 
+                    className={cn(
+                      "w-4 h-4",
+                      isFavorite ? "text-red-500 fill-red-500" : "text-muted-foreground"
+                    )} 
+                  />
+                </Button>
+              )}
+              {onToggleCollapse && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleCollapseClick}
+                  className="p-1 h-8 w-8 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  data-testid={`button-collapse-${sign.name_english}`}
+                  title={isCollapsed ? 'Espandi dettagli' : 'Comprimi dettagli'}
+                >
+                  {isCollapsed ? (
+                    <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                  )}
+                </Button>
+              )}
+            </div>
           </div>
         </div>
-
+        
         {/* Collapsible Content */}
         <div 
           className={cn(
@@ -153,69 +158,64 @@ export function ZodiacCard({
               {summary}
             </p>
           )}
-
-          {/* Ratings and Overall Average - Layout a due colonne */}
+          
+          {/* Ratings */}
           {aggregate && (
-            <div className="flex gap-4 mt-4 pt-4 border-t border-border">
-              {/* Colonna sinistra: Ratings dettagliati */}
-              <div className="flex-1 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Relazioni</span>
-                  <div className="flex items-center space-x-1">
-                    {aggregate.avgRelazioni !== null ? (
-                      <>
-                        <StarRating rating={Math.round(aggregate.avgRelazioni)} size="sm" />
-                        <span className="text-xs text-muted-foreground ml-1">
-                          {aggregate.avgRelazioni.toFixed(1)}
-                        </span>
-                      </>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">N/A</span>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Lavoro</span>
-                  <div className="flex items-center space-x-1">
-                    {aggregate.avgLavoro !== null ? (
-                      <>
-                        <StarRating rating={Math.round(aggregate.avgLavoro)} size="sm" />
-                        <span className="text-xs text-muted-foreground ml-1">
-                          {aggregate.avgLavoro.toFixed(1)}
-                        </span>
-                      </>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">N/A</span>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Benessere</span>
-                  <div className="flex items-center space-x-1">
-                    {aggregate.avgBenessere !== null ? (
-                      <>
-                        <StarRating rating={Math.round(aggregate.avgBenessere)} size="sm" />
-                        <span className="text-xs text-muted-foreground ml-1">
-                          {aggregate.avgBenessere.toFixed(1)}
-                        </span>
-                      </>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">N/A</span>
-                    )}
-                  </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Relazioni</span>
+                <div className="flex items-center space-x-1">
+                  {aggregate.avgRelazioni !== null ? (
+                    <>
+                      <StarRating rating={Math.round(aggregate.avgRelazioni)} size="sm" />
+                      <span className="text-xs text-muted-foreground ml-1">
+                        {aggregate.avgRelazioni.toFixed(1)}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">N/A</span>
+                  )}
                 </div>
               </div>
-
-              {/* Colonna destra: ToneBadge + Media Generale */}
-              <div className="flex flex-col items-center justify-center border-l border-border pl-4 min-w-[100px] space-y-2">
-                {/* ToneBadge spostato qui */}
-                {aggregate.majorityTone && (
-                  <ToneBadge tone={aggregate.majorityTone} size="sm" />
-                )}
-
-                <span className="text-xs font-medium text-muted-foreground">Media</span>
-                <span className="text-xs font-medium text-muted-foreground -mt-1">Generale</span>
-                <span className="text-2xl font-bold text-orange-500" data-testid={`overall-average-${sign.name_english}`}>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Lavoro</span>
+                <div className="flex items-center space-x-1">
+                  {aggregate.avgLavoro !== null ? (
+                    <>
+                      <StarRating rating={Math.round(aggregate.avgLavoro)} size="sm" />
+                      <span className="text-xs text-muted-foreground ml-1">
+                        {aggregate.avgLavoro.toFixed(1)}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">N/A</span>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Benessere</span>
+                <div className="flex items-center space-x-1">
+                  {aggregate.avgBenessere !== null ? (
+                    <>
+                      <StarRating rating={Math.round(aggregate.avgBenessere)} size="sm" />
+                      <span className="text-xs text-muted-foreground ml-1">
+                        {aggregate.avgBenessere.toFixed(1)}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">N/A</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Overall Average */}
+          {aggregate && (
+            <div className="mt-4 pt-4 border-t border-border">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-card-foreground">Media Generale</span>
+                <span className="text-lg font-bold text-orange-500" data-testid={`overall-average-${sign.name_english}`}>
                   {aggregate.overallAverage !== null ? aggregate.overallAverage.toFixed(1) : 'N/A'}
                 </span>
               </div>

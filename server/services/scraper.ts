@@ -1,6 +1,6 @@
 import axios from 'axios';
           import * as cheerio from 'cheerio';
-          import { ScraperInput, ScraperOutput, scraperOutputSchema, WeeklyScraperInput, WeeklyScraperOutput, weeklyScraperOutputSchema } from '@shared/schema';
+          import { ScraperInput, ScraperOutput, scraperOutputSchema } from '@shared/schema';
           import { ITALIAN_WEEKDAYS, ITALIAN_MONTHS } from '@shared/constants';
 
           // Rate limiting and domain backoff
@@ -1162,8 +1162,3 @@ import axios from 'axios';
 
             throw lastError!;
           }
-
-          
-
-          // Weekly horoscope scraping
-          

@@ -81,9 +81,7 @@ export function useHomeFavorites() {
   };
 }
 
-// Global favorites hook - applies to all signs and both daily/weekly tabs
-// Note: signEnglish parameter is kept for backwards compatibility but not used
-// Favorites are stored globally by source ID and persist across all signs and tabs
+// Global favorites hook - applies to all signs
 export function useFavorites(signEnglish?: string) {
   const [favorites, setFavorites] = useState<number[]>([]);
 

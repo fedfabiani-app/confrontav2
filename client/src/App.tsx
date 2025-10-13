@@ -18,30 +18,25 @@ function BottomNavigation() {
     { path: '/info', icon: Info, label: 'Info' },
   ];
 
-  // Show navigation only on Info page
-  if (location !== '/info') {
-    return null;
-  }
-
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border md:hidden z-50">
-      <div className="flex items-center justify-around py-1">
+      <div className="flex items-center justify-around py-2">
         {navItems.map((item) => {
           const isActive = location === item.path;
           const Icon = item.icon;
-
+          
           return (
             <button
               key={item.path}
               onClick={() => navigate(item.path)}
-              className={`flex flex-col items-center py-1 px-4 transition-colors ${
-                isActive
-                  ? 'text-orange-500'
+              className={`flex flex-col items-center py-2 px-4 transition-colors ${
+                isActive 
+                  ? 'text-orange-500' 
                   : 'text-muted-foreground hover:text-card-foreground'
               }`}
               data-testid={`nav-${item.label.toLowerCase()}`}
             >
-              <Icon className="w-5 h-5 mb-0.5" />
+              <Icon className="w-5 h-5 mb-1" />
               <span className="text-xs">{item.label}</span>
             </button>
           );
@@ -62,7 +57,7 @@ function Router() {
         <Route path="/info" component={InfoPage} />
         <Route component={NotFound} />
       </Switch>
-
+      
       <BottomNavigation />
     </>
   );
