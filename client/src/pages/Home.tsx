@@ -207,49 +207,50 @@ export default function Home() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Refresh Section - WITH DATE SELECTOR */}
-        <div className="mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-              <PopoverTrigger asChild>
-                <Button 
-                  variant="outline" 
-                  size="default"
-                  className="w-full sm:w-auto justify-start"
-                  data-testid="date-selector-trigger"
-                >
-                  <CalendarDays className="w-4 h-4 mr-2" />
+        {/* Date Selector */}
+        <div className="mb-8 flex justify-center">
+          <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+            <PopoverTrigger asChild>
+              <button 
+                className="bg-white dark:bg-gray-800 rounded-full px-6 py-3 flex items-center gap-3 shadow-md hover:shadow-lg transition-shadow border border-gray-200 dark:border-gray-700"
+                data-testid="date-selector-trigger"
+              >
+                <CalendarDays className="w-5 h-5 text-orange-500" />
+                <span className="font-medium text-gray-900 dark:text-gray-100">
                   {formatDate(selectedDate)}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <div className="p-3 border-b border-border">
-                  <h4 className="text-sm font-medium">Seleziona Data</h4>
-                  <p className="text-xs text-muted-foreground">Ultimi 90 giorni disponibili</p>
-                </div>
-                <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={handleDateSelect}
-                  disabled={(date) => date < earliestStart || date > todayStart}
-                  toDate={todayStart}
-                  defaultMonth={selectedDate}
-                  className="border-0"
-                  data-testid="date-calendar"
-                />
-              </PopoverContent>
-            </Popover>
+                </span>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="center">
+              <div className="p-3 border-b border-border">
+                <h4 className="text-sm font-medium">Seleziona Data</h4>
+                <p className="text-xs text-muted-foreground">Ultimi 90 giorni disponibili</p>
+              </div>
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={handleDateSelect}
+                disabled={(date) => date < earliestStart || date > todayStart}
+                toDate={todayStart}
+                defaultMonth={selectedDate}
+                className="border-0"
+                data-testid="date-calendar"
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
 
-            <Button
-              onClick={() => refreshAllMutation.mutate()}
-              disabled={isRefreshing}
-              className="w-full sm:w-auto bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-lg hover:shadow-xl transition-all"
-              data-testid="button-refresh-all"
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-              Aggiorna Tutti i Dati
-            </Button>
-          </div>
+        {/* Refresh Button */}
+        <div className="mb-8 flex justify-center">
+          <Button
+            onClick={() => refreshAllMutation.mutate()}
+            disabled={isRefreshing}
+            className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-lg hover:shadow-xl transition-all"
+            data-testid="button-refresh-all"
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+            Aggiorna Tutti i Dati
+          </Button>
         </div>
 
         {/* Favorites Section */}

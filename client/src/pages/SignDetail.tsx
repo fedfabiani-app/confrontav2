@@ -48,7 +48,6 @@ import { useState, useRef, useEffect } from "react";
                                       name: string;
                                       domain: string;
                                       logo_url: string | null;
-                                      reliability_score: number;
                                     };
                                   }
 
@@ -196,6 +195,15 @@ import { useState, useRef, useEffect } from "react";
                                       const day = d.getDay();
                                       const diff = d.getDate() - day + (day === 0 ? -6 : 1);
                                       return new Date(d.setDate(diff));
+                                    };
+
+                                    // Helper function to format date in Italian
+                                    const formatDate = (date: Date): string => {
+                                      return date.toLocaleDateString('it-IT', {
+                                        year: 'numeric',
+                                        month: 'long',
+                                        day: 'numeric',
+                                      });
                                     };
 
                                     // Helper function to format week range in Italian
@@ -375,7 +383,7 @@ import { useState, useRef, useEffect } from "react";
                                     const refreshSignMutation = useMutation({
                                       mutationFn: async () => {
                                         const italianSign = ZODIAC_SIGNS_EN_IT[sign] || sign;
-                                        
+
                                         if (viewType === "daily") {
                                           const response = await apiRequest(
                                             "POST",
@@ -598,16 +606,34 @@ import { useState, useRef, useEffect } from "react";
                                               </button>
                                             </div>
 
-                                            {/* Week Range Display for Weekly View */}
-                                            {viewType === "weekly" && (
-                                              <div className="flex items-center gap-2 px-4 py-2 bg-card border border-border rounded-lg">
+                                            {/* Date Selector for Daily View */}
+                                            {viewType === "daily" && (
+                                              <button 
+                                                className="bg-white dark:bg-gray-800 rounded-full px-6 py-3 flex items-center gap-3 shadow-md hover:shadow-lg transition-shadow border border-gray-200 dark:border-gray-700"
+                                                data-testid="date-selector-daily"
+                                              >
                                                 <svg className="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                                 </svg>
-                                                <span className="font-medium text-foreground" data-testid="text-week-range">
+                                                <span className="font-medium text-gray-900 dark:text-gray-100">
+                                                  {formatDate(new Date(today))}
+                                                </span>
+                                              </button>
+                                            )}
+
+                                            {/* Week Range Display for Weekly View */}
+                                            {viewType === "weekly" && (
+                                              <button 
+                                                className="bg-white dark:bg-gray-800 rounded-full px-6 py-3 flex items-center gap-3 shadow-md hover:shadow-lg transition-shadow border border-gray-200 dark:border-gray-700"
+                                                data-testid="date-selector-weekly"
+                                              >
+                                                <svg className="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                </svg>
+                                                <span className="font-medium text-gray-900 dark:text-gray-100">
                                                   Settimana: {weekRangeText}
                                                 </span>
-                                              </div>
+                                              </button>
                                             )}
                                           </div>
 
@@ -727,7 +753,7 @@ import { useState, useRef, useEffect } from "react";
                                                           </div>
                                                         </div>
                                                         <div className="flex items-center space-x-2">
-                                                        
+
                                                           {/* Favorite Toggle Button */}
                                                           <Button
                                                             variant="ghost"
