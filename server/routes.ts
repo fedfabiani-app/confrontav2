@@ -830,6 +830,7 @@ function createWeeklyScraperInput(source: any, zodiacSign: any, weekStartDateISO
     domain: source.domain,
     baseUrl: source.base_url,
     urlPattern: source.url_pattern,
+    scrapeStrategy: source.scrape_strategy || 'pattern',
     signSlugIt: zodiacSign.name_italian,
     weekStartDate: weekStartDateISO,
     startDay,
