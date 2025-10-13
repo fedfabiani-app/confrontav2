@@ -375,7 +375,7 @@ import { useState, useRef, useEffect } from "react";
                                     const refreshSignMutation = useMutation({
                                       mutationFn: async () => {
                                         const italianSign = ZODIAC_SIGNS_EN_IT[sign] || sign;
-                                        
+
                                         if (viewType === "daily") {
                                           const response = await apiRequest(
                                             "POST",
@@ -724,7 +724,7 @@ import { useState, useRef, useEffect } from "react";
                                                           </div>
                                                         </div>
                                                         <div className="flex items-center space-x-2">
-                                                        
+
                                                           {/* Favorite Toggle Button */}
                                                           <Button
                                                             variant="ghost"
@@ -897,18 +897,26 @@ import { useState, useRef, useEffect } from "react";
                                           </div>
                                         </main>
 
-                                        {/* Loading Overlay */}
-                                        <LoadingOverlay
-                                          isVisible={isRefreshing}
-                                          title={`Aggiornando ${currentSign.name_italian}...`}
-                                          message="Aggiornamento previsioni in corso"
-                                          progress={refreshProgress.current}
-                                          total={refreshProgress.total}
-                                          onDismiss={handleDismissRefresh}
-                                        />
+                                        {/* Footer with Info link */}
+                                        <footer className="mt-16 pb-8">
+                                          <div className="text-center">
+                                            <a 
+                                              href="/info" 
+                                              className="text-white hover:underline transition-colors"
+                                              onClick={(e) => {
+                                                e.preventDefault();
+                                                navigate('/info');
+                                              }}
+                                            >
+                                              Info
+                                            </a>
+                                          </div>
+                                        </footer>
 
                                         {/* Bottom spacing for mobile navigation */}
                                         <div className="h-20 md:h-0"></div>
                                       </div>
                                     );
                                   }
+
+export default SignDetail;
