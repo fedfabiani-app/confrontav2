@@ -336,21 +336,8 @@ export default function Home() {
         onDismiss={handleDismissRefresh}
       />
 
-      {/* Footer with Info link */}
-      <footer className="mt-16 pb-8">
-        <div className="text-center">
-          <a 
-            href="/info" 
-            className="text-white hover:underline transition-colors"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate('/info');
-            }}
-          >
-            Info
-          </a>
-        </div>
-      </footer>
+      {/* Bottom spacing for mobile navigation */}
+      <div className="h-20 md:h-0"></div>
     </div>
   );
 }

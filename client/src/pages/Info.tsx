@@ -264,21 +264,8 @@ export default function Info() {
 
       </main>
 
-      {/* Footer with Home link */}
-      <footer className="mt-16 pb-8">
-        <div className="text-center">
-          <a 
-            href="/" 
-            className="text-white hover:underline transition-colors"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate('/');
-            }}
-          >
-            Home
-          </a>
-        </div>
-      </footer>
+      {/* Bottom spacing for mobile navigation */}
+      <div className="h-20 md:h-0"></div>
     </div>
   );
 }
