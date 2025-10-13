@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { StarRating } from "./StarRating";
-import { ToneBadge } from "./ToneBadge";
 import { cn } from "@/lib/utils";
 import { Heart, ChevronDown, ChevronUp } from "lucide-react";
 
@@ -103,9 +101,6 @@ const signColors = {
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            {aggregate?.majorityTone && (
-              <ToneBadge tone={aggregate.majorityTone} size="sm" />
-            )}
             {/* Control Buttons */}
             <div className="flex items-center space-x-1">
               {onToggleFavorite && (
@@ -154,72 +149,9 @@ const signColors = {
         >
           {/* Summary */}
           {summary && (
-            <p className="text-sm text-card-foreground mb-4 line-clamp-3" data-testid={`sign-summary-${sign.name_english}`}>
+            <p className="text-sm text-card-foreground line-clamp-3" data-testid={`sign-summary-${sign.name_english}`}>
               {summary}
             </p>
-          )}
-          
-          {/* Ratings */}
-          {aggregate && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Relazioni</span>
-                <div className="flex items-center space-x-1">
-                  {aggregate.avgRelazioni !== null ? (
-                    <>
-                      <StarRating rating={Math.round(aggregate.avgRelazioni)} size="sm" />
-                      <span className="text-xs text-muted-foreground ml-1">
-                        {aggregate.avgRelazioni.toFixed(1)}
-                      </span>
-                    </>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">N/A</span>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Lavoro</span>
-                <div className="flex items-center space-x-1">
-                  {aggregate.avgLavoro !== null ? (
-                    <>
-                      <StarRating rating={Math.round(aggregate.avgLavoro)} size="sm" />
-                      <span className="text-xs text-muted-foreground ml-1">
-                        {aggregate.avgLavoro.toFixed(1)}
-                      </span>
-                    </>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">N/A</span>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Benessere</span>
-                <div className="flex items-center space-x-1">
-                  {aggregate.avgBenessere !== null ? (
-                    <>
-                      <StarRating rating={Math.round(aggregate.avgBenessere)} size="sm" />
-                      <span className="text-xs text-muted-foreground ml-1">
-                        {aggregate.avgBenessere.toFixed(1)}
-                      </span>
-                    </>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">N/A</span>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {/* Overall Average */}
-          {aggregate && (
-            <div className="mt-4 pt-4 border-t border-border">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-card-foreground">Media Generale</span>
-                <span className="text-lg font-bold text-orange-500" data-testid={`overall-average-${sign.name_english}`}>
-                  {aggregate.overallAverage !== null ? aggregate.overallAverage.toFixed(1) : 'N/A'}
-                </span>
-              </div>
-            </div>
           )}
         </div>
       </CardContent>
