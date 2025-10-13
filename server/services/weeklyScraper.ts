@@ -72,7 +72,11 @@ function buildWeeklyHoroscopeUrl(input: WeeklyScraperInput): string {
   url = url.replace('{sign}', signSlug);
   url = url.replace('{start_day}', input.startDay);
   url = url.replace('{end_day}', input.endDay);
+  url = url.replace('{week_start_day}', input.startDay);
+  url = url.replace('{week_end_day}', input.endDay);
   url = url.replace('{month}', italianMonthName);
+  url = url.replace('{week_end_month}', italianMonthName);
+  url = url.replace('{month_name}', italianMonthName);
   url = url.replace('{year}', input.year);
 
   return url;
