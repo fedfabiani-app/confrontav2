@@ -50,6 +50,21 @@ model Source {
   @@map("sources")
 }
 
+model WeeklySource {
+  id               Int      @id @default(autoincrement())
+  name             String
+  domain           String   @unique
+  logo_url         String?
+  base_url         String
+  url_pattern      String
+  reliability_score Decimal  @db.Decimal(3, 2) @default(3.0)
+  is_active        Boolean  @default(true)
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+
+  @@map("weekly_sources")
+}
+
 model HoroscopeData {
   id               Int      @id @default(autoincrement())
   source_id        Int
