@@ -176,7 +176,7 @@ import { useState, useRef, useEffect } from "react";
                                     );
                                   }
 
-                                  export default function SignDetail({ sign }: SignDetailProps) {
+                                  function SignDetail({ sign }: SignDetailProps) {
                                     const [, navigate] = useLocation();
                                     const { toast } = useToast();
                                     const queryClient = useQueryClient();
@@ -912,3 +912,5 @@ import { useState, useRef, useEffect } from "react";
                                       </div>
                                     );
                                   }
+
+export default SignDetail;
