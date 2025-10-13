@@ -187,20 +187,60 @@ import { useState, useRef, useEffect } from "react";
                                     const [refreshDismissed, setRefreshDismissed] = useState(false);
                                     const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+                                    // Daily/Weekly view state
+                                    const [viewType, setViewType] = useState<"daily" | "weekly">("daily");
+
+                                    // Helper function to get Monday of current week
+                                    const getMondayOfWeek = (date: Date = new Date()): Date => {
+                                      const d = new Date(date);
+                                      const day = d.getDay();
+                                      const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+                                      return new Date(d.setDate(diff));
+                                    };
+
+                                    // Helper function to format week range in Italian
+                                    const formatWeekRange = (startDate: Date): string => {
+                                      const monthsIt = [
+                                        'gen', 'feb', 'mar', 'apr', 'mag', 'giu',
+                                        'lug', 'ago', 'set', 'ott', 'nov', 'dic'
+                                      ];
+
+                                      const endDate = new Date(startDate);
+                                      endDate.setDate(startDate.getDate() + 6);
+
+                                      const startDay = startDate.getDate();
+                                      const startMonth = monthsIt[startDate.getMonth()];
+                                      const endDay = endDate.getDate();
+                                      const endMonth = monthsIt[endDate.getMonth()];
+                                      const year = endDate.getFullYear();
+
+                                      if (startDate.getMonth() === endDate.getMonth()) {
+                                        return `${startDay} ${startMonth} - ${endDay} ${endMonth} ${year}`;
+                                      } else {
+                                        return `${startDay} ${startMonth} - ${endDay} ${endMonth} ${year}`;
+                                      }
+                                    };
+
+                                    const today = new Date().toISOString().split("T")[0];
+                                    const currentWeekMonday = getMondayOfWeek();
+                                    // Use local date string to avoid timezone conversion issues
+                                    const weekStartDate = `${currentWeekMonday.getFullYear()}-${String(currentWeekMonday.getMonth() + 1).padStart(2, '0')}-${String(currentWeekMonday.getDate()).padStart(2, '0')}`;
+                                    const weekRangeText = formatWeekRange(currentWeekMonday);
+
                                     // Favorites functionality
                                     const { isFavorite, toggleFavorite, reorderSources, hasFavorites } = useFavorites(sign);
 
                                     // Share functionality
                                     const handleShare = async () => {
                                       const currentUrl = window.location.href;
-                                      const today = new Date().toLocaleDateString('it-IT', { 
+                                      const displayDate = new Date().toLocaleDateString('it-IT', { 
                                         year: 'numeric', 
                                         month: 'long', 
                                         day: 'numeric' 
                                       });
 
                                       const shareData = {
-                                        title: `Oroscopo ${zodiacSign?.name_italian} - ${today}`,
+                                        title: `Oroscopo ${zodiacSign?.name_italian} - ${displayDate}`,
                                         text: `Scopri l'oroscopo di oggi per ${zodiacSign?.name_italian} da fonti multiple italiane`,
                                         url: currentUrl
                                       };
@@ -234,8 +274,6 @@ import { useState, useRef, useEffect } from "react";
                                     };
                                     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-                                    const today = new Date().toISOString().split("T")[0];
-
                                     // Fetch zodiac sign details
                                     const { data: zodiacSign } = useQuery<ZodiacSign>({
                                       queryKey: ["/api/zodiac-signs", sign],
@@ -258,6 +296,7 @@ import { useState, useRef, useEffect } from "react";
                                         if (!response.ok) throw new Error("Failed to fetch horoscopes");
                                         return response.json();
                                       },
+                                      enabled: viewType === "daily",
                                     });
 
                                     // Collapse/expand functionality with localStorage persistence
@@ -301,17 +340,55 @@ import { useState, useRef, useEffect } from "react";
                                         if (!response.ok) throw new Error("Failed to fetch aggregate");
                                         return response.json();
                                       },
+                                      enabled: viewType === "daily",
+                                    });
+
+                                    // Fetch weekly horoscope data
+                                    const { data: weeklyHoroscopes = [], isLoading: weeklyHoroscopesLoading, error: weeklyHoroscopesError } = useQuery<
+                                      HoroscopeData[]
+                                    >({
+                                      queryKey: ["/api/weekly-horoscopes", weekStartDate, sign],
+                                      queryFn: async () => {
+                                        const response = await fetch(
+                                          `/api/weekly-horoscopes?weekStartDate=${weekStartDate}&sign=${sign}`,
+                                        );
+                                        if (!response.ok) throw new Error("Failed to fetch weekly horoscopes");
+                                        return response.json();
+                                      },
+                                      enabled: viewType === "weekly",
+                                    });
+
+                                    // Fetch weekly aggregates
+                                    const { data: weeklyAggregate } = useQuery<HoroscopeAggregate>({
+                                      queryKey: ["/api/weekly-horoscopes/aggregate", weekStartDate, sign],
+                                      queryFn: async () => {
+                                        const response = await fetch(
+                                          `/api/weekly-horoscopes/aggregate?weekStartDate=${weekStartDate}&sign=${sign}`,
+                                        );
+                                        if (!response.ok) throw new Error("Failed to fetch weekly aggregate");
+                                        return response.json();
+                                      },
+                                      enabled: viewType === "weekly",
                                     });
 
                                     // Refresh this sign mutation
                                     const refreshSignMutation = useMutation({
                                       mutationFn: async () => {
                                         const italianSign = ZODIAC_SIGNS_EN_IT[sign] || sign;
-                                        const response = await apiRequest(
-                                          "POST",
-                                          `/api/refresh/sign/${italianSign}?date=${today}`,
-                                        );
-                                        return response.json();
+                                        
+                                        if (viewType === "daily") {
+                                          const response = await apiRequest(
+                                            "POST",
+                                            `/api/refresh/sign/${italianSign}?date=${today}`,
+                                          );
+                                          return response.json();
+                                        } else {
+                                          const response = await apiRequest(
+                                            "POST",
+                                            `/api/refresh-weekly/sign/${italianSign}?weekStartDate=${weekStartDate}`,
+                                          );
+                                          return response.json();
+                                        }
                                       },
                                       onSuccess: (data) => {
                                         toast({
@@ -343,13 +420,22 @@ import { useState, useRef, useEffect } from "react";
                                                 setRefreshProgress({ current: 0, total: 0 });
                                                 setRefreshDismissed(false);
 
-                                                // Invalidate cache to refresh data
-                                                queryClient.invalidateQueries({
-                                                  queryKey: ["/api/horoscopes", today, sign],
-                                                });
-                                                queryClient.invalidateQueries({
-                                                  queryKey: ["/api/horoscopes/aggregate", today, sign],
-                                                });
+                                                // Invalidate cache to refresh data based on viewType
+                                                if (viewType === "daily") {
+                                                  queryClient.invalidateQueries({
+                                                    queryKey: ["/api/horoscopes", today, sign],
+                                                  });
+                                                  queryClient.invalidateQueries({
+                                                    queryKey: ["/api/horoscopes/aggregate", today, sign],
+                                                  });
+                                                } else {
+                                                  queryClient.invalidateQueries({
+                                                    queryKey: ["/api/weekly-horoscopes", weekStartDate, sign],
+                                                  });
+                                                  queryClient.invalidateQueries({
+                                                    queryKey: ["/api/weekly-horoscopes/aggregate", weekStartDate, sign],
+                                                  });
+                                                }
 
                                                 toast({
                                                   title: "Aggiornamento completato",
@@ -414,7 +500,9 @@ import { useState, useRef, useEffect } from "react";
                                     };
 
                                     // Check if we're in a loading state
-                                    const isLoading = horoscopesLoading || !zodiacSign || !aggregate;
+                                    const isLoading = viewType === "daily" 
+                                      ? (horoscopesLoading || !zodiacSign || !aggregate)
+                                      : (weeklyHoroscopesLoading || !zodiacSign || !weeklyAggregate);
 
                                     // Early return for loading state
                                     if (isLoading) {
@@ -429,7 +517,8 @@ import { useState, useRef, useEffect } from "react";
                                     }
 
                                     // Early return for error state
-                                    if (horoscopesError) {
+                                    const currentError = viewType === "daily" ? horoscopesError : weeklyHoroscopesError;
+                                    if (currentError) {
                                       return (
                                         <div className="min-h-screen bg-background flex items-center justify-center">
                                           <div className="text-center">
@@ -441,7 +530,8 @@ import { useState, useRef, useEffect } from "react";
                                     }
 
                                     // Ensure horoscope exists before accessing it
-                                    if (!horoscopes || horoscopes.length === 0) {
+                                    const currentHoroscopes = viewType === "daily" ? horoscopes : weeklyHoroscopes;
+                                    if (!currentHoroscopes || currentHoroscopes.length === 0) {
                                       return (
                                         <div className="min-h-screen bg-background flex items-center justify-center">
                                           <div className="text-center">
@@ -493,8 +583,48 @@ import { useState, useRef, useEffect } from "react";
 
                                         {/* Main Content */}
                                         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                                          {/* Daily/Weekly Toggle Selector */}
+                                          <div className="flex flex-col items-center mb-6 space-y-4">
+                                            <div className="inline-flex bg-gray-200 dark:bg-gray-800 rounded-full p-1 w-full max-w-md">
+                                              <button
+                                                onClick={() => setViewType("daily")}
+                                                className={`flex-1 py-2 px-6 rounded-full font-medium transition-all ${
+                                                  viewType === "daily"
+                                                    ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-md"
+                                                    : "text-gray-600 dark:text-gray-400"
+                                                }`}
+                                                data-testid="button-daily-view"
+                                              >
+                                                Giornaliero
+                                              </button>
+                                              <button
+                                                onClick={() => setViewType("weekly")}
+                                                className={`flex-1 py-2 px-6 rounded-full font-medium transition-all ${
+                                                  viewType === "weekly"
+                                                    ? "bg-orange-500 text-white shadow-md"
+                                                    : "text-gray-600 dark:text-gray-400"
+                                                }`}
+                                                data-testid="button-weekly-view"
+                                              >
+                                                Settimanale
+                                              </button>
+                                            </div>
+
+                                            {/* Week Range Display for Weekly View */}
+                                            {viewType === "weekly" && (
+                                              <div className="flex items-center gap-2 px-4 py-2 bg-card border border-border rounded-lg">
+                                                <svg className="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                </svg>
+                                                <span className="font-medium text-foreground" data-testid="text-week-range">
+                                                  Settimana: {weekRangeText}
+                                                </span>
+                                              </div>
+                                            )}
+                                          </div>
+
                                           {/* Overview Cards */}
-                                  {aggregate && (
+                                  {(viewType === "daily" ? aggregate : weeklyAggregate) && (
                                     <div className="grid grid-cols-3 md:grid-cols-4 gap-2 md:gap-4 mb-8">
                                       <Card>
                                         <CardContent className="p-2 md:p-4">
@@ -502,7 +632,7 @@ import { useState, useRef, useEffect } from "react";
                                             <div className="text-center md:text-left">
                                               <p className="text-xs md:text-sm text-muted-foreground font-bold">Relazioni</p>
                                               <p className="text-lg md:text-2xl font-bold text-card-foreground">
-                                                {aggregate.avgRelazioni !== null ? aggregate.avgRelazioni.toFixed(1) : 'N/A'}
+                                                {(viewType === "daily" ? aggregate?.avgRelazioni : weeklyAggregate?.avgRelazioni) !== null ? (viewType === "daily" ? aggregate?.avgRelazioni : weeklyAggregate?.avgRelazioni)?.toFixed(1) : 'N/A'}
                                               </p>
                                             </div>
                                             <div className="w-8 h-8 md:w-12 md:h-12 bg-pink-100 rounded-full flex items-center justify-center mt-1 md:mt-0">
@@ -518,7 +648,7 @@ import { useState, useRef, useEffect } from "react";
                                             <div className="text-center md:text-left">
                                               <p className="text-xs md:text-sm text-muted-foreground font-bold">Lavoro</p>
                                               <p className="text-lg md:text-2xl font-bold text-card-foreground">
-                                                {aggregate.avgLavoro !== null ? aggregate.avgLavoro.toFixed(1) : 'N/A'}
+                                                {(viewType === "daily" ? aggregate?.avgLavoro : weeklyAggregate?.avgLavoro) !== null ? (viewType === "daily" ? aggregate?.avgLavoro : weeklyAggregate?.avgLavoro)?.toFixed(1) : 'N/A'}
                                               </p>
                                             </div>
                                             <div className="w-8 h-8 md:w-12 md:h-12 bg-blue-100 rounded-full flex items-center justify-center mt-1 md:mt-0">
@@ -534,7 +664,7 @@ import { useState, useRef, useEffect } from "react";
                                             <div className="text-center md:text-left">
                                               <p className="text-xs md:text-sm text-muted-foreground font-bold">Benessere</p>
                                               <p className="text-lg md:text-2xl font-bold text-card-foreground">
-                                                {aggregate.avgBenessere !== null ? aggregate.avgBenessere.toFixed(1) : 'N/A'}
+                                                {(viewType === "daily" ? aggregate?.avgBenessere : weeklyAggregate?.avgBenessere) !== null ? (viewType === "daily" ? aggregate?.avgBenessere : weeklyAggregate?.avgBenessere)?.toFixed(1) : 'N/A'}
                                               </p>
                                             </div>
                                             <div className="w-8 h-8 md:w-12 md:h-12 bg-green-100 rounded-full flex items-center justify-center mt-1 md:mt-0">
@@ -549,14 +679,14 @@ import { useState, useRef, useEffect } from "react";
                                           <div className="flex items-center justify-center gap-3 md:gap-4">
                                             <span className="text-xs md:text-sm text-muted-foreground font-bold">Media Generale</span>
                                             <span className="text-lg md:text-2xl font-bold text-orange-500">
-                                              {aggregate.overallAverage?.toFixed(1) || 'N/A'}
+                                              {(viewType === "daily" ? aggregate?.overallAverage : weeklyAggregate?.overallAverage)?.toFixed(1) || 'N/A'}
                                             </span>
                                             <div className="flex">
                                               {[...Array(5)].map((_, i) => (
                                                 <Star
                                                   key={i}
                                                   className={`w-3 h-3 md:w-4 md:h-4 ${
-                                                    i < Math.round(aggregate.overallAverage || 0)
+                                                    i < Math.round((viewType === "daily" ? aggregate?.overallAverage : weeklyAggregate?.overallAverage) || 0)
                                                       ? 'text-orange-500 fill-orange-500'
                                                       : 'text-gray-300'
                                                   }`}
@@ -570,12 +700,16 @@ import { useState, useRef, useEffect } from "react";
                                   )}
 
                                           {/* Individual Source Cards */}
-                                          {!horoscopesLoading && horoscopes.length > 0 && (
+                                          {!((viewType === "daily" ? horoscopesLoading : weeklyHoroscopesLoading)) && 
+                                           (viewType === "daily" ? horoscopes : weeklyHoroscopes).length > 0 && (
                                                   <div className="space-y-4 mb-8">
-                                                    <h2 className="text-xl font-semibold text-[#E1B64E] mb-4 text-center">Tutti gli Oroscopi di oggi</h2>
+                                                    <h2 className="text-xl font-semibold text-[#E1B64E] mb-4 text-center">
+                                                      {viewType === "daily" ? "Tutti gli Oroscopi di oggi" : "Tutti gli Oroscopi della settimana"}
+                                                    </h2>
                                               {(() => {
                                                 // First sort alphabetically, then reorder to pin favorites
-                                                const sortedHoroscopes = [...horoscopes].sort((a, b) => 
+                                                const currentHoroscopes = viewType === "daily" ? horoscopes : weeklyHoroscopes;
+                                                const sortedHoroscopes = [...currentHoroscopes].sort((a, b) => 
                                                   a.source.name.localeCompare(b.source.name)
                                                 );
                                                 return reorderSources(sortedHoroscopes);

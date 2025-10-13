@@ -29,6 +29,7 @@ model ZodiacSign {
   updated_at   DateTime @updatedAt
 
   horoscope_data HoroscopeData[]
+  weekly_horoscope_data WeeklyHoroscopeData[]
 
   @@map("zodiac_signs")
 }
@@ -62,6 +63,8 @@ model WeeklySource {
   created_at       DateTime @default(now())
   updated_at       DateTime @updatedAt
 
+  weekly_horoscope_data WeeklyHoroscopeData[]
+
   @@map("weekly_sources")
 }
 
@@ -88,6 +91,31 @@ model HoroscopeData {
   @@unique([source_id, zodiac_sign_id, date])
   @@index([date])
   @@map("horoscope_data")
+}
+
+model WeeklyHoroscopeData {
+  id               Int      @id @default(autoincrement())
+  source_id        Int
+  zodiac_sign_id   Int
+  week_start_date  DateTime @db.Date
+  original_text    String   @db.Text
+  superquote       String?  @db.VarChar(80)
+  summary          String   @db.Text
+  relazioni_rating Int      @db.SmallInt
+  lavoro_rating    Int      @db.SmallInt
+  salute_rating    Int      @db.SmallInt
+  tone_analysis    String   // 'positive', 'neutral', 'negative'
+  original_url     String   @db.Text
+  scraped_at       DateTime
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+
+  weekly_source WeeklySource @relation(fields: [source_id], references: [id])
+  zodiac_sign   ZodiacSign   @relation(fields: [zodiac_sign_id], references: [id])
+
+  @@unique([source_id, zodiac_sign_id, week_start_date])
+  @@index([week_start_date])
+  @@map("weekly_horoscope_data")
 }
 
 model UserPreferences {

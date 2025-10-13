@@ -16,6 +16,7 @@ Preferred communication style: Simple, everyday language.
 - **Routing**: Wouter for lightweight client-side routing
 - **State Management**: TanStack React Query for server state management and caching
 - **PWA Features**: Service worker implementation for offline functionality, caching strategy, and installability
+- **Daily/Weekly Toggle**: SignDetail page features a view toggle for switching between daily and weekly horoscope displays with Monday-based week calculation and Italian date formatting
 
 ### Backend Architecture
 - **Runtime**: Node.js with Express.js framework for RESTful API
@@ -35,14 +36,16 @@ Preferred communication style: Simple, everyday language.
 - **Zodiac Signs**: Italian and English names, date ranges, symbols
 - **Sources**: Daily horoscope source configuration with reliability scores and URL patterns (14+ sources)
 - **Weekly Sources**: Weekly horoscope source configuration with reliability scores and URL patterns (15 sources)
-- **Horoscopes**: Daily predictions with AI-generated summaries, superquotes, and structured ratings
+- **Horoscopes (Daily)**: Daily predictions with AI-generated summaries, superquotes (max 80 chars), and structured ratings
+- **Weekly Horoscopes**: Weekly predictions with same structure as daily (AI summaries, superquotes, ratings) for Monday-based weeks
 - **Users**: Basic user management for future authentication features
 
 ### API Design
 - **REST Endpoints**: Organized routes for zodiac signs, sources, horoscopes, and refresh operations
-- **Manual Refresh**: Dedicated endpoints for on-demand data updates (all sources or specific signs)
-- **Aggregation**: Real-time calculation of average ratings and majority tone analysis
+- **Manual Refresh**: Dedicated endpoints for on-demand data updates (daily: `/api/refresh/sign/:sign`, weekly: `/api/refresh-weekly/sign/:sign`)
+- **Aggregation**: Real-time calculation of average ratings and majority tone analysis for both daily and weekly horoscopes
 - **Input Validation**: Zod schema validation for type safety and data integrity
+- **Week-based Queries**: Weekly endpoints use `weekStartDate` parameter (Monday-based) for fetching weekly horoscope data
 
 ### Security Considerations
 - **Environment Variables**: Secure handling of API keys and database credentials

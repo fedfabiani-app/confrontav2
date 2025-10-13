@@ -42,6 +42,30 @@ export const insertSourceSchema = z.object({
   is_active: z.boolean().default(true),
 });
 
+// Weekly Sources Schema
+export const weeklySourceSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  domain: z.string(),
+  logo_url: z.string().nullable(),
+  base_url: z.string(),
+  url_pattern: z.string(),
+  reliability_score: z.number(),
+  is_active: z.boolean(),
+  created_at: z.date(),
+  updated_at: z.date(),
+});
+
+export const insertWeeklySourceSchema = z.object({
+  name: z.string(),
+  domain: z.string(),
+  logo_url: z.string().optional(),
+  base_url: z.string(),
+  url_pattern: z.string(),
+  reliability_score: z.number().min(0).max(5),
+  is_active: z.boolean().default(true),
+});
+
 // Users Schema
 export const userSchema = z.object({
   id: z.number(),
@@ -105,6 +129,40 @@ export const insertHoroscopeDataSchema = z.object({
   scraped_at: z.date(),
 });
 
+// Weekly Horoscope Data Schema
+export const weeklyHoroscopeDataSchema = z.object({
+  id: z.number(),
+  source_id: z.number(),
+  zodiac_sign_id: z.number(),
+  week_start_date: z.string(), // DATE format YYYY-MM-DD (Monday)
+  original_text: z.string(),
+  superquote: z.string().nullable(),
+  summary: z.string(),
+  relazioni_rating: z.number().min(0).max(5),
+  lavoro_rating: z.number().min(0).max(5),
+  salute_rating: z.number().min(0).max(5),
+  tone_analysis: z.enum(['positive', 'neutral', 'negative']),
+  original_url: z.string(),
+  scraped_at: z.date(),
+  created_at: z.date(),
+  updated_at: z.date(),
+});
+
+export const insertWeeklyHoroscopeDataSchema = z.object({
+  source_id: z.number(),
+  zodiac_sign_id: z.number(),
+  week_start_date: z.string(),
+  original_text: z.string(),
+  superquote: z.string().max(80).optional(),
+  summary: z.string().max(580),
+  relazioni_rating: z.number().min(0).max(5),
+  lavoro_rating: z.number().min(0).max(5),
+  salute_rating: z.number().min(0).max(5),
+  tone_analysis: z.enum(['positive', 'neutral', 'negative']),
+  original_url: z.string(),
+  scraped_at: z.date(),
+});
+
 // API Response Types
 export const horoscopeAggregateSchema = z.object({
   avgRelazioni: z.number().nullable(),
@@ -144,6 +202,31 @@ export const scraperOutputSchema = z.object({
   extracted_text: z.string(),
 });
 
+// Weekly Scraper Input/Output Types
+export const weeklyScraperInputSchema = z.object({
+  sourceId: z.number(),
+  sourceName: z.string(),
+  domain: z.string(),
+  baseUrl: z.string(),
+  urlPattern: z.string(),
+  signSlugIt: z.string(),
+  weekStartDate: z.string(), // ISO format (Monday)
+  startDay: z.string(),
+  endDay: z.string(),
+  month: z.string(),
+  year: z.string(),
+  userAgent: z.string(),
+});
+
+export const weeklyScraperOutputSchema = z.object({
+  sourceId: z.number(),
+  signSlugIt: z.string(),
+  weekStartDate: z.string(),
+  original_url: z.string(),
+  scraped_at: z.date(),
+  extracted_text: z.string(),
+});
+
 export const openaiInputSchema = z.object({
   sourceId: z.number(),
   sourceName: z.string(),
@@ -168,15 +251,21 @@ export type ZodiacSign = z.infer<typeof zodiacSignSchema>;
 export type InsertZodiacSign = z.infer<typeof insertZodiacSignSchema>;
 export type Source = z.infer<typeof sourceSchema>;
 export type InsertSource = z.infer<typeof insertSourceSchema>;
+export type WeeklySource = z.infer<typeof weeklySourceSchema>;
+export type InsertWeeklySource = z.infer<typeof insertWeeklySourceSchema>;
 export type User = z.infer<typeof userSchema>;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type UserPreferences = z.infer<typeof userPreferencesSchema>;
 export type InsertUserPreferences = z.infer<typeof insertUserPreferencesSchema>;
 export type HoroscopeData = z.infer<typeof horoscopeDataSchema>;
 export type InsertHoroscopeData = z.infer<typeof insertHoroscopeDataSchema>;
+export type WeeklyHoroscopeData = z.infer<typeof weeklyHoroscopeDataSchema>;
+export type InsertWeeklyHoroscopeData = z.infer<typeof insertWeeklyHoroscopeDataSchema>;
 export type HoroscopeAggregate = z.infer<typeof horoscopeAggregateSchema>;
 export type RefreshStatus = z.infer<typeof refreshStatusSchema>;
 export type ScraperInput = z.infer<typeof scraperInputSchema>;
 export type ScraperOutput = z.infer<typeof scraperOutputSchema>;
+export type WeeklyScraperInput = z.infer<typeof weeklyScraperInputSchema>;
+export type WeeklyScraperOutput = z.infer<typeof weeklyScraperOutputSchema>;
 export type OpenAIInput = z.infer<typeof openaiInputSchema>;
 export type OpenAIOutput = z.infer<typeof openaiOutputSchema>;
