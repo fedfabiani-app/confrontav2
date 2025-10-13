@@ -1,48 +1,25 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, Link } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Home as HomeIcon, Info } from "lucide-react";
 import Home from "@/pages/Home";
 import SignDetail from "@/pages/SignDetail";
 import InfoPage from "@/pages/Info";
 import NotFound from "@/pages/not-found";
-import { useLocation } from "wouter";
 
-function BottomNavigation() {
-  const [location, navigate] = useLocation();
-
-  const navItems = [
-    { path: '/', icon: HomeIcon, label: 'Home' },
-    { path: '/info', icon: Info, label: 'Info' },
-  ];
-
+function Footer() {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border md:hidden z-50">
-      <div className="flex items-center justify-around py-2">
-        {navItems.map((item) => {
-          const isActive = location === item.path;
-          const Icon = item.icon;
-          
-          return (
-            <button
-              key={item.path}
-              onClick={() => navigate(item.path)}
-              className={`flex flex-col items-center py-2 px-4 transition-colors ${
-                isActive 
-                  ? 'text-orange-500' 
-                  : 'text-muted-foreground hover:text-card-foreground'
-              }`}
-              data-testid={`nav-${item.label.toLowerCase()}`}
-            >
-              <Icon className="w-5 h-5 mb-1" />
-              <span className="text-xs">{item.label}</span>
-            </button>
-          );
-        })}
-      </div>
-    </nav>
+    <footer className="w-full py-6 mt-8 text-center">
+      <Link href="/info">
+        <a 
+          className="text-white hover:text-gray-300 transition-colors text-sm"
+          data-testid="link-footer-info"
+        >
+          About • Info
+        </a>
+      </Link>
+    </footer>
   );
 }
 
@@ -58,7 +35,7 @@ function Router() {
         <Route component={NotFound} />
       </Switch>
       
-      <BottomNavigation />
+      <Footer />
     </>
   );
 }
