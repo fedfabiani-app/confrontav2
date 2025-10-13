@@ -48,6 +48,7 @@ import { useState, useRef, useEffect } from "react";
                                       name: string;
                                       domain: string;
                                       logo_url: string | null;
+                                      reliability_score: number;
                                     };
                                   }
 
@@ -642,17 +643,9 @@ import { useState, useRef, useEffect } from "react";
                                                               }`}
                                                             />
                                                           </Button>
-                                                          {/* Tone Badge */}
-                                                          <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                                            horoscope.tone_analysis === 'positive' ? 'bg-green-100 text-green-800' :
-                                                            horoscope.tone_analysis === 'negative' ? 'bg-red-100 text-red-800' :
-                                                            'bg-gray-100 text-gray-800'
-                                                          }`}>
-                                                            {horoscope.tone_analysis === 'positive' ? 'Positivo' :
-                                                             horoscope.tone_analysis === 'negative' ? 'Negativo' : 'Neutrale'}
-                                                          </div>
                                                         </div>
                                                       </div>
+
                                                       {/* SUPERQUOTE - Always visible */}
                                                       {horoscope.superquote && (
                                                         <>
