@@ -2,7 +2,11 @@ import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { RefreshCw, CalendarDays } from "lucide-react";
 import { ZodiacCard } from "@/components/ZodiacCard";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
@@ -11,7 +15,6 @@ import { useHomeFavorites } from "@/hooks/use-favorites";
 import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import iconImage from "@assets/icon.png";
-
 
 interface ZodiacSign {
   id: number;
@@ -26,14 +29,17 @@ interface HoroscopeAggregate {
   avgLavoro: number;
   avgBenessere: number;
   overallAverage: number;
-  majorityTone?: 'positive' | 'neutral' | 'negative';
+  majorityTone?: "positive" | "neutral" | "negative";
 }
 
 export default function Home() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [refreshProgress, setRefreshProgress] = useState({ current: 0, total: 0 });
+  const [refreshProgress, setRefreshProgress] = useState({
+    current: 0,
+    total: 0,
+  });
   const [refreshDismissed, setRefreshDismissed] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -41,36 +47,50 @@ export default function Home() {
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Initialize hook for favorites only
-  const { homeFavorites, isHomeFavorite, toggleHomeFavorite, hasFavorites } = useHomeFavorites();
+  const { homeFavorites, isHomeFavorite, toggleHomeFavorite, hasFavorites } =
+    useHomeFavorites();
 
   // Get date string for API calls using local date (avoid timezone issues)
-  const selectedDateString = selectedDate.toLocaleDateString('en-CA'); // YYYY-MM-DD format in local timezone
+  const selectedDateString = selectedDate.toLocaleDateString("en-CA"); // YYYY-MM-DD format in local timezone
 
   // Get date range for calendar (90 days back) - use day boundaries
   const today = new Date();
-  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const todayStart = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+  );
   const earliestStart = new Date(todayStart);
   earliestStart.setDate(earliestStart.getDate() - 90);
 
   // Fetch zodiac signs
-  const { data: zodiacSigns = [], isLoading: signsLoading } = useQuery<ZodiacSign[]>({
-    queryKey: ['/api/zodiac-signs'],
+  const { data: zodiacSigns = [], isLoading: signsLoading } = useQuery<
+    ZodiacSign[]
+  >({
+    queryKey: ["/api/zodiac-signs"],
   });
 
   // Fetch aggregates for all signs
-  const { data: aggregatesData = {}, isLoading: aggregatesLoading } = useQuery<Record<string, HoroscopeAggregate>>({
-    queryKey: ['/api/horoscopes/aggregates', selectedDateString],
+  const { data: aggregatesData = {}, isLoading: aggregatesLoading } = useQuery<
+    Record<string, HoroscopeAggregate>
+  >({
+    queryKey: ["/api/horoscopes/aggregates", selectedDateString],
     queryFn: async () => {
       const results: Record<string, HoroscopeAggregate> = {};
 
       for (const sign of zodiacSigns) {
         try {
-          const response = await fetch(`/api/horoscopes/aggregate?date=${selectedDateString}&sign=${sign.name_english}`);
+          const response = await fetch(
+            `/api/horoscopes/aggregate?date=${selectedDateString}&sign=${sign.name_english}`,
+          );
           if (response.ok) {
             results[sign.name_english] = await response.json();
           }
         } catch (error) {
-          console.error(`Failed to fetch aggregate for ${sign.name_english}:`, error);
+          console.error(
+            `Failed to fetch aggregate for ${sign.name_english}:`,
+            error,
+          );
         }
       }
 
@@ -82,7 +102,10 @@ export default function Home() {
   // Refresh all data mutation
   const refreshAllMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest('POST', `/api/refresh/all?date=${selectedDateString}`);
+      const response = await apiRequest(
+        "POST",
+        `/api/refresh/all?date=${selectedDateString}`,
+      );
       return response.json();
     },
     onSuccess: (data) => {
@@ -100,20 +123,26 @@ export default function Home() {
         if (refreshDismissed) return;
 
         try {
-          const statusResponse = await fetch('/api/refresh/status');
+          const statusResponse = await fetch("/api/refresh/status");
           if (statusResponse.ok) {
             const status = await statusResponse.json();
             const completed = status.summary.completed + status.summary.failed;
-            setRefreshProgress({ current: completed, total: data.jobsEnqueued });
+            setRefreshProgress({
+              current: completed,
+              total: data.jobsEnqueued,
+            });
 
             if (completed >= data.jobsEnqueued) {
-              if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+              if (pollIntervalRef.current)
+                clearInterval(pollIntervalRef.current);
               if (timeoutRef.current) clearTimeout(timeoutRef.current);
               setRefreshProgress({ current: 0, total: 0 });
               setRefreshDismissed(false);
 
               // Invalidate cache to refresh data
-              queryClient.invalidateQueries({ queryKey: ['/api/horoscopes/aggregates'] });
+              queryClient.invalidateQueries({
+                queryKey: ["/api/horoscopes/aggregates"],
+              });
 
               toast({
                 title: "Aggiornamento completato",
@@ -122,7 +151,7 @@ export default function Home() {
             }
           }
         } catch (error) {
-          console.error('Error polling status:', error);
+          console.error("Error polling status:", error);
           if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
           setRefreshProgress({ current: 0, total: 0 });
           setRefreshDismissed(false);
@@ -130,11 +159,14 @@ export default function Home() {
       }, 3000);
 
       // Stop polling after 5 minutes
-      timeoutRef.current = setTimeout(() => {
-        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-        setRefreshProgress({ current: 0, total: 0 });
-        setRefreshDismissed(false);
-      }, 5 * 60 * 1000);
+      timeoutRef.current = setTimeout(
+        () => {
+          if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+          setRefreshProgress({ current: 0, total: 0 });
+          setRefreshDismissed(false);
+        },
+        5 * 60 * 1000,
+      );
     },
     onError: (error) => {
       toast({
@@ -150,11 +182,11 @@ export default function Home() {
   };
 
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString('it-IT', { 
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+    return date.toLocaleDateString("it-IT", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     });
   };
 
@@ -163,7 +195,9 @@ export default function Home() {
       setSelectedDate(date);
       setCalendarOpen(false);
       // Invalidate queries to fetch new data for selected date
-      queryClient.invalidateQueries({ queryKey: ['/api/horoscopes/aggregates'] });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/horoscopes/aggregates"],
+      });
     }
   };
 
@@ -180,7 +214,9 @@ export default function Home() {
   }, []);
 
   const isLoading = signsLoading || aggregatesLoading;
-  const isRefreshing = !refreshDismissed && (refreshAllMutation.isPending || refreshProgress.total > 0);
+  const isRefreshing =
+    !refreshDismissed &&
+    (refreshAllMutation.isPending || refreshProgress.total > 0);
 
   const handleDismissRefresh = () => {
     setRefreshDismissed(true);
@@ -197,8 +233,12 @@ export default function Home() {
             <div className="flex items-center space-x-3">
               <img src={iconImage} alt="Logo" className="w-12 h-12" />
               <div>
-                <h1 className="text-xl font-bold text-[#382b61]">Confronta Oroscopo</h1>
-                <p className="text-xs font-bold text-muted-foreground">Tutti gli Oroscopi, una sola App</p>
+                <h1 className="text-xl font-bold text-[#382b61]">
+                  Confronta Oroscopo
+                </h1>
+                <p className="text-xs font-bold text-muted-foreground">
+                  Tutti gli Oroscopi, una sola App
+                </p>
               </div>
             </div>
           </div>
@@ -211,7 +251,7 @@ export default function Home() {
         <div className="mb-8 flex justify-center">
           <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
             <PopoverTrigger asChild>
-              <button 
+              <button
                 className="bg-white dark:bg-gray-800 rounded-full px-6 py-3 flex items-center gap-3 shadow-md hover:shadow-lg transition-shadow border border-gray-200 dark:border-gray-700 min-w-[280px] justify-center"
                 data-testid="date-selector-trigger"
               >
@@ -224,7 +264,9 @@ export default function Home() {
             <PopoverContent className="w-auto p-0" align="center">
               <div className="p-3 border-b border-border">
                 <h4 className="text-sm font-medium">Seleziona Data</h4>
-                <p className="text-xs text-muted-foreground">Ultimi 90 giorni disponibili</p>
+                <p className="text-xs text-muted-foreground">
+                  Ultimi 90 giorni disponibili
+                </p>
               </div>
               <Calendar
                 mode="single"
@@ -248,23 +290,30 @@ export default function Home() {
             className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-lg hover:shadow-xl transition-all"
             data-testid="button-refresh-all"
           >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw
+              className={`w-4 h-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
+            />
             Aggiorna Tutti i Dati
           </Button>
         </div>
 
         {/* Favorites Section */}
         {hasFavorites && (
-            <div className="mb-8">
-              <div className="flex items-center space-x-2 mb-4">
-                <h2 className="text-lg font-bold text-[#E1B64E]">I tuoi Segni Preferiti</h2>
-                <span className="px-2 py-1 rounded-full text-xs font-medium" style={{ backgroundColor: '#FEF9E7', color: '#E1B64E' }}>
-                  {homeFavorites.size}
-                </span>
-              </div>
+          <div className="mb-8">
+            <div className="flex items-center space-x-2 mb-4">
+              <h2 className="text-lg font-bold text-[#E1B64E]">
+                I tuoi Segni Preferiti
+              </h2>
+              <span
+                className="px-2 py-1 rounded-full text-xs font-medium"
+                style={{ backgroundColor: "#FEF9E7", color: "#E1B64E" }}
+              >
+                {homeFavorites.size}
+              </span>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {zodiacSigns
-                .filter(sign => isHomeFavorite(sign.name_english))
+                .filter((sign) => isHomeFavorite(sign.name_english))
                 .map((sign) => (
                   <ZodiacCard
                     key={`fav-${sign.id}`}
@@ -272,7 +321,9 @@ export default function Home() {
                     aggregate={aggregatesData[sign.name_english]}
                     onClick={() => handleSignClick(sign.name_english)}
                     isFavorite={true}
-                    onToggleFavorite={() => toggleHomeFavorite(sign.name_english)}
+                    onToggleFavorite={() =>
+                      toggleHomeFavorite(sign.name_english)
+                    }
                     className="ring-2 ring-red-200 border-red-300"
                   />
                 ))}
@@ -280,17 +331,14 @@ export default function Home() {
           </div>
         )}
 
-        <div className="mb-6">
-          <h2 className="text-lg font-bold text-[#E1B64E]">
-            {hasFavorites ? 'Tutti i Segni Zodiacali:' : 'Scegli il tuo segno e leggi gli Oroscopi:'}
-          </h2>
-        </div>
-
         {/* Loading State */}
         {isLoading && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {Array.from({ length: 12 }, (_, i) => (
-              <div key={i} className="bg-card border border-border rounded-lg p-6 animate-pulse">
+              <div
+                key={i}
+                className="bg-card border border-border rounded-lg p-6 animate-pulse"
+              >
                 <div className="flex items-center space-x-3 mb-4">
                   <div className="w-10 h-10 bg-muted rounded-full"></div>
                   <div>
@@ -311,7 +359,7 @@ export default function Home() {
         {!isLoading && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {zodiacSigns
-              .filter(sign => !isHomeFavorite(sign.name_english))
+              .filter((sign) => !isHomeFavorite(sign.name_english))
               .sort((a, b) => a.id - b.id)
               .map((sign) => (
                 <ZodiacCard

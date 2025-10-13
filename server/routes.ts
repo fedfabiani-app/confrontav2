@@ -296,7 +296,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
 
-      res.json(horoscopes);
+      // Transform weekly_source to source for frontend compatibility
+      const transformedHoroscopes = horoscopes.map((h: any) => ({
+        ...h,
+        source: h.weekly_source,
+        weekly_source: undefined
+      }));
+
+      res.json(transformedHoroscopes);
     } catch (error) {
       console.error('Error fetching weekly horoscopes:', error);
       res.status(500).json({ error: 'Failed to fetch weekly horoscopes' });
