@@ -597,21 +597,7 @@ import { useState, useRef, useEffect } from "react";
                                                           </div>
                                                         </div>
                                                         <div className="flex items-center space-x-2">
-                                                          {/* Collapse Toggle Button */}
-                                                          <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={() => toggleCollapse(horoscope.source.id)}
-                                                            className="p-1 h-8 w-8 hover:bg-gray-50 dark:hover:bg-gray-800"
-                                                            data-testid={`button-collapse-${horoscope.source.id}`}
-                                                            title={isCollapsed ? 'Espandi scheda' : 'Comprimi scheda'}
-                                                          >
-                                                            <ChevronDown 
-                                                              className={`w-4 h-4 text-gray-400 hover:text-gray-600 transition-all duration-200 ${
-                                                                isCollapsed ? 'rotate-180' : 'rotate-0'
-                                                              }`}
-                                                            />
-                                                          </Button>
+                                                        
                                                           {/* Favorite Toggle Button */}
                                                           <Button
                                                             variant="ghost"
@@ -641,6 +627,21 @@ import { useState, useRef, useEffect } from "react";
                                                           >
                                                             <Share className="w-4 h-4 text-gray-400 hover:text-blue-500 transition-colors" />
                                                           </Button>
+                                                          {/* Collapse Toggle Button */}
+                                                          <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => toggleCollapse(horoscope.source.id)}
+                                                            className="p-1 h-8 w-8 hover:bg-gray-50 dark:hover:bg-gray-800"
+                                                            data-testid={`button-collapse-${horoscope.source.id}`}
+                                                            title={isCollapsed ? 'Espandi scheda' : 'Comprimi scheda'}
+                                                          >
+                                                            <ChevronDown 
+                                                              className={`w-4 h-4 text-gray-400 hover:text-gray-600 transition-all duration-200 ${
+                                                                isCollapsed ? 'rotate-180' : 'rotate-0'
+                                                              }`}
+                                                            />
+                                                          </Button>
                                                           {/* Tone Badge */}
                                                           <div className={`px-2 py-1 rounded-full text-xs font-medium ${
                                                             horoscope.tone_analysis === 'positive' ? 'bg-green-100 text-green-800' :
@@ -652,12 +653,11 @@ import { useState, useRef, useEffect } from "react";
                                                           </div>
                                                         </div>
                                                       </div>
-
                                                       {/* SUPERQUOTE - Always visible */}
                                                       {horoscope.superquote && (
                                                         <>
-                                                          <div className="px-4 py-3 bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-950/30 dark:to-red-950/30 border-l-4 border-orange-500">
-                                                            <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 italic">
+                                                            <div className="px-4 py-3 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-950/30 dark:to-yellow-950/30 border-l-4" style={{ borderLeftColor: '#E1B64E' }}>
+                                                            <p className="text-sm font-italic text-gray-800 dark:text-gray-200 italic">
                                                               "{horoscope.superquote}"
                                                             </p>
                                                           </div>
