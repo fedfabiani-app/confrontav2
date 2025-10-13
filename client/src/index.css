@@ -110,10 +110,10 @@
     @apply font-sans antialiased bg-background text-foreground;
     font-family: var(--font-sans);
     background-image: url('/starry-bg.png');
-    background-size: cover;
+    background-size: 100% auto;
     background-attachment: fixed;
-    background-position: center;
-    background-repeat: no-repeat;
+    background-position: top center;
+    background-repeat: repeat-y;
   }
 }
 
