@@ -814,7 +814,7 @@ import { useState, useRef, useEffect } from "react";
                                                             target="_blank"
                                                             rel="noopener noreferrer"
                                                             className="inline-flex items-right text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
-                                                            data-testid={`link-read-more-${horoscope.source.id}`}
+                                                            data-testid={`link-read-more-${source.id}`}
                                                           >
                                                             Leggi tutto
                                                             <ExternalLink className="w-3 h-3 ml-1" />
