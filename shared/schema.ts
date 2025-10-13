@@ -78,7 +78,7 @@ export const horoscopeDataSchema = z.object({
   zodiac_sign_id: z.number(),
   date: z.string(), // DATE format YYYY-MM-DD
   original_text: z.string(),
-  superquote: z.string(),
+  superquote: z.string().nullable(),
   summary: z.string(),
   relazioni_rating: z.number().min(0).max(5),
   lavoro_rating: z.number().min(0).max(5),
@@ -95,7 +95,7 @@ export const insertHoroscopeDataSchema = z.object({
   zodiac_sign_id: z.number(),
   date: z.string(),
   original_text: z.string(),
-  superquote: z.string().max(80),
+  superquote: z.string().max(80).optional(),
   summary: z.string().max(580),
   relazioni_rating: z.number().min(0).max(5),
   lavoro_rating: z.number().min(0).max(5),
