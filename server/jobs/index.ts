@@ -176,6 +176,7 @@ export async function enqueueUpsertJob(scraperOutput: ScraperOutput, nlpOutput: 
         },
         update: {
           original_text: scraperOutput.extracted_text,
+          superquote: nlpOutput.superquote,
           summary: nlpOutput.summary,
           relazioni_rating: nlpOutput.ratings.relazioni,
           lavoro_rating: nlpOutput.ratings.lavoro,
@@ -190,6 +191,7 @@ export async function enqueueUpsertJob(scraperOutput: ScraperOutput, nlpOutput: 
           zodiac_sign_id: zodiacSign.id,
           date: new Date(scraperOutput.dateISO),
           original_text: scraperOutput.extracted_text,
+          superquote: nlpOutput.superquote,
           summary: nlpOutput.summary,
           relazioni_rating: nlpOutput.ratings.relazioni,
           lavoro_rating: nlpOutput.ratings.lavoro,
