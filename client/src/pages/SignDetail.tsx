@@ -529,19 +529,7 @@ import { useState, useRef, useEffect } from "react";
                                       );
                                     }
 
-                                    // Ensure horoscope exists before accessing it
                                     const currentHoroscopes = viewType === "daily" ? horoscopes : weeklyHoroscopes;
-                                    if (!currentHoroscopes || currentHoroscopes.length === 0) {
-                                      return (
-                                        <div className="min-h-screen bg-background flex items-center justify-center">
-                                          <div className="text-center">
-                                            <p className="text-muted-foreground">Oroscopo non trovato</p>
-                                            <Button onClick={() => navigate('/')}>Torna alla Home</Button>
-                                          </div>
-                                        </div>
-                                      );
-                                    }
-
                                     const currentSign = zodiacSign; // Renamed for clarity with the fetched sign data
 
                                     return (
@@ -869,15 +857,17 @@ import { useState, useRef, useEffect } from "react";
                                           )}
 
                                           {/* No data state */}
-                                          {!horoscopesLoading && horoscopes.length === 0 && (
+                                          {!((viewType === "daily" ? horoscopesLoading : weeklyHoroscopesLoading)) && 
+                                           (!currentHoroscopes || currentHoroscopes.length === 0) && (
                                             <Card>
                                               <CardContent className="p-8 text-center">
                                                 <h3 className="text-lg font-semibold mb-2">
                                                   Nessun dato disponibile
                                                 </h3>
                                                 <p className="text-muted-foreground mb-4">
-                                                  Non ci sono previsioni disponibili per oggi. Prova ad aggiornare
-                                                  i dati.
+                                                  {viewType === "daily" 
+                                                    ? "Non ci sono previsioni disponibili per oggi. Prova ad aggiornare i dati."
+                                                    : "Non ci sono previsioni disponibili per questa settimana. Prova ad aggiornare i dati."}
                                                 </p>
                                                 <Button
                                                   onClick={() => refreshSignMutation.mutate()}
