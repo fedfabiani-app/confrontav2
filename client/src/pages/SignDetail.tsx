@@ -51,6 +51,7 @@ interface HoroscopeData {
     name: string;
     domain: string;
     logo_url: string | null;
+    reliability_score: number;
   };
 }
 
@@ -786,33 +787,30 @@ function SignDetail({ sign }: SignDetailProps) {
           {(() => {
             // First sort alphabetically, then reorder to pin favorites
             const currentHoroscopes = viewType === "daily" ? horoscopes : weeklyHoroscopes;
-            const sortedHoroscopes = [...currentHoroscopes].sort((a, b) => {
-              const sourceA = viewType === "daily" ? a.source : a.weekly_source;
-              const sourceB = viewType === "daily" ? b.source : b.weekly_source;
-              return sourceA.name.localeCompare(sourceB.name);
-            });
+            const sortedHoroscopes = [...currentHoroscopes].sort((a, b) => 
+              a.source.name.localeCompare(b.source.name)
+            );
             return reorderSources(sortedHoroscopes);
           })().map((horoscope) => {
-            const source = viewType === "daily" ? horoscope.source : horoscope.weekly_source;
-            const isCollapsed = collapsedCards[source.id] ?? true;
+            const isCollapsed = collapsedCards[horoscope.source.id] ?? true;
 
             return (
               <Card
                 key={horoscope.id}
                 className="relative cursor-pointer hover:shadow-md transition-shadow"
-                onClick={() => toggleCollapse(source.id)}
+                onClick={() => toggleCollapse(horoscope.source.id)}
               >
                 <CardContent className="p-6">
                   {/* Source Header */}
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center space-x-3">
                       <SourceIcon
-                        source={source}
-                        data-testid={`individual-source-icon-${source.id}`}
+                        source={horoscope.source}
+                        data-testid={`individual-source-icon-${horoscope.source.id}`}
                       />
                       <div>
-                        <h3 className="font-semibold text-card-foreground">{source.name}</h3>
-                        <p className="text-xs text-muted-foreground">{source.domain}</p>
+                        <h3 className="font-semibold text-card-foreground">{horoscope.source.name}</h3>
+                        <p className="text-xs text-muted-foreground">{horoscope.source.domain}</p>
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
@@ -823,15 +821,15 @@ function SignDetail({ sign }: SignDetailProps) {
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
-                          toggleFavorite(source.id);
+                          toggleFavorite(horoscope.source.id);
                         }}
                         className="p-1 h-8 w-8 hover:bg-pink-50 dark:hover:bg-pink-900/20"
-                        data-testid={`button-favorite-${source.id}`}
-                        title={isFavorite(source.id) ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
+                        data-testid={`button-favorite-${horoscope.source.id}`}
+                        title={isFavorite(horoscope.source.id) ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
                       >
                         <Heart
                           className={`w-4 h-4 transition-colors ${
-                            isFavorite(source.id)
+                            isFavorite(horoscope.source.id)
                               ? 'fill-pink-500 text-pink-500'
                               : 'text-gray-400 hover:text-pink-500'
                           }`}
@@ -846,7 +844,7 @@ function SignDetail({ sign }: SignDetailProps) {
                           handleShare();
                         }}
                         className="p-1 h-8 w-8 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                        data-testid={`button-share-${source.id}`}
+                        data-testid={`button-share-${horoscope.source.id}`}
                         title="Condividi questo oroscopo"
                         aria-label="Condividi"
                       >
@@ -858,10 +856,10 @@ function SignDetail({ sign }: SignDetailProps) {
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
-                          toggleCollapse(source.id);
+                          toggleCollapse(horoscope.source.id);
                         }}
                         className="p-1 h-8 w-8 hover:bg-gray-50 dark:hover:bg-gray-800"
-                        data-testid={`button-collapse-${source.id}`}
+                        data-testid={`button-collapse-${horoscope.source.id}`}
                         title={isCollapsed ? 'Espandi scheda' : 'Comprimi scheda'}
                       >
                         <ChevronDown
@@ -903,7 +901,7 @@ function SignDetail({ sign }: SignDetailProps) {
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-right text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
-                        data-testid={`link-read-more-${source.id}`}
+                        data-testid={`link-read-more-${horoscope.source.id}`}
                       >
                         Leggi tutto
                         <ExternalLink className="w-3 h-3 ml-1" />
