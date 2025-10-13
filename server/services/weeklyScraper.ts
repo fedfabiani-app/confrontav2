@@ -28,9 +28,9 @@ function parseItalianWeekRange(text: string, currentYear: number): WeekDateRange
   const lowerText = text.toLowerCase();
   
   const patterns = [
-    /dal[l]?\s*(\d{1,2})\s*[-]?\s*al\s*(\d{1,2})\s*(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)/i,
-    /dal[l]?\s*(\d{1,2})\s*(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)\s*al\s*(\d{1,2})\s*(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)/i,
-    /(\d{1,2})\s*[-]\s*(\d{1,2})\s*(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)/i,
+    /dal[l]?(\d{1,2})\s*[-]?\s*al\s*[-]?\s*(\d{1,2})\s*[-]?\s*(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:\s*[-]?\s*\d{4})?/i,
+    /dal[l]?\s+(\d{1,2})\s*(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)\s*al\s*[-]?\s*(\d{1,2})\s*[-]?\s*(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:\s*[-]?\s*\d{4})?/i,
+    /(\d{1,2})\s*[-]\s*(\d{1,2})\s*[-]?\s*(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:\s*[-]?\s*\d{4})?/i,
   ];
 
   for (const pattern of patterns) {
@@ -117,15 +117,20 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
   
   console.log(`Found ${candidates.length} candidate URLs in archive`);
   
+  const targetDateStr = targetDate.toISOString().split('T')[0];
+  
   for (const candidate of candidates) {
-    if (candidate.dateRange.startDate.getTime() === targetDate.getTime()) {
-      console.log(`Matched archive URL: ${candidate.url}`);
+    const candidateDateStr = candidate.dateRange.startDate.toISOString().split('T')[0];
+    console.log(`Candidate: ${candidate.url} => ${candidateDateStr} (target: ${targetDateStr})`);
+    
+    if (candidateDateStr === targetDateStr) {
+      console.log(`✓ Matched archive URL: ${candidate.url}`);
       archiveUrlCache.set(cacheKey, candidate.url);
       return candidate.url;
     }
   }
   
-  throw new Error(`No matching weekly horoscope found in archive for week starting ${input.weekStartDate}`);
+  throw new Error(`No matching weekly horoscope found in archive for week starting ${input.weekStartDate}. Found ${candidates.length} candidates but none matched ${targetDateStr}`);
 }
 
 const COMPREHENSIVE_HOROSCOPE_KEYWORDS = [
