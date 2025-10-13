@@ -35,7 +35,7 @@ import { useState, useRef, useEffect } from "react";
 
                                   interface HoroscopeData {
                                     id: number;
-                                    superquote: string;
+                                    superquote: string | null;
                                     summary: string;
                                     relazioni_rating: number;
                                     lavoro_rating: number;
@@ -653,6 +653,18 @@ import { useState, useRef, useEffect } from "react";
                                                         </div>
                                                       </div>
 
+                                                      {/* SUPERQUOTE - Always visible */}
+                                                      {horoscope.superquote && (
+                                                        <>
+                                                          <div className="px-4 py-3 bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-950/30 dark:to-red-950/30 border-l-4 border-orange-500">
+                                                            <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 italic">
+                                                              "{horoscope.superquote}"
+                                                            </p>
+                                                          </div>
+                                                          <div className="border-t border-gray-200 dark:border-gray-700 my-3"></div>
+                                                        </>
+                                                      )}
+
                                                       {/* Collapsible Content */}
                                                       <div 
                                                         className={`overflow-hidden transition-all duration-300 ease-in-out ${
@@ -663,15 +675,6 @@ import { useState, useRef, useEffect } from "react";
                                                         <p className="text-card-foreground leading-relaxed mb-4">
                                                           {horoscope.summary}
                                                         </p>
-
-                                                        {/* SUPERQUOTE */}
-                                                        {horoscope.superquote && (
-                                                            <div className="my-4 p-3 bg-gray-100 dark:bg-gray-800 rounded-md border border-dashed border-gray-300 dark:border-gray-700">
-                                                              <p className="text-center text-sm font-semibold text-gray-700 dark:text-gray-300">
-                                                                "{horoscope.superquote}"
-                                                              </p>
-                                                            </div>
-                                                          )}
 
                                                         {/* Read More Link */}
                                                         <div className="mb-4">

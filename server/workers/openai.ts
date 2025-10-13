@@ -1,13 +1,13 @@
 import { OpenAIInput, OpenAIOutput } from '@shared/schema';
 import { processHoroscopeWithRetry } from '../services/openai';
-import { db } from '@shared/database';
+import prisma from '../services/database';
 
 export class OpenAIWorker {
   async process(input: OpenAIInput): Promise<OpenAIOutput> {
     console.log(`[OpenAIWorker] Processing ${input.sourceName} - ${input.signSlugIt} for ${input.dateISO}`);
 
     try {
-      const scraperOutput = await db.scraperOutput.findUniqueOrThrow({
+      const scraperOutput = await prisma.scraperOutput.findUniqueOrThrow({
         where: {
           source_id_date_unique: {
             source_id: input.sourceId,
@@ -16,13 +16,13 @@ export class OpenAIWorker {
         },
       });
 
-      const zodiacSign = await db.zodiacSign.findUniqueOrThrow({
+      const zodiacSign = await prisma.zodiacSign.findUniqueOrThrow({
         where: { slug: input.signSlugIt },
       });
 
       const aiOutput = await processHoroscopeWithRetry(input, 3);
 
-      await db.horoscopeData.upsert({
+      await prisma.horoscopeData.upsert({
         where: {
           source_id_zodiac_sign_id_date_unique: {
             source_id: input.sourceId,
