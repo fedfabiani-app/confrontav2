@@ -62,12 +62,22 @@ export function formatWeekUrlParams(weekStartDate: Date): {
   month: string;
   year: string;
 } {
+  // Italian month names for URL patterns
+  const ITALIAN_MONTH_NAMES = [
+    'gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno',
+    'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'
+  ];
+  
   const { start, end } = getWeekDates(weekStartDate);
+  
+  // Use Italian month name instead of number for sources that require it
+  const monthIndex = end.getMonth();
+  const italianMonthName = ITALIAN_MONTH_NAMES[monthIndex];
   
   return {
     startDay: start.getDate().toString(),
     endDay: end.getDate().toString(),
-    month: (end.getMonth() + 1).toString().padStart(2, '0'),
+    month: italianMonthName,
     year: end.getFullYear().toString()
   };
 }

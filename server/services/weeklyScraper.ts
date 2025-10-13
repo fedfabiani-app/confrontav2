@@ -5,12 +5,6 @@ import { WeeklyScraperInput, WeeklyScraperOutput, weeklyScraperOutputSchema } fr
 const domainLastRequest = new Map<string, number>();
 const DOMAIN_DELAY_MS = 2000;
 
-// Italian month names for URL patterns
-const ITALIAN_MONTH_NAMES = [
-  'gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno',
-  'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'
-];
-
 interface ScrapeResult {
   success: boolean;
   text?: string;
@@ -65,18 +59,15 @@ function buildWeeklyHoroscopeUrl(input: WeeklyScraperInput): string {
   let url = input.baseUrl + input.urlPattern;
   const signSlug = signMap[input.signSlugIt] || input.signSlugIt.toLowerCase();
 
-  // Get the Italian month name from the month number
-  const monthNumber = parseInt(input.month);
-  const italianMonthName = ITALIAN_MONTH_NAMES[monthNumber - 1] || input.month;
-
+  // input.month is now already in Italian format (e.g., "ottobre")
   url = url.replace('{sign}', signSlug);
   url = url.replace('{start_day}', input.startDay);
   url = url.replace('{end_day}', input.endDay);
   url = url.replace('{week_start_day}', input.startDay);
   url = url.replace('{week_end_day}', input.endDay);
-  url = url.replace('{month}', italianMonthName);
-  url = url.replace('{week_end_month}', italianMonthName);
-  url = url.replace('{month_name}', italianMonthName);
+  url = url.replace('{month}', input.month);
+  url = url.replace('{week_end_month}', input.month);
+  url = url.replace('{month_name}', input.month);
   url = url.replace('{year}', input.year);
 
   return url;
