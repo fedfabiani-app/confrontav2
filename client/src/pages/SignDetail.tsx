@@ -35,6 +35,7 @@ import { useState, useRef, useEffect } from "react";
 
                                   interface HoroscopeData {
                                     id: number;
+                                    superquote: string;
                                     summary: string;
                                     relazioni_rating: number;
                                     lavoro_rating: number;
@@ -662,6 +663,15 @@ import { useState, useRef, useEffect } from "react";
                                                         <p className="text-card-foreground leading-relaxed mb-4">
                                                           {horoscope.summary}
                                                         </p>
+
+                                                        {/* SUPERQUOTE */}
+                                                        {horoscope.superquote && (
+                                                            <div className="my-4 p-3 bg-gray-100 dark:bg-gray-800 rounded-md border border-dashed border-gray-300 dark:border-gray-700">
+                                                              <p className="text-center text-sm font-semibold text-gray-700 dark:text-gray-300">
+                                                                "{horoscope.superquote}"
+                                                              </p>
+                                                            </div>
+                                                          )}
 
                                                         {/* Read More Link */}
                                                         <div className="mb-4">

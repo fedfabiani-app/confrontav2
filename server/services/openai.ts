@@ -41,6 +41,7 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
     // If content is problematic, return neutral fallback instead of throwing
     if (useNeutralFallback) {
       return {
+        superquote: 'Le stelle ti attendono.',
         summary: 'Le stelle stanno preparando qualcosa di speciale per te oggi.',
         ratings: {
           relazioni: 0,
@@ -70,7 +71,27 @@ Regole di inclusione/esclusione:
 
 ANALISI RICHIESTA:
 
-1. RIASSUNTO (ESATTAMENTE tra 250-530 caratteri):
+1. SUPERQUOTE (frase efficace max 80 caratteri)
+Obiettivo: condensare il RIASSUNTO in una frase incisiva che catturi il messaggio chiave e il tono, senza violare il copyright e senza citare la fonte.
+
+Regole:
+- Massimo 80 caratteri; obiettivo 60-75.
+- Conta sempre i caratteri; fermati 5-10 caratteri prima del limite.
+- Frase completa e autonoma, chiusa con un punto.
+- Vietati riferimenti a pianeti, transiti, aspetti o congiunzioni.
+- Non menzionare mai fonte, segno, data o luoghi specifici.
+- Usa solo quanto espresso nel RIASSUNTO; niente aggiunte esterne.
+- Linguaggio concreto e specifico; evita banalità e vaghezze.
+- Rifletti il tono prevalente (positivo, neutro, negativo).
+- Preferisci verbi d'azione e un beneficio o consiglio chiaro.
+- Niente ellissi, troncamenti, emoji, hashtag, virgolette decorative o TUTTO MAIUSCOLO.
+
+Criteri di qualità:
+- Chiarezza immediata, memorabilità, specificità.
+- Coerenza con l'area dominante (amore, lavoro, benessere).
+- Parafrasi originale del RIASSUNTO, senza copie letterali.
+
+2. RIASSUNTO (ESATTAMENTE tra 250-530 caratteri):
    - Cattura l'essenza delle previsioni in modo dettagliato e specifico
    - Include elementi concreti menzionati nel testo (es. pianeti, energie, consigli)
    - Evita frasi generiche come "previsioni miste" o "giornata normale"
@@ -427,6 +448,11 @@ ${input.extracted_text}`
           schema: {
             type: 'object',
             properties: {
+              superquote: {
+                type: 'string',
+                maxLength: 80,
+                description: 'Frase efficace max 80 caratteri che cattura il messaggio chiave dal riassunto. Frase completa con punto finale, senza riferimenti a pianeti/transiti/fonte/segno/data.'
+              },
               summary: {
                 type: 'string',
                 maxLength: 550,
@@ -456,7 +482,7 @@ ${input.extracted_text}`
                 description: 'Analisi del tono generale delle previsioni'
               }
             },
-            required: ['summary', 'relazioni', 'lavoro', 'benessere', 'tone'],
+            required: ['superquote', 'summary', 'relazioni', 'lavoro', 'benessere', 'tone'],
             additionalProperties: false
           },
           strict: true
@@ -516,7 +542,24 @@ ${input.extracted_text}`
       console.log(`[OpenAI] Warning: Summary too short (${summary.length} chars), using as-is`);
     }
 
+    // Process superquote - ensure it's within limits and ends properly
+    let superquote = parsed.superquote || '';
+    if (superquote.length > 80) {
+      const words = superquote.split(' ');
+      let truncated = '';
+      for (const word of words) {
+        const test = truncated + (truncated ? ' ' : '') + word;
+        if (test.length <= 77) {
+          truncated = test;
+        } else {
+          break;
+        }
+      }
+      superquote = truncated + (truncated.endsWith('.') ? '' : '.');
+    }
+
     const result = {
+      superquote: superquote,
       summary: summary,
       ratings: {
         relazioni: Math.max(0, Math.min(5, Math.round(parsed.relazioni || 0))),
@@ -528,6 +571,7 @@ ${input.extracted_text}`
         : 'neutral'
     };
 
+    console.log(`[OpenAI] Final superquote length: ${result.superquote.length} characters`);
     console.log(`[OpenAI] Final summary length: ${result.summary.length} characters`);
 
     console.log(`[OpenAI] Processed result: Relazioni=${result.ratings.relazioni}, Lavoro=${result.ratings.lavoro}, Benessere=${result.ratings.benessere}, Tone=${result.tone}`);
