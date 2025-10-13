@@ -33,8 +33,9 @@ Preferred communication style: Simple, everyday language.
 
 ### Database Schema
 - **Zodiac Signs**: Italian and English names, date ranges, symbols
-- **Sources**: Horoscope source configuration with reliability scores and URL patterns
-- **Horoscopes**: Daily predictions with AI-generated summaries and structured ratings
+- **Sources**: Daily horoscope source configuration with reliability scores and URL patterns (14+ sources)
+- **Weekly Sources**: Weekly horoscope source configuration with reliability scores and URL patterns (15 sources)
+- **Horoscopes**: Daily predictions with AI-generated summaries, superquotes, and structured ratings
 - **Users**: Basic user management for future authentication features
 
 ### API Design
