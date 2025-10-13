@@ -212,7 +212,7 @@ export default function Home() {
           <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
             <PopoverTrigger asChild>
               <button 
-                className="bg-white dark:bg-gray-800 rounded-full px-6 py-3 flex items-center gap-3 shadow-md hover:shadow-lg transition-shadow border border-gray-200 dark:border-gray-700"
+                className="bg-white dark:bg-gray-800 rounded-full px-6 py-3 flex items-center gap-3 shadow-md hover:shadow-lg transition-shadow border border-gray-200 dark:border-gray-700 min-w-[280px] justify-center"
                 data-testid="date-selector-trigger"
               >
                 <CalendarDays className="w-5 h-5 text-orange-500" />
