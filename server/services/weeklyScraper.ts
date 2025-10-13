@@ -5,11 +5,127 @@ import { WeeklyScraperInput, WeeklyScraperOutput, weeklyScraperOutputSchema } fr
 const domainLastRequest = new Map<string, number>();
 const DOMAIN_DELAY_MS = 2000;
 
+const archiveUrlCache = new Map<string, string>();
+
+const ITALIAN_MONTHS: Record<string, number> = {
+  'gennaio': 1, 'febbraio': 2, 'marzo': 3, 'aprile': 4, 'maggio': 5, 'giugno': 6,
+  'luglio': 7, 'agosto': 8, 'settembre': 9, 'ottobre': 10, 'novembre': 11, 'dicembre': 12
+};
+
 interface ScrapeResult {
   success: boolean;
   text?: string;
   url?: string;
   error?: string;
+}
+
+interface WeekDateRange {
+  startDate: Date;
+  endDate: Date;
+}
+
+function parseItalianWeekRange(text: string, currentYear: number): WeekDateRange | null {
+  const lowerText = text.toLowerCase();
+  
+  const patterns = [
+    /dal[l]?\s*(\d{1,2})\s*[-]?\s*al\s*(\d{1,2})\s*(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)/i,
+    /dal[l]?\s*(\d{1,2})\s*(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)\s*al\s*(\d{1,2})\s*(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)/i,
+    /(\d{1,2})\s*[-]\s*(\d{1,2})\s*(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = lowerText.match(pattern);
+    if (match) {
+      if (match.length === 4) {
+        const startDay = parseInt(match[1]);
+        const endDay = parseInt(match[2]);
+        const monthName = match[3].toLowerCase();
+        const month = ITALIAN_MONTHS[monthName];
+        
+        if (month) {
+          const startDate = new Date(currentYear, month - 1, startDay);
+          const endDate = new Date(currentYear, month - 1, endDay);
+          
+          if (endDate < startDate) {
+            endDate.setMonth(endDate.getMonth() + 1);
+          }
+          
+          return { startDate, endDate };
+        }
+      } else if (match.length === 5) {
+        const startDay = parseInt(match[1]);
+        const startMonthName = match[2].toLowerCase();
+        const endDay = parseInt(match[3]);
+        const endMonthName = match[4].toLowerCase();
+        
+        const startMonth = ITALIAN_MONTHS[startMonthName];
+        const endMonth = ITALIAN_MONTHS[endMonthName];
+        
+        if (startMonth && endMonth) {
+          const startDate = new Date(currentYear, startMonth - 1, startDay);
+          const endDate = new Date(currentYear, endMonth - 1, endDay);
+          
+          if (endDate < startDate) {
+            endDate.setFullYear(endDate.getFullYear() + 1);
+          }
+          
+          return { startDate, endDate };
+        }
+      }
+    }
+  }
+  
+  return null;
+}
+
+async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<string> {
+  const cacheKey = `${input.sourceId}-${input.weekStartDate}`;
+  
+  const cached = archiveUrlCache.get(cacheKey);
+  if (cached) {
+    console.log(`Using cached archive URL for ${input.sourceName}`);
+    return cached;
+  }
+  
+  const archiveUrl = input.baseUrl + input.urlPattern;
+  console.log(`Fetching archive page: ${archiveUrl}`);
+  
+  await respectDomainRateLimit(input.domain);
+  
+  const html = await fetchHtml(archiveUrl, input.userAgent);
+  const $ = cheerio.load(html);
+  
+  const targetDate = new Date(input.weekStartDate);
+  const currentYear = targetDate.getFullYear();
+  
+  const candidates: { url: string; dateRange: WeekDateRange }[] = [];
+  
+  $('a').each((_, elem) => {
+    const href = $(elem).attr('href');
+    const text = $(elem).text();
+    
+    if (href && (href.includes('oroscopo') || href.includes('branko') || href.includes('settimana'))) {
+      const fullText = href + ' ' + text;
+      const dateRange = parseItalianWeekRange(fullText, currentYear);
+      
+      if (dateRange) {
+        const absoluteUrl = href.startsWith('http') ? href : input.baseUrl + href;
+        candidates.push({ url: absoluteUrl, dateRange });
+      }
+    }
+  });
+  
+  console.log(`Found ${candidates.length} candidate URLs in archive`);
+  
+  for (const candidate of candidates) {
+    if (candidate.dateRange.startDate.getTime() === targetDate.getTime()) {
+      console.log(`Matched archive URL: ${candidate.url}`);
+      archiveUrlCache.set(cacheKey, candidate.url);
+      return candidate.url;
+    }
+  }
+  
+  throw new Error(`No matching weekly horoscope found in archive for week starting ${input.weekStartDate}`);
 }
 
 const COMPREHENSIVE_HOROSCOPE_KEYWORDS = [
@@ -22,7 +138,7 @@ const COMPREHENSIVE_HOROSCOPE_KEYWORDS = [
 
 export async function scrapeWeeklyHoroscope(input: WeeklyScraperInput): Promise<WeeklyScraperOutput> {
   try {
-    const url = buildWeeklyHoroscopeUrl(input);
+    const url = await buildWeeklyHoroscopeUrl(input);
     console.log(`Attempting to scrape weekly URL: ${url}`);
 
     await respectDomainRateLimit(input.domain);
@@ -49,7 +165,12 @@ export async function scrapeWeeklyHoroscope(input: WeeklyScraperInput): Promise<
   }
 }
 
-function buildWeeklyHoroscopeUrl(input: WeeklyScraperInput): string {
+async function buildWeeklyHoroscopeUrl(input: WeeklyScraperInput): Promise<string> {
+  if (input.scrapeStrategy === 'archive') {
+    console.log(`Using archive strategy for ${input.sourceName}`);
+    return await resolveWeeklyUrlFromArchive(input);
+  }
+  
   const signMap: Record<string, string> = {
     'Ariete': 'ariete', 'Toro': 'toro', 'Gemelli': 'gemelli', 'Cancro': 'cancro',
     'Leone': 'leone', 'Vergine': 'vergine', 'Bilancia': 'bilancia', 'Scorpione': 'scorpione',

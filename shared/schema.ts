@@ -209,6 +209,7 @@ export const weeklyScraperInputSchema = z.object({
   domain: z.string(),
   baseUrl: z.string(),
   urlPattern: z.string(),
+  scrapeStrategy: z.string().default('pattern'), // 'pattern' or 'archive'
   signSlugIt: z.string(),
   weekStartDate: z.string(), // ISO format (Monday)
   startDay: z.string(),
