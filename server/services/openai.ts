@@ -42,6 +42,7 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
     if (useNeutralFallback) {
       return {
         summary: 'Le stelle stanno preparando qualcosa di speciale per te oggi.',
+        superquote: 'Un futuro luminoso ti attende.',
         ratings: {
           relazioni: 0,
           lavoro: 0,
@@ -58,7 +59,7 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
           role: 'system',
           content: `Sei un esperto analista di oroscopi italiani specializzato nell'interpretazione di contenuti da fonti giornalistiche sportive e mainstream. Analizza esclusivamente il testo dell'oroscopo fornito come input, senza usare conoscenza esterna.
 
-OBIETTIVO: Estrarre il massimo significato dal testo per produrre riassunti dettagliati e valutazioni accurate che riflettano il vero sentiment del contenuto, che provino ad includere le tre categorie principali (amore/relazioni, lavoro, benessere) e che NON violino MAI il copyright delle fonti.
+OBIETTIVO: Estrarre il massimo significato dal testo per produrre riassunti dettagliati, frasi d'impatto (superquote) e valutazioni accurate che riflettano il vero sentiment del contenuto, che provino ad includere le tre categorie principali (amore/relazioni, lavoro, benessere) e che NON violino MAI il copyright delle fonti.
 
 Regole di inclusione/esclusione:
 - Ignora elementi non di contenuto: menu, navigation, cookie/privacy, pubblicità, link correlati, social, newsletter, disclaimer, header/footer, metadati, date/crediti
@@ -88,10 +89,17 @@ REQUISITI TECNICI RIASSUNTO - PRIORITÀ ASSOLUTA:
 - VERIFICA che l'ultima parola sia la conclusione naturale di un pensiero completo
 - NESSUN TRONCAMENTO: ogni pensiero deve essere completo, ogni frase deve concludersi in modo naturale
 - PRIORITÀ: meglio un riassunto di 450 caratteri completo che uno di 530 troncato
-- RILEGGI il riassunto prima di inviarlo - l'ultima frase deve avere senso da sola
+- RILEGGI il riassunto prima di inviarlo - l'ultima frase deve senso da sola
 - EVITA di finire con preposizioni come 'con', 'per', 'del', 'nei', 'che' senza completare il concetto
 
-2. VALUTAZIONI STELLARI (1-5 stelle) - SISTEMA CALIBRATO:
+2. SUPERQUOTE (MASSIMO 80 CARATTERI):
+   - Una frase breve e incisiva che catturi il messaggio chiave dell'oroscopo.
+   - Deve essere originale, ispiratrice e facilmente memorizzabile.
+   - Evita riferimenti astrologici specifici o gergo tecnico.
+   - Deve riflettere il tono generale dell'oroscopo.
+   - Esempio: "L'energia cosmica ti guida verso nuove scoperte."
+
+3. VALUTAZIONI STELLARI (1-5 stelle) - SISTEMA CALIBRATO:
 
    Per RELAZIONI:
    - 5 stelle: "eccellente", "perfetto", "straordinario", "magico", "passionale", "innamoramento", "grande amore"
@@ -115,7 +123,7 @@ REQUISITI TECNICI RIASSUNTO - PRIORITÀ ASSOLUTA:
    - 1 stella: "umore pessimo", "giornata nera", "depressione", "angoscia", "disperazione", "crisi emotiva", "malessere profondo"
 
 
-3. TONO GENERALE:
+4. TONO GENERALE:
    - positive: linguaggio incoraggiante, opportunità, successi, energia positiva
    - negative: problemi, difficoltà, ostacoli, tensioni, crisi
    - neutral: equilibrio, routine, normalità, consigli di prudenza
@@ -472,6 +480,11 @@ ${input.extracted_text}`
                 maxLength: 550,
                 description: 'Riassunto conciso, obiettivo e che catturi l\'essenza dell\'oroscopo, originale e copyright-safe. DEVE essere tra 250-530 caratteri e terminare con frasi complete senza troncamenti.'
               },
+              superquote: {
+                type: 'string',
+                maxLength: 80,
+                description: 'Frase incisiva max 80 caratteri che cattura il messaggio chiave del riassunto, senza riferimenti astrologici specifici'
+              },
               relazioni: {
                 type: 'integer',
                 minimum: 0,
@@ -496,7 +509,7 @@ ${input.extracted_text}`
                 description: 'Analisi del tono generale delle previsioni'
               }
             },
-            required: ['summary', 'relazioni', 'lavoro', 'benessere', 'tone'],
+            required: ['summary', 'superquote', 'relazioni', 'lavoro', 'benessere', 'tone'],
             additionalProperties: false
           },
           strict: true
@@ -512,15 +525,12 @@ ${input.extracted_text}`
     console.log(`[OpenAI] Raw response received (${content.length} chars)`);
     const parsed = JSON.parse(content);
 
-    // Validate and process ratings - allow 0 for unmentioned categories
-    let summary = parsed.summary || '';
-    
     // Post-process summary to ensure it's not truncated
+    let summary = parsed.summary || '';
     if (summary.length > 530) {
-      // Find the last complete sentence within the limit
       const sentences = summary.split(/[.!?]+/);
       let truncatedSummary = '';
-      
+
       for (const sentence of sentences) {
         const testSummary = truncatedSummary + sentence + '.';
         if (testSummary.length <= 530) {
@@ -529,35 +539,49 @@ ${input.extracted_text}`
           break;
         }
       }
-      
-      // If we have a valid truncated summary, use it
+
       if (truncatedSummary.length >= 250) {
         summary = truncatedSummary.trim();
       } else {
-        // Fallback: cut at word boundary before 530 chars
         const words = summary.split(' ');
         let wordSummary = '';
-        
+
         for (const word of words) {
           const testSummary = wordSummary + (wordSummary ? ' ' : '') + word;
-          if (testSummary.length <= 525) { // Leave room for period
+          if (testSummary.length <= 525) { 
             wordSummary = testSummary;
           } else {
             break;
           }
         }
-        
         summary = wordSummary + (wordSummary.endsWith('.') ? '' : '.');
       }
     }
-    
-    // Ensure minimum length
+
     if (summary.length < 250) {
       console.log(`[OpenAI] Warning: Summary too short (${summary.length} chars), using as-is`);
     }
 
+    // Post-process superquote to ensure it's not truncated
+    let superquote = parsed.superquote || '';
+    if (superquote.length > 80) {
+        const words = superquote.split(' ');
+        let wordSuperquote = '';
+        for (const word of words) {
+            const testSuperquote = wordSuperquote + (wordSuperquote ? ' ' : '') + word;
+            if (testSuperquote.length <= 80) {
+                wordSuperquote = testSuperquote;
+            } else {
+                break;
+            }
+        }
+        superquote = wordSuperquote + (wordSuperquote.endsWith('.') ? '' : '.');
+    }
+
+
     const result = {
       summary: summary,
+      superquote: superquote,
       ratings: {
         relazioni: Math.max(0, Math.min(5, Math.round(parsed.relazioni || 0))),
         lavoro: Math.max(0, Math.min(5, Math.round(parsed.lavoro || 0))),
@@ -569,6 +593,7 @@ ${input.extracted_text}`
     };
 
     console.log(`[OpenAI] Final summary length: ${result.summary.length} characters`);
+    console.log(`[OpenAI] Final superquote length: ${result.superquote.length} characters`);
 
     console.log(`[OpenAI] Processed result: Relazioni=${result.ratings.relazioni}, Lavoro=${result.ratings.lavoro}, Benessere=${result.ratings.benessere}, Tone=${result.tone}`);
 

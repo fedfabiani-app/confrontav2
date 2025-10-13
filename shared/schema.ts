@@ -135,11 +135,12 @@ export const openaiInputSchema = z.object({
 });
 
 export const openaiOutputSchema = z.object({
-  summary: z.string(),
+  summary: z.string().min(250).max(550),
+  superquote: z.string().min(1).max(80),
   ratings: z.object({
-    relazioni: z.number().min(0).max(5),
-    lavoro: z.number().min(0).max(5),
-    benessere: z.number().min(0).max(5),
+    relazioni: z.number().int().min(0).max(5),
+    lavoro: z.number().int().min(0).max(5),
+    benessere: z.number().int().min(0).max(5),
   }),
   tone: z.enum(['positive', 'neutral', 'negative']),
 });

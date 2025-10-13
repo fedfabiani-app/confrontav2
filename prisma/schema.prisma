@@ -55,11 +55,12 @@ model HoroscopeData {
   zodiac_sign_id   Int
   date             DateTime @db.Date
   original_text    String   @db.Text
-  summary          String   @db.Text
-  relazioni_rating Int      @db.SmallInt
-  lavoro_rating    Int      @db.SmallInt
-  salute_rating    Int      @db.SmallInt
-  tone_analysis    String   // 'positive', 'neutral', 'negative'
+  summary          String?
+  superquote       String?
+  relazioni_rating Int?      @db.SmallInt
+  lavoro_rating    Int?      @db.SmallInt
+  salute_rating    Int?      @db.SmallInt
+  tone_analysis    String?   // 'positive', 'neutral', 'negative'
   original_url     String   @db.Text
   scraped_at       DateTime
   created_at       DateTime @default(now())
