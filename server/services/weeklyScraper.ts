@@ -218,19 +218,19 @@ async function buildWeeklyHoroscopeUrl(input: WeeklyScraperInput): Promise<strin
   let url = input.baseUrl + input.urlPattern;
   const signSlug = signMap[input.signSlugIt] || input.signSlugIt.toLowerCase();
 
-  // Replace all placeholders
-  url = url.replace('{sign}', signSlug);
-  url = url.replace('{start_day}', input.startDay);
-  url = url.replace('{end_day}', input.endDay);
+  // Replace all placeholders (replace longer patterns first to avoid partial replacements)
   url = url.replace('{week_start_day}', input.startDay);
   url = url.replace('{week_end_day}', input.endDay);
-  url = url.replace('{dd}', input.startDay);
-  url = url.replace('{mm}', input.month);
-  url = url.replace('{month}', input.month);
   url = url.replace('{week_end_month}', input.month);
   url = url.replace('{month_name}', input.month);
+  url = url.replace('{start_day}', input.startDay);
+  url = url.replace('{end_day}', input.endDay);
   url = url.replace('{yyyy}', input.year);
   url = url.replace('{year}', input.year);
+  url = url.replace('{sign}', signSlug);
+  url = url.replace('{month}', input.month);
+  url = url.replace('{dd}', input.startDay);
+  url = url.replace('{mm}', input.month);
 
   console.log(`Built weekly URL for ${input.sourceName}: ${url}`);
   return url;
