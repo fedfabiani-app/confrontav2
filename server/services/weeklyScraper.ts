@@ -100,20 +100,41 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
   
   const candidates: { url: string; dateRange: WeekDateRange }[] = [];
   
-  $('a').each((_, elem) => {
-    const href = $(elem).attr('href');
-    const text = $(elem).text();
+  // Special handling for Repubblica - extract URLs and dates from archive page
+  if (input.domain.includes('repubblica.it')) {
+    console.log('Repubblica archive - Extracting weekly URLs');
     
-    if (href && (href.includes('oroscopo') || href.includes('branko') || href.includes('settimana'))) {
-      const fullText = href + ' ' + text;
-      const dateRange = parseItalianWeekRange(fullText, currentYear);
+    $('a').each((_, elem) => {
+      const href = $(elem).attr('href');
+      const text = $(elem).text();
       
-      if (dateRange) {
-        const absoluteUrl = href.startsWith('http') ? href : input.baseUrl + href;
-        candidates.push({ url: absoluteUrl, dateRange });
+      if (href && href.includes('oroscopo') && href.includes('settimana')) {
+        const fullText = href + ' ' + text;
+        const dateRange = parseItalianWeekRange(fullText, currentYear);
+        
+        if (dateRange) {
+          const absoluteUrl = href.startsWith('http') ? href : 'https://d.repubblica.it' + href;
+          candidates.push({ url: absoluteUrl, dateRange });
+        }
       }
-    }
-  });
+    });
+  } else {
+    // Generic archive handling for other sources
+    $('a').each((_, elem) => {
+      const href = $(elem).attr('href');
+      const text = $(elem).text();
+      
+      if (href && (href.includes('oroscopo') || href.includes('branko') || href.includes('settimana'))) {
+        const fullText = href + ' ' + text;
+        const dateRange = parseItalianWeekRange(fullText, currentYear);
+        
+        if (dateRange) {
+          const absoluteUrl = href.startsWith('http') ? href : input.baseUrl + href;
+          candidates.push({ url: absoluteUrl, dateRange });
+        }
+      }
+    });
+  }
   
   console.log(`Found ${candidates.length} candidate URLs in archive`);
   
@@ -304,6 +325,42 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
       }
       
       console.log(`Marie Claire - Failed to find content for ${input.signSlugIt}`);
+    }
+
+    // Special handling for Repubblica - single page with all signs
+    if (url.includes('repubblica.it')) {
+      console.log(`Repubblica - Extracting content for ${input.signSlugIt}`);
+      
+      // Find the h2 heading for this sign
+      const signHeading = $(`h2:contains("${input.signSlugIt}")`).first();
+      
+      if (signHeading.length > 0) {
+        let extractedContent = '';
+        
+        // Get all paragraphs after the heading until the next h2
+        let currentElement = signHeading.next();
+        
+        while (currentElement.length > 0 && currentElement.prop('tagName') !== 'H2') {
+          if (currentElement.is('p')) {
+            const text = currentElement.text().trim();
+            if (text.length > 0) {
+              extractedContent += text + '\n\n';
+            }
+          }
+          currentElement = currentElement.next();
+        }
+        
+        if (extractedContent.trim().length > 50) {
+          console.log(`Repubblica - Successfully extracted ${extractedContent.length} chars for ${input.signSlugIt}`);
+          return {
+            success: true,
+            text: extractedContent.trim().substring(0, 3500),
+            url
+          };
+        }
+      }
+      
+      console.log(`Repubblica - Failed to find content for ${input.signSlugIt}`);
     }
 
     // Generic extraction for other sources

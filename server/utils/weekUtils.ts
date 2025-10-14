@@ -14,6 +14,18 @@ export function getMondayOfWeek(date: Date): Date {
 }
 
 /**
+ * Get the Saturday of the week containing the given date (for Repubblica)
+ * Repubblica weeks run Saturday to Friday
+ */
+export function getSaturdayOfWeek(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay();
+  // Saturday is day 6, if we're on Saturday keep it, otherwise go back
+  const diff = d.getDate() - day + (day === 0 ? -1 : 6);
+  return new Date(d.setDate(diff));
+}
+
+/**
  * Get the week start and end dates (Monday to Sunday) for a given date
  */
 export function getWeekDates(date: Date = new Date()): { start: Date; end: Date } {
@@ -56,7 +68,7 @@ export function getCurrentWeekMonday(): string {
 /**
  * Format date components for weekly URL patterns
  */
-export function formatWeekUrlParams(weekStartDate: Date): {
+export function formatWeekUrlParams(weekStartDate: Date, isSaturdayBased: boolean = false): {
   startDay: string;
   endDay: string;
   month: string;
@@ -68,7 +80,19 @@ export function formatWeekUrlParams(weekStartDate: Date): {
     'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'
   ];
   
-  const { start, end } = getWeekDates(weekStartDate);
+  let start: Date, end: Date;
+  
+  if (isSaturdayBased) {
+    // Repubblica uses Saturday-Friday weeks
+    start = getSaturdayOfWeek(weekStartDate);
+    end = new Date(start);
+    end.setDate(start.getDate() + 6); // Friday
+  } else {
+    // Standard Monday-Sunday weeks
+    const weekDates = getWeekDates(weekStartDate);
+    start = weekDates.start;
+    end = weekDates.end;
+  }
   
   // Use Italian month name instead of number for sources that require it
   const monthIndex = end.getMonth();
