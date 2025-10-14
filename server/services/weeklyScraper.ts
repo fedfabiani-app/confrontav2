@@ -98,38 +98,75 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
   const targetDate = new Date(input.weekStartDate);
   const currentYear = targetDate.getFullYear();
   
-  const candidates: { url: string; dateRange: WeekDateRange }[] = [];
+  const candidates: { url: string; dateRange: WeekDateRange; score: number }[] = [];
   
   // Special handling for Repubblica - extract URLs and dates from archive page
   if (input.domain.includes('repubblica.it')) {
-    console.log('Repubblica archive - Extracting weekly URLs');
+    console.log('Repubblica archive - Extracting weekly URLs with enhanced pattern matching');
+    
+    // Pattern to match Repubblica weekly URLs with variations
+    const urlPattern = /oroscopo[-_](?:della[-_])?settimana/i;
     
     $('a').each((_, elem) => {
       const href = $(elem).attr('href');
-      const text = $(elem).text();
+      const linkText = $(elem).text().trim();
       
-      if (href && href.includes('oroscopo') && href.includes('settimana')) {
-        // Extract date from URL path: /2025/10/11/news/...
-        const urlDateMatch = href.match(/\/(\d{4})\/(\d{2})\/(\d{2})\//);
+      if (!href || !urlPattern.test(href)) {
+        return;
+      }
+      
+      let score = 0;
+      
+      // Extract date from URL path: /YYYY/MM/DD/news/...
+      const urlDateMatch = href.match(/\/(\d{4})\/(\d{1,2})\/(\d{1,2})\//);
+      
+      if (urlDateMatch) {
+        const urlYear = parseInt(urlDateMatch[1]);
+        const urlMonth = parseInt(urlDateMatch[2]);
+        const urlDay = parseInt(urlDateMatch[3]);
+        const urlDate = new Date(urlYear, urlMonth - 1, urlDay);
         
-        if (urlDateMatch) {
-          const urlYear = parseInt(urlDateMatch[1]);
-          const urlMonth = parseInt(urlDateMatch[2]);
-          const urlDay = parseInt(urlDateMatch[3]);
-          const urlDate = new Date(urlYear, urlMonth - 1, urlDay);
-          
-          // Repubblica publishes on Saturday, so this is the week start
-          const dateRange = {
-            startDate: urlDate,
-            endDate: new Date(urlDate.getTime() + 6 * 24 * 60 * 60 * 1000) // +6 days
-          };
-          
-          const absoluteUrl = href.startsWith('http') ? href : 'https://d.repubblica.it' + href;
-          candidates.push({ url: absoluteUrl, dateRange });
-          console.log(`Found Repubblica URL: ${absoluteUrl} => ${urlDate.toISOString().split('T')[0]}`);
+        // Check if this is a weekend date (likely publication day)
+        const dayOfWeek = urlDate.getDay();
+        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Sunday or Saturday
+        
+        if (isWeekend) {
+          score += 10;
         }
+        
+        // Repubblica publishes weekly horoscopes, week starts on publication day
+        const dateRange = {
+          startDate: urlDate,
+          endDate: new Date(urlDate.getTime() + 6 * 24 * 60 * 60 * 1000)
+        };
+        
+        // Try to extract date range from link text or URL slug
+        const dateRangeFromText = parseItalianWeekRange(linkText + ' ' + href, currentYear);
+        if (dateRangeFromText) {
+          dateRange.startDate = dateRangeFromText.startDate;
+          dateRange.endDate = dateRangeFromText.endDate;
+          score += 20;
+        }
+        
+        // Bonus for containing "previsioni" in URL
+        if (/previsioni/i.test(href)) {
+          score += 5;
+        }
+        
+        // Bonus for containing author name patterns
+        if (/(marco[-_]pesatori|branko|paolo[-_]fox)/i.test(href)) {
+          score += 3;
+        }
+        
+        const absoluteUrl = href.startsWith('http') ? href : 'https://d.repubblica.it' + href;
+        candidates.push({ url: absoluteUrl, dateRange, score });
+        
+        console.log(`Found Repubblica URL (score: ${score}): ${absoluteUrl} => ${urlDate.toISOString().split('T')[0]}`);
       }
     });
+    
+    // Sort by score (highest first)
+    candidates.sort((a, b) => b.score - a.score);
   } else {
     // Generic archive handling for other sources
     $('a').each((_, elem) => {
@@ -142,7 +179,7 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
         
         if (dateRange) {
           const absoluteUrl = href.startsWith('http') ? href : input.baseUrl + href;
-          candidates.push({ url: absoluteUrl, dateRange });
+          candidates.push({ url: absoluteUrl, dateRange, score: 0 });
         }
       }
     });
@@ -152,15 +189,43 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
   
   const targetDateStr = targetDate.toISOString().split('T')[0];
   
+  // First try: exact date match
   for (const candidate of candidates) {
     const candidateDateStr = candidate.dateRange.startDate.toISOString().split('T')[0];
-    console.log(`Candidate: ${candidate.url} => ${candidateDateStr} (target: ${targetDateStr})`);
+    console.log(`Candidate: ${candidate.url} => ${candidateDateStr} (target: ${targetDateStr}, score: ${candidate.score})`);
     
     if (candidateDateStr === targetDateStr) {
-      console.log(`✓ Matched archive URL: ${candidate.url}`);
+      console.log(`✓ Matched archive URL (exact match): ${candidate.url}`);
       archiveUrlCache.set(cacheKey, candidate.url);
       return candidate.url;
     }
+  }
+  
+  // Second try: date within range (for weekly horoscopes that cover a week)
+  for (const candidate of candidates) {
+    const startDate = candidate.dateRange.startDate;
+    const endDate = candidate.dateRange.endDate;
+    
+    if (targetDate >= startDate && targetDate <= endDate) {
+      console.log(`✓ Matched archive URL (within range): ${candidate.url}`);
+      archiveUrlCache.set(cacheKey, candidate.url);
+      return candidate.url;
+    }
+  }
+  
+  // Third try: closest date (within 3 days)
+  const closestCandidate = candidates
+    .map(c => ({
+      ...c,
+      daysDiff: Math.abs(Math.floor((c.dateRange.startDate.getTime() - targetDate.getTime()) / (1000 * 60 * 60 * 24)))
+    }))
+    .filter(c => c.daysDiff <= 3)
+    .sort((a, b) => a.daysDiff - b.daysDiff || b.score - a.score)[0];
+  
+  if (closestCandidate) {
+    console.log(`✓ Using closest match (${closestCandidate.daysDiff} days diff): ${closestCandidate.url}`);
+    archiveUrlCache.set(cacheKey, closestCandidate.url);
+    return closestCandidate.url;
   }
   
   throw new Error(`No matching weekly horoscope found in archive for week starting ${input.weekStartDate}. Found ${candidates.length} candidates but none matched ${targetDateStr}`);
@@ -252,15 +317,34 @@ async function respectDomainRateLimit(domain: string): Promise<void> {
   domainLastRequest.set(domain, Date.now());
 }
 
+const USER_AGENTS = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15',
+];
+
 async function fetchHtml(url: string, userAgent: string): Promise<string> {
   try {
+    // Add random delay between 1-3 seconds
+    const delay = 1000 + Math.random() * 2000;
+    await new Promise(resolve => setTimeout(resolve, delay));
+    
+    // Rotate user agents for reliability
+    const selectedUserAgent = userAgent || USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+    
     const response = await axios.get(url, {
       headers: {
-        'User-Agent': userAgent || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'User-Agent': selectedUserAgent,
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'DNT': '1',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'Cache-Control': 'max-age=0',
       },
-      timeout: 10000,
+      timeout: 15000,
       maxRedirects: 5,
     });
 
@@ -349,24 +433,84 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
     if (url.includes('repubblica.it')) {
       console.log(`Repubblica - Extracting content for ${input.signSlugIt} from URL: ${url}`);
       
-      // Find the h2 heading for this sign
-      const signHeading = $(`h2:contains("${input.signSlugIt}")`).first();
+      // Try multiple selectors for the main content area
+      const contentSelectors = [
+        '.story__content',
+        'article .article-content',
+        '[data-component="ArticleBody"]',
+        'main article'
+      ];
+      
+      let mainContent = $('body');
+      for (const selector of contentSelectors) {
+        const elem = $(selector);
+        if (elem.length > 0) {
+          mainContent = elem;
+          console.log(`Repubblica - Using content selector: ${selector}`);
+          break;
+        }
+      }
+      
+      // Find the heading for this sign (try different heading levels)
+      const signHeadingSelectors = [
+        `h2:contains("${input.signSlugIt}")`,
+        `h3:contains("${input.signSlugIt}")`,
+        `h4:contains("${input.signSlugIt}")`,
+        `strong:contains("${input.signSlugIt}")`
+      ];
+      
+      let signHeading = $();
+      for (const selector of signHeadingSelectors) {
+        signHeading = mainContent.find(selector).first();
+        if (signHeading.length > 0) {
+          console.log(`Repubblica - Found ${input.signSlugIt} using: ${selector}`);
+          break;
+        }
+      }
       
       if (signHeading.length > 0) {
-        console.log(`Repubblica - Found heading for ${input.signSlugIt}`);
         let extractedContent = '';
         
-        // Get all paragraphs after the heading until the next h2
-        let currentElement = signHeading.next();
+        // Get parent container if heading is within a structured section
+        const parent = signHeading.parent();
         
-        while (currentElement.length > 0 && currentElement.prop('tagName') !== 'H2') {
-          if (currentElement.is('p')) {
-            const text = currentElement.text().trim();
-            if (text.length > 0) {
+        // Strategy 1: Extract from structured section
+        if (parent.is('div') || parent.is('section')) {
+          parent.find('p').each((_, p) => {
+            const text = $(p).text().trim();
+            if (text.length > 0 && !text.match(/^(pubblicato|condividi|leggi anche)/i)) {
               extractedContent += text + '\n\n';
             }
+          });
+        }
+        
+        // Strategy 2: Get siblings after heading
+        if (!extractedContent || extractedContent.length < 50) {
+          extractedContent = '';
+          let currentElement = signHeading.next();
+          
+          while (currentElement.length > 0) {
+            const tagName = currentElement.prop('tagName');
+            
+            // Stop at next sign heading
+            if (['H2', 'H3', 'H4'].includes(tagName)) {
+              const headingText = currentElement.text();
+              const zodiacSigns = ['ariete', 'toro', 'gemelli', 'cancro', 'leone', 'vergine', 
+                                   'bilancia', 'scorpione', 'sagittario', 'capricorno', 'acquario', 'pesci'];
+              if (zodiacSigns.some(sign => headingText.toLowerCase().includes(sign))) {
+                break;
+              }
+            }
+            
+            if (currentElement.is('p')) {
+              const text = currentElement.text().trim();
+              if (text.length > 0 && !text.match(/^(pubblicato|condividi|leggi anche)/i)) {
+                extractedContent += text + '\n\n';
+              }
+            }
+            
+            currentElement = currentElement.next();
           }
-          currentElement = currentElement.next();
         }
         
         if (extractedContent.trim().length > 50) {
@@ -380,6 +524,20 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
       }
       
       console.log(`Repubblica - Failed to find heading or content for ${input.signSlugIt}`);
+      
+      // Fallback: try to find content in a tab-based layout
+      const tabContent = mainContent.find(`[data-sign="${input.signSlugIt.toLowerCase()}"], .tab-content:contains("${input.signSlugIt}")`);
+      if (tabContent.length > 0) {
+        const text = tabContent.text().trim();
+        if (text.length > 50) {
+          console.log(`Repubblica - Found content in tab layout for ${input.signSlugIt}`);
+          return {
+            success: true,
+            text: text.substring(0, 3500),
+            url
+          };
+        }
+      }
     }
 
     // Generic extraction for other sources
