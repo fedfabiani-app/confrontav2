@@ -285,19 +285,32 @@ async function buildWeeklyHoroscopeUrl(input: WeeklyScraperInput): Promise<strin
   let url = input.baseUrl + input.urlPattern;
   const signSlug = signMap[input.signSlugIt] || input.signSlugIt.toLowerCase();
 
-  // Replace all placeholders (replace longer patterns first to avoid partial replacements)
-  url = url.replace('{week_start_day}', input.startDay);
-  url = url.replace('{week_end_day}', input.endDay);
-  url = url.replace('{week_end_month}', input.month);
-  url = url.replace('{month_name}', input.month);
-  url = url.replace('{start_day}', input.startDay);
-  url = url.replace('{end_day}', input.endDay);
-  url = url.replace('{yyyy}', input.year);
-  url = url.replace('{year}', input.year);
-  url = url.replace('{sign}', signSlug);
-  url = url.replace('{month}', input.month);
-  url = url.replace('{dd}', input.startDay);
-  url = url.replace('{mm}', input.month);
+  // Replace all placeholders - CRITICAL: replace longer patterns first to avoid partial replacements
+  // Order matters! {week_start_day} must be replaced before {start_day}
+  url = url.replace(/{week_start_day}/g, input.startDay);
+  url = url.replace(/{week_end_day}/g, input.endDay);
+  url = url.replace(/{week_end_month}/g, input.month);
+  url = url.replace(/{month_name}/g, input.month);
+  url = url.replace(/{start_day}/g, input.startDay);
+  url = url.replace(/{end_day}/g, input.endDay);
+  url = url.replace(/{yyyy}/g, input.year);
+  url = url.replace(/{year}/g, input.year);
+  url = url.replace(/{sign}/g, signSlug);
+  url = url.replace(/{month}/g, input.month);
+  url = url.replace(/{mm}/g, input.month);
+  url = url.replace(/{dd}/g, input.startDay);
+
+  // Validate URL - ensure no placeholders remain
+  if (url.includes('{') || url.includes('}')) {
+    throw new Error(`URL contains unreplaced placeholders: ${url}`);
+  }
+
+  // Validate URL format
+  try {
+    new URL(url);
+  } catch (error) {
+    throw new Error(`Invalid URL constructed: ${url}`);
+  }
 
   console.log(`Built weekly URL for ${input.sourceName}: ${url}`);
   return url;
@@ -326,6 +339,23 @@ const USER_AGENTS = [
 
 async function fetchHtml(url: string, userAgent: string): Promise<string> {
   try {
+    // Validate URL format first
+    const urlObj = new URL(url);
+    
+    // Pre-flight DNS check with timeout
+    try {
+      const dns = await import('dns');
+      const { promisify } = await import('util');
+      const resolve4 = promisify(dns.resolve4);
+      
+      await Promise.race([
+        resolve4(urlObj.hostname),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('DNS timeout')), 2000))
+      ]);
+    } catch (dnsError) {
+      throw new Error(`DNS resolution failed for ${urlObj.hostname}: ${dnsError instanceof Error ? dnsError.message : 'Unknown DNS error'}`);
+    }
+    
     // Add random delay between 1-3 seconds
     const delay = 1000 + Math.random() * 2000;
     await new Promise(resolve => setTimeout(resolve, delay));
@@ -351,7 +381,9 @@ async function fetchHtml(url: string, userAgent: string): Promise<string> {
     return response.data;
   } catch (error) {
     if (axios.isAxiosError(error)) {
-      throw new Error(`HTTP ${error.response?.status || 'unknown'}: ${error.message}`);
+      const errorCode = error.code || 'UNKNOWN';
+      const status = error.response?.status || 'unknown';
+      throw new Error(`[${errorCode}] HTTP ${status}: ${error.message} - URL: ${url}`);
     }
     throw error;
   }
