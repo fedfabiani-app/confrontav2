@@ -259,6 +259,54 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
 
     $('script, style, nav, header, footer, iframe, noscript').remove();
 
+    // Special handling for Marie Claire - single page with all signs
+    if (url.includes('marieclaire.it')) {
+      console.log(`Marie Claire - Extracting content for ${input.signSlugIt}`);
+      
+      const signMap: Record<string, string> = {
+        'Ariete': 'ariete', 'Toro': 'toro', 'Gemelli': 'gemelli', 'Cancro': 'cancro',
+        'Leone': 'leone', 'Vergine': 'vergine', 'Bilancia': 'bilancia', 'Scorpione': 'scorpione',
+        'Sagittario': 'sagittario', 'Capricorno': 'capricorno', 'Acquario': 'acquario', 'Pesci': 'pesci'
+      };
+
+      const signId = signMap[input.signSlugIt] || input.signSlugIt.toLowerCase();
+      
+      // Find the h2 heading for this sign (e.g., <h2 id="toro">)
+      const signHeading = $(`h2#${signId}, h2:contains("${input.signSlugIt}")`).first();
+      
+      if (signHeading.length > 0) {
+        let extractedContent = '';
+        
+        // Get all siblings after the heading until the next h2
+        let currentElement = signHeading.next();
+        
+        while (currentElement.length > 0 && currentElement.prop('tagName') !== 'H2') {
+          if (currentElement.is('p')) {
+            const text = currentElement.text().trim();
+            if (text.length > 0 && !text.startsWith('La tip karmica:')) {
+              extractedContent += text + '\n\n';
+            } else if (text.startsWith('La tip karmica:')) {
+              // Extract the karmic tip separately
+              extractedContent += text + '\n\n';
+            }
+          }
+          currentElement = currentElement.next();
+        }
+        
+        if (extractedContent.trim().length > 50) {
+          console.log(`Marie Claire - Successfully extracted ${extractedContent.length} chars for ${input.signSlugIt}`);
+          return {
+            success: true,
+            text: extractedContent.trim().substring(0, 3500),
+            url
+          };
+        }
+      }
+      
+      console.log(`Marie Claire - Failed to find content for ${input.signSlugIt}`);
+    }
+
+    // Generic extraction for other sources
     let bestContent = '';
     let highestScore = 0;
 
