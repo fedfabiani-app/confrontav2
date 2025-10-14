@@ -572,7 +572,14 @@ function SignDetail({ sign }: SignDetailProps) {
   return (
     <div className="min-h-screen text-foreground">
       {/* Header */}
-      <header className="bg-card border-b border-border sticky top-0 z-40">
+      <header className="sticky top-0 z-40 border-b" 
+        style={{
+          background: 'rgba(30, 20, 64, 0.6)',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)', // Per Safari
+          borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+        }}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-3">
@@ -581,6 +588,7 @@ function SignDetail({ sign }: SignDetailProps) {
                 size="sm"
                 onClick={() => navigate("/")}
                 data-testid="button-back"
+                className="text-white hover:bg-white/20 border border-white/30"
               >
                 <ArrowLeft className="w-4 h-4" />
               </Button>
@@ -593,10 +601,10 @@ function SignDetail({ sign }: SignDetailProps) {
                   </span>
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-card-foreground">
+                  <h1 className="text-xl font-bold text-white">
                     {currentSign.name_italian}
                   </h1>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-gray-300">
                     {currentSign.date_range}
                   </p>
                 </div>
@@ -615,7 +623,7 @@ function SignDetail({ sign }: SignDetailProps) {
               onClick={() => setViewType("daily")}
               className={`flex-1 py-2 px-6 rounded-full font-medium transition-all ${
                 viewType === "daily"
-                  ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-md"
+                  ? "bg-[#E1B64E] dark:bg-gray-700 text-gray-900 dark:text-white shadow-md"
                   : "text-gray-600 dark:text-gray-400"
               }`}
               data-testid="button-daily-view"
@@ -626,7 +634,7 @@ function SignDetail({ sign }: SignDetailProps) {
               onClick={() => setViewType("weekly")}
               className={`flex-1 py-2 px-6 rounded-full font-medium transition-all ${
                 viewType === "weekly"
-                  ? "bg-orange-500 text-white shadow-md"
+                  ? "bg-[#E1B64E] dark:bg-gray-700 text-gray-900 dark:text-white shadow-md"
                   : "text-gray-600 dark:text-gray-400"
               }`}
               data-testid="button-weekly-view"
@@ -634,7 +642,6 @@ function SignDetail({ sign }: SignDetailProps) {
               Settimanale
             </button>
           </div>
-
           {/* Date Selector for Daily View */}
           {viewType === "daily" && (
             <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>

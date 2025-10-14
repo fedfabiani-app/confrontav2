@@ -227,16 +227,23 @@ export default function Home() {
   return (
     <div className="min-h-screen text-foreground">
       {/* Header */}
-      <header className="bg-card border-b border-border sticky top-0 z-40">
+      <header className="sticky top-0 z-40 border-b" 
+        style={{
+          background: 'rgba(30, 20, 64, 0.6)',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)', // Per Safari
+          borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+        }}
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-3">
               <img src={iconImage} alt="Logo" className="w-12 h-12" />
               <div>
-                <h1 className="text-xl font-bold text-[#382b61]">
+                <h1 className="text-xl font-bold text-white">
                   Confronta Oroscopo
                 </h1>
-                <p className="text-xs font-bold text-muted-foreground">
+                <p className="text-xs font-bold text-gray-300">
                   Tutti gli Oroscopi, una sola App
                 </p>
               </div>
@@ -246,9 +253,9 @@ export default function Home() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         {/* Date Selector */}
-        <div className="mb-8 flex justify-center">
+        <div className="mb-4 flex justify-center">
           <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
             <PopoverTrigger asChild>
               <button
@@ -280,21 +287,6 @@ export default function Home() {
               />
             </PopoverContent>
           </Popover>
-        </div>
-
-        {/* Refresh Button */}
-        <div className="mb-8 flex justify-center">
-          <Button
-            onClick={() => refreshAllMutation.mutate()}
-            disabled={isRefreshing}
-            className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-lg hover:shadow-xl transition-all"
-            data-testid="button-refresh-all"
-          >
-            <RefreshCw
-              className={`w-4 h-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
-            />
-            Aggiorna Tutti i Dati
-          </Button>
         </div>
 
         {/* Favorites Section */}
@@ -373,6 +365,21 @@ export default function Home() {
               ))}
           </div>
         )}
+
+        {/* Refresh Button */}
+        <div className="mt-8 mb-8 flex justify-center">
+          <Button
+            onClick={() => refreshAllMutation.mutate()}
+            disabled={isRefreshing}
+            className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-lg hover:shadow-xl transition-all"
+            data-testid="button-refresh-all"
+          >
+            <RefreshCw
+              className={`w-4 h-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
+            />
+            Aggiorna Tutti i Dati
+          </Button>
+        </div>
       </main>
 
       {/* Loading Overlay */}
