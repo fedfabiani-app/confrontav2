@@ -109,12 +109,24 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
       const text = $(elem).text();
       
       if (href && href.includes('oroscopo') && href.includes('settimana')) {
-        const fullText = href + ' ' + text;
-        const dateRange = parseItalianWeekRange(fullText, currentYear);
+        // Extract date from URL path: /2025/10/11/news/...
+        const urlDateMatch = href.match(/\/(\d{4})\/(\d{2})\/(\d{2})\//);
         
-        if (dateRange) {
+        if (urlDateMatch) {
+          const urlYear = parseInt(urlDateMatch[1]);
+          const urlMonth = parseInt(urlDateMatch[2]);
+          const urlDay = parseInt(urlDateMatch[3]);
+          const urlDate = new Date(urlYear, urlMonth - 1, urlDay);
+          
+          // Repubblica publishes on Saturday, so this is the week start
+          const dateRange = {
+            startDate: urlDate,
+            endDate: new Date(urlDate.getTime() + 6 * 24 * 60 * 60 * 1000) // +6 days
+          };
+          
           const absoluteUrl = href.startsWith('http') ? href : 'https://d.repubblica.it' + href;
           candidates.push({ url: absoluteUrl, dateRange });
+          console.log(`Found Repubblica URL: ${absoluteUrl} => ${urlDate.toISOString().split('T')[0]}`);
         }
       }
     });
