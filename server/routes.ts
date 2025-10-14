@@ -827,10 +827,7 @@ function createWeeklyScraperInput(source: any, zodiacSign: any, weekStartDateISO
   const isSaturdayBased = source.domain.includes('repubblica.it');
   const useNumericMonth = source.domain.includes('repubblica.it');
   
-  // Get the Saturday for this week (Repubblica's week start)
-  const actualWeekStart = isSaturdayBased ? new Date(weekStartDate) : weekStartDate;
-  
-  const { startDay, endDay, month, year } = formatWeekUrlParams(actualWeekStart, isSaturdayBased, useNumericMonth);
+  const { startDay, endDay, month, year } = formatWeekUrlParams(weekStartDate, isSaturdayBased, useNumericMonth);
 
   return {
     sourceId: source.id,

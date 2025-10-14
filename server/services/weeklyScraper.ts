@@ -345,12 +345,13 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
 
     // Special handling for Repubblica - single page with all signs
     if (url.includes('repubblica.it')) {
-      console.log(`Repubblica - Extracting content for ${input.signSlugIt}`);
+      console.log(`Repubblica - Extracting content for ${input.signSlugIt} from URL: ${url}`);
       
       // Find the h2 heading for this sign
       const signHeading = $(`h2:contains("${input.signSlugIt}")`).first();
       
       if (signHeading.length > 0) {
+        console.log(`Repubblica - Found heading for ${input.signSlugIt}`);
         let extractedContent = '';
         
         // Get all paragraphs after the heading until the next h2
@@ -376,7 +377,7 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
         }
       }
       
-      console.log(`Repubblica - Failed to find content for ${input.signSlugIt}`);
+      console.log(`Repubblica - Failed to find heading or content for ${input.signSlugIt}`);
     }
 
     // Generic extraction for other sources
