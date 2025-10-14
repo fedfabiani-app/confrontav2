@@ -206,6 +206,7 @@ function SignDetail({ sign }: SignDetailProps) {
   // Helper function to format date in Italian
   const formatDate = (date: Date): string => {
     return date.toLocaleDateString('it-IT', {
+      weekday: 'long',
       year: 'numeric',
       month: 'long',
       day: 'numeric',
