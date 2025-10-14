@@ -19,10 +19,18 @@ export function getMondayOfWeek(date: Date): Date {
  */
 export function getSaturdayOfWeek(date: Date): Date {
   const d = new Date(date);
-  const day = d.getDay();
-  // Saturday is day 6, if we're on Saturday keep it, otherwise go back
-  const diff = d.getDate() - day + (day === 0 ? -1 : 6);
-  return new Date(d.setDate(diff));
+  const day = d.getDay(); // 0 = Sunday, 6 = Saturday
+  
+  // Calculate days to subtract/add to get to Saturday
+  // If today is Saturday (6), diff = 0
+  // If today is Sunday (0), diff = -1 (go back to yesterday's Saturday)
+  // If today is Monday (1), diff = -2 (go back to Saturday)
+  // etc.
+  const diff = day === 6 ? 0 : (day === 0 ? -1 : -(day + 1));
+  
+  const saturday = new Date(d);
+  saturday.setDate(d.getDate() + diff);
+  return saturday;
 }
 
 /**
