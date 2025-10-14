@@ -76,7 +76,7 @@ export function getCurrentWeekMonday(): string {
 /**
  * Format date components for weekly URL patterns
  */
-export function formatWeekUrlParams(weekStartDate: Date, isSaturdayBased: boolean = false): {
+export function formatWeekUrlParams(weekStartDate: Date, isSaturdayBased: boolean = false, useNumericMonth: boolean = false): {
   startDay: string;
   endDay: string;
   month: string;
@@ -102,15 +102,16 @@ export function formatWeekUrlParams(weekStartDate: Date, isSaturdayBased: boolea
     end = weekDates.end;
   }
   
-  // Use Italian month name instead of number for sources that require it
-  const monthIndex = end.getMonth();
-  const italianMonthName = ITALIAN_MONTH_NAMES[monthIndex];
+  const monthIndex = start.getMonth();
+  const monthValue = useNumericMonth 
+    ? (monthIndex + 1).toString().padStart(2, '0')  // Numeric format: "10" for October
+    : ITALIAN_MONTH_NAMES[monthIndex];               // Italian name: "ottobre"
   
   return {
-    startDay: start.getDate().toString(),
-    endDay: end.getDate().toString(),
-    month: italianMonthName,
-    year: end.getFullYear().toString()
+    startDay: start.getDate().toString().padStart(2, '0'),
+    endDay: end.getDate().toString().padStart(2, '0'),
+    month: monthValue,
+    year: start.getFullYear().toString()
   };
 }
 
