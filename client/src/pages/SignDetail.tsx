@@ -261,7 +261,7 @@ function SignDetail({ sign }: SignDetailProps) {
 
     const shareData = {
       title: `Oroscopo ${zodiacSign?.name_italian} - ${displayDate}`,
-      text: `Scopri l'oroscopo di oggi per ${zodiacSign?.name_italian} da fonti multiple italiane`,
+      text: `Scopri l'oroscopo di oggi per ${zodiacSign?.name_italian} su Confronta Oroscopo`,
       url: currentUrl
     };
 
@@ -608,7 +608,7 @@ function SignDetail({ sign }: SignDetailProps) {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Daily/Weekly Toggle Selector */}
-        <div className="flex flex-col items-center mb-6 space-y-4">
+        <div className="flex flex-col items-center mb-4 space-y-4">
           <div className="inline-flex bg-gray-200 dark:bg-gray-800 rounded-full p-1 w-full max-w-md">
             <button
               onClick={() => setViewType("daily")}
@@ -642,7 +642,7 @@ function SignDetail({ sign }: SignDetailProps) {
                   className="bg-white dark:bg-gray-800 rounded-full px-6 py-3 flex items-center gap-3 shadow-md hover:shadow-lg transition-shadow border border-gray-200 dark:border-gray-700 min-w-[320px] justify-center"
                   data-testid="date-selector-daily"
                 >
-                  <CalendarDays className="w-5 h-5 text-orange-500" />
+                  <CalendarDays className="w-5 h-5 text-[#E1B64E]" />
                   <span className="font-medium text-gray-900 dark:text-gray-100">
                     {formatDate(selectedDate)}
                   </span>
@@ -675,7 +675,7 @@ function SignDetail({ sign }: SignDetailProps) {
                   className="bg-white dark:bg-gray-800 rounded-full px-6 py-3 flex items-center gap-3 shadow-md hover:shadow-lg transition-shadow border border-gray-200 dark:border-gray-700"
                   data-testid="date-selector-weekly"
                 >
-                  <CalendarDays className="w-5 h-5 text-orange-500" />
+                  <CalendarDays className="w-5 h-5 text-[#E1B64E]" />
                   <span className="font-medium text-gray-900 dark:text-gray-100">
                     Settimana: {weekRangeText}
                   </span>
@@ -780,10 +780,7 @@ function SignDetail({ sign }: SignDetailProps) {
         {/* Individual Source Cards */}
         {!((viewType === "daily" ? horoscopesLoading : weeklyHoroscopesLoading)) &&
          (viewType === "daily" ? horoscopes : weeklyHoroscopes).length > 0 && (
-              <div className="space-y-4 mb-8">
-                <h2 className="text-xl font-semibold text-[#E1B64E] mb-4 text-center">
-                  {viewType === "daily" ? "Tutti gli Oroscopi di oggi" : "Tutti gli Oroscopi della settimana"}
-                </h2>
+              <div className="space-y-4 mb-8">                
           {(() => {
             // First sort alphabetically, then reorder to pin favorites
             const currentHoroscopes = viewType === "daily" ? horoscopes : weeklyHoroscopes;
@@ -998,7 +995,7 @@ function SignDetail({ sign }: SignDetailProps) {
     />
 
     {/* Bottom spacing for mobile navigation */}
-    <div className="h-20 md:h-0"></div>
+    <div className="h-5 md:h-0"></div>
   </div>
 );
 }

@@ -255,7 +255,7 @@ export default function Home() {
                 className="bg-white dark:bg-gray-800 rounded-full px-6 py-3 flex items-center gap-3 shadow-md hover:shadow-lg transition-shadow border border-gray-200 dark:border-gray-700 min-w-[280px] justify-center"
                 data-testid="date-selector-trigger"
               >
-                <CalendarDays className="w-5 h-5 text-orange-500" />
+                <CalendarDays className="w-5 h-5 text-[#E1B64E]" />
                 <span className="font-medium text-gray-900 dark:text-gray-100">
                   {formatDate(selectedDate)}
                 </span>
@@ -265,7 +265,7 @@ export default function Home() {
               <div className="p-3 border-b border-border">
                 <h4 className="text-sm font-medium">Seleziona Data</h4>
                 <p className="text-xs text-muted-foreground">
-                  Ultimi 90 giorni disponibili
+                  Ultimi 60 giorni disponibili
                 </p>
               </div>
               <Calendar
@@ -386,7 +386,7 @@ export default function Home() {
       />
 
       {/* Bottom spacing for mobile navigation */}
-      <div className="h-20 md:h-0"></div>
+      <div className="h-5 md:h-0"></div>
     </div>
   );
 }

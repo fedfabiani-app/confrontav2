@@ -10,7 +10,7 @@ import NotFound from "@/pages/not-found";
 
 function Footer() {
   return (
-    <footer className="w-full py-6 mt-8 text-center">
+    <footer className="w-full py-3 mt-4 text-center">
       <Link href="/info">
         <a 
           className="text-white hover:text-gray-300 transition-colors text-sm"
