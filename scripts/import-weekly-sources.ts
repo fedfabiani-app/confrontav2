@@ -8,7 +8,7 @@ async function importWeeklySources() {
   try {
     // Read CSV file
     const csvContent = readFileSync('attached_assets/weekly_sources_1760349499558.csv', 'utf-8');
-    
+
     // Parse CSV
     const records = parse(csvContent, {
       columns: true,
@@ -46,6 +46,7 @@ async function importWeeklySources() {
           logo_url: record.logo_url || null,
           base_url: record.base_url,
           url_pattern: record.url_pattern,
+          scrape_strategy: record.scrape_strategy,
           reliability_score: record.reliability_score,
           is_active: record.is_active,
           created_at: record.created_at,
