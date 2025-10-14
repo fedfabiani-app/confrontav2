@@ -41,7 +41,19 @@ export default function Home() {
     total: 0,
   });
   const [refreshDismissed, setRefreshDismissed] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  // Initialize selectedDate from URL parameter if present
+  const [selectedDate, setSelectedDate] = useState<Date>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const dateParam = params.get('date');
+    if (dateParam) {
+      const parsed = new Date(dateParam);
+      if (!isNaN(parsed.getTime())) {
+        return parsed;
+      }
+    }
+    return new Date();
+  });
+  
   const [calendarOpen, setCalendarOpen] = useState(false);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -178,7 +190,8 @@ export default function Home() {
   });
 
   const handleSignClick = (signName: string) => {
-    navigate(`/sign/${signName}`);
+    const dateParam = selectedDate.toLocaleDateString('en-CA');
+    navigate(`/sign/${signName}?date=${dateParam}`);
   };
 
   const formatDate = (date: Date) => {
@@ -194,6 +207,11 @@ export default function Home() {
     if (date) {
       setSelectedDate(date);
       setCalendarOpen(false);
+      
+      // Update URL with new date
+      const dateParam = date.toLocaleDateString('en-CA');
+      window.history.replaceState({}, '', `/?date=${dateParam}`);
+      
       // Invalidate queries to fetch new data for selected date
       queryClient.invalidateQueries({
         queryKey: ["/api/horoscopes/aggregates"],

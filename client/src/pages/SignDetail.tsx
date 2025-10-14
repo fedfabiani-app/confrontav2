@@ -192,7 +192,20 @@ function SignDetail({ sign }: SignDetailProps) {
 
   // Daily/Weekly view state
   const [viewType, setViewType] = useState<"daily" | "weekly">("daily");
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  
+  // Initialize selectedDate from URL parameter if present
+  const [selectedDate, setSelectedDate] = useState<Date>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const dateParam = params.get('date');
+    if (dateParam) {
+      const parsed = new Date(dateParam);
+      if (!isNaN(parsed.getTime())) {
+        return parsed;
+      }
+    }
+    return new Date();
+  });
+  
   const [calendarOpen, setCalendarOpen] = useState(false);
 
   // Helper function to get Monday of current week
@@ -298,6 +311,12 @@ function SignDetail({ sign }: SignDetailProps) {
     if (date) {
       setSelectedDate(date);
       setCalendarOpen(false);
+      
+      // Update URL with new date
+      const dateParam = date.toLocaleDateString('en-CA');
+      const newUrl = `/sign/${sign}?date=${dateParam}`;
+      window.history.replaceState({}, '', newUrl);
+      
       // Invalidate queries to fetch new data for selected date
       if (viewType === "daily") {
         queryClient.invalidateQueries({ queryKey: ["/api/horoscopes", today, sign] });
@@ -586,7 +605,10 @@ function SignDetail({ sign }: SignDetailProps) {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate("/")}
+                onClick={() => {
+                  const dateParam = selectedDate.toLocaleDateString('en-CA');
+                  navigate(`/?date=${dateParam}`);
+                }}
                 data-testid="button-back"
                 className="text-white hover:bg-white/20 border border-white/30"
               >
