@@ -204,11 +204,13 @@ export async function scrapeWeeklyHoroscope(input: WeeklyScraperInput): Promise<
 }
 
 async function buildWeeklyHoroscopeUrl(input: WeeklyScraperInput): Promise<string> {
+  // Archive strategy - resolve from archive page
   if (input.scrapeStrategy === 'archive') {
     console.log(`Using archive strategy for ${input.sourceName}`);
     return await resolveWeeklyUrlFromArchive(input);
   }
   
+  // Pattern strategy - build URL from pattern
   const signMap: Record<string, string> = {
     'Ariete': 'ariete', 'Toro': 'toro', 'Gemelli': 'gemelli', 'Cancro': 'cancro',
     'Leone': 'leone', 'Vergine': 'vergine', 'Bilancia': 'bilancia', 'Scorpione': 'scorpione',
