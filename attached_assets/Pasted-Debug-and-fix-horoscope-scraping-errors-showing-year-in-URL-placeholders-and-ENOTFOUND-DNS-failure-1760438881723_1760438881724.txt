@@ -1,0 +1,78 @@
+Debug and fix horoscope scraping errors showing {year} in URL placeholders and ENOTFOUND DNS failures. Specifically resolve:
+
+URL Construction Errors:
+
+Replace {year} placeholder in https://d.repubblica.it/.../oroscopo_settimana_dal_11_al_17_10_{year} with actual year value
+Implement parameter validation before URL assembly
+Use ISO week calculation to determine date ranges instead of manual string formatting
+DNS Resolution Failures:
+
+Add DNS cache with TTL (dns-cache module)
+Implement domain validation before requests:
+javascript
+const isValidDomain = (url) => {
+  const domain = new URL(url).hostname;
+  return dnsPromises.resolve(domain).catch(() => false);
+};
+Use dns.resolve4() fallback for IPv4 compatibility
+Concrete URL Fixes:
+
+javascript
+// Corrected URL template - remove {year} placeholder
+const buildURL = (date) => {
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  return `https://d.repubblica.it/oroscopo/oroscopo-della-settimana/${year}/${month}/${day}/`;
+};
+Error Handling Enhancements:
+
+Add pre-flight validation:
+javascript
+const validateURL = (url) => {
+  if (url.includes('{') || url.includes('}')) 
+    throw new Error('Unreplaced placeholders in URL');
+  // Add other checks here
+};
+Implement layered fallback strategy:
+Primary URL pattern
+Archive search API
+Wayback Machine snapshot
+Sitemap extraction
+Marie Claire Fixes:
+
+Separate configuration for different sites
+Correct domain to www.marieclaire.it (remove "coolmix" artifact)
+Add site-specific URL builders
+Implement immediately:
+
+Placeholder replacement system before request
+DNS pre-check with 2s timeout
+Error categorization:
+typescript
+enum ScrapeError {
+  URL_CONSTRUCTION = 'URL_CONSTRUCTION',
+  DNS_RESOLUTION = 'DNS_RESOLUTION',
+  CONTENT_MISSING = 'CONTENT_MISSING'
+}
+Critical Debugging Steps:
+
+Add this pre-request check:
+javascript
+const safeRequest = async (url) => {
+  if (!validateURL(url)) return null;
+  
+  try {
+    await dnsPromises.lookup(new URL(url).hostname);
+    return await fetch(url);
+  } catch (err) {
+    logError(ScrapeError.DNS_RESOLUTION, url);
+    return null;
+  }
+};
+Implement parameter validation:
+javascript
+function validateDate(date) {
+  return date instanceof Date && !isNaN(date);
+}
+```"
