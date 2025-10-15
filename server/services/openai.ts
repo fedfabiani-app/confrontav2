@@ -75,7 +75,7 @@ ANALISI RICHIESTA:
 Obiettivo: condensare il RIASSUNTO in una frase incisiva che catturi il messaggio chiave e il tono, senza violare il copyright e senza citare la fonte.
 
 Regole:
-- Massimo 80 caratteri; obiettivo 60-75.
+- Massimo 80 caratteri; obiettivo 65-80.
 - Conta sempre i caratteri; fermati 5-10 caratteri prima del limite.
 - Frase completa e autonoma, chiusa con un punto.
 - Vietati riferimenti a pianeti, transiti, aspetti o congiunzioni.

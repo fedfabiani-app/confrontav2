@@ -1,0 +1,62 @@
+Problem Statement
+The scraping for https://www.marieclaire.it/ weekly horoscopes is failing because the URL contains a dynamic random number that cannot be predicted.
+
+Current Situation
+Current URL Pattern (NOT WORKING): /coolmix/{random_number}/oroscopo-settimana-di-marie-claire-dal-{start_day}-al-{end_day}-{month}/
+Example URLs:
+https://www.marieclaire.it/lifestyle/coolmix/a67983487/oroscopo-settimana-di-marie-claire-dal-6-al-12-ottobre/
+https://www.marieclaire.it/lifestyle/coolmix/a68069534/oroscopo-settimana-marie-claire-dal-13-al-19-ottobre/
+Archive Page Available: https://www.marieclaire.it/oroscopo/ (contains links to all weekly horoscopes)
+Required Solution
+Create a scraping strategy that:
+
+First, scrapes the archive page (https://www.marieclaire.it/oroscopo/) to find the correct URL for the target week
+Extracts the actual URL with the random number from the archive page
+Scrapes the weekly horoscope page which contains all 12 zodiac signs in a single article
+Page Structure Details
+Single page for all signs: One URL contains all 12 zodiac signs
+Sign identification: Each sign's section starts with an <h2> tag containing the sign name
+HTML Pattern Example:
+html
+<h2 id="toro" data-node-id="6" class="body-h2 css-b44acp emevuu60">
+  <strong data-node-id="6.0">Toro</strong>
+</h2>
+<p>Horoscope content for Toro...</p>
+Italian Zodiac Sign Names (for reference)
+Ariete, Toro, Gemelli, Cancro, Leone, Vergine, Bilancia, Scorpione, Sagittario, Capricorno, Acquario, Pesci
+Implementation Requirements
+Step 1: Archive Page Scraping
+
+Access https://www.marieclaire.it/oroscopo/
+Find the link to the most recent weekly horoscope article
+Extract the full URL including the random number (e.g., a67983487)
+Consider filtering by date range if needed to match the target week
+Step 2: Content Extraction
+
+Navigate to the extracted URL
+Parse the HTML structure
+For each zodiac sign:
+Find the <h2> tag containing the sign name
+Extract all content (paragraphs) between this <h2> and the next <h2> (or end of article)
+Map the content to the correct zodiac sign
+Step 3: Data Validation
+
+Ensure all 12 signs are found
+Verify that content is properly extracted for each sign
+Handle edge cases (missing signs, different HTML structures)
+Expected Output
+Return structured data with:
+
+Full article URL (with random number)
+Date range of the horoscope
+Content for each of the 12 zodiac signs
+Technical Considerations
+Handle dynamic content loading (may require JavaScript rendering)
+Implement proper error handling for missing elements
+Add retry logic for failed requests
+Respect robots.txt and implement rate limiting
+Questions to Answer
+What is the best selector strategy to find the current week's article on the archive page?
+How do we reliably extract content between two <h2> tags?
+Should we cache the random number for the current week to avoid repeated archive page scraping?
+How do we handle weeks where the article might not be published yet?
