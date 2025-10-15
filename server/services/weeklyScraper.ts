@@ -499,7 +499,8 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
     // Special handling for Marie Claire - single page with all signs
     if (url.includes('marieclaire.it')) {
       console.log(`Marie Claire - Extracting content for ${input.signSlugIt} from URL: ${url}`);
-
+      console.log(`Marie Claire - Page structure analysis:`);
+      
       const signMap: Record<string, string> = {
         'Ariete': 'ariete', 'Toro': 'toro', 'Gemelli': 'gemelli', 'Cancro': 'cancro',
         'Leone': 'leone', 'Vergine': 'vergine', 'Bilancia': 'bilancia', 'Scorpione': 'scorpione',
@@ -510,58 +511,73 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
       const zodiacSigns = ['ariete', 'toro', 'gemelli', 'cancro', 'leone', 'vergine',
                            'bilancia', 'scorpione', 'sagittario', 'capricorno', 'acquario', 'pesci'];
 
+      // Log all H2 elements for debugging
+      console.log(`Marie Claire - Found ${$('h2').length} H2 elements on page`);
+      $('h2').each((i, h2) => {
+        const $h2 = $(h2);
+        const id = $h2.attr('id');
+        const classes = $h2.attr('class');
+        const text = $h2.text().trim();
+        console.log(`  H2[${i}]: id="${id || 'none'}" class="${classes || 'none'}" text="${text}"`);
+      });
+
+      let signHeading = $();
+      let extractedContent = '';
+
       // Strategy 1: Find h2 with id attribute matching sign (e.g., <h2 id="toro">)
-      let signHeading = $(`h2#${signId}`).first();
+      signHeading = $(`h2#${signId}`).first();
       if (signHeading.length > 0) {
-        console.log(`Marie Claire - Found heading with id="${signId}"`);
+        console.log(`Marie Claire - Strategy 1 SUCCESS: Found heading with id="${signId}"`);
       }
 
-      // Strategy 2: Find h2 with class 'body-h2' containing the exact sign name
-      if (signHeading.length === 0) {
-        $('h2.body-h2').each((_, h2) => {
-          const $h2 = $(h2);
-          // Check text content including strong tags
-          const h2Text = $h2.text().trim();
-          const strongText = $h2.find('strong').text().trim();
-          
-          // Match exact sign name (case-insensitive, whole word)
-          const signPattern = new RegExp(`^${input.signSlugIt}$`, 'i');
-          if (signPattern.test(h2Text) || signPattern.test(strongText)) {
-            signHeading = $h2;
-            console.log(`Marie Claire - Found heading with class="body-h2" and text="${h2Text}"`);
-            return false; // Break loop
-          }
-        });
-      }
-
-      // Strategy 3: Find any h2 containing exact sign name (whole word match)
+      // Strategy 2: Find h2 with exact sign name in text or strong tag
       if (signHeading.length === 0) {
         $('h2').each((_, h2) => {
           const $h2 = $(h2);
-          const h2Text = $h2.text().trim();
+          const h2Text = $h2.text().trim().toLowerCase();
+          const strongText = $h2.find('strong').text().trim().toLowerCase();
+          const targetSign = input.signSlugIt.toLowerCase();
           
-          const signPattern = new RegExp(`^${input.signSlugIt}$`, 'i');
-          if (signPattern.test(h2Text)) {
+          if (h2Text === targetSign || strongText === targetSign) {
             signHeading = $h2;
-            console.log(`Marie Claire - Found h2 with exact text="${h2Text}"`);
+            console.log(`Marie Claire - Strategy 2 SUCCESS: Found H2 with exact match "${$h2.text().trim()}"`);
             return false; // Break loop
           }
         });
       }
 
-      if (signHeading.length > 0) {
-        let extractedContent = '';
+      // Strategy 3: Pattern matching with variations (handle capitalization, etc.)
+      if (signHeading.length === 0) {
+        const patterns = [
+          new RegExp(`^${input.signSlugIt}$`, 'i'),
+          new RegExp(`^\\s*${input.signSlugIt}\\s*$`, 'i'),
+          new RegExp(`^\\*\\*${input.signSlugIt}\\*\\*$`, 'i')
+        ];
 
-        // Traverse siblings to extract content until the next zodiac sign heading
+        $('h2, h3').each((_, heading) => {
+          const $heading = $(heading);
+          const headingText = $heading.text().trim();
+          
+          if (patterns.some(p => p.test(headingText))) {
+            signHeading = $heading;
+            console.log(`Marie Claire - Strategy 3 SUCCESS: Found heading "${headingText}"`);
+            return false;
+          }
+        });
+      }
+
+      // If we found a heading, extract content
+      if (signHeading.length > 0) {
         let currentElement = signHeading.next();
+        let paragraphCount = 0;
 
         while (currentElement.length > 0) {
           const tagName = currentElement.prop('tagName');
 
-          // Stop at next H2 with a zodiac sign name
-          if (tagName === 'H2') {
+          // Stop at next zodiac sign heading
+          if (tagName === 'H2' || tagName === 'H3') {
             const headingText = currentElement.text().trim().toLowerCase();
-            if (zodiacSigns.some(sign => headingText === sign)) {
+            if (zodiacSigns.some(sign => headingText === sign || headingText.includes(sign))) {
               console.log(`Marie Claire - Stopping at next sign: ${headingText}`);
               break;
             }
@@ -570,95 +586,120 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
           // Extract paragraph content
           if (currentElement.is('p')) {
             const text = currentElement.text().trim();
-            // Filter out navigation/metadata (case-insensitive)
-            if (text.length > 0 &&
-                !text.match(/^(leggi anche|advertisement|pubblicità|scopri|continua|condividi|la tip karmica|pubblicità\s*-\s*continua)/i)) {
+            const textLower = text.toLowerCase();
+            
+            // Enhanced filtering
+            const isNoise = textLower.startsWith('leggi anche') ||
+                           textLower.startsWith('advertisement') ||
+                           textLower.startsWith('pubblicità') ||
+                           textLower.startsWith('scopri') ||
+                           textLower.startsWith('continua') ||
+                           textLower.startsWith('condividi') ||
+                           textLower.includes('pubblicità - continua') ||
+                           textLower.match(/^la tip karmica/i) ||
+                           textLower.match(/^\[.*\]$/) ||
+                           text.length < 20;
+            
+            if (!isNoise) {
               extractedContent += text + '\n\n';
+              paragraphCount++;
             }
           }
 
           currentElement = currentElement.next();
         }
 
+        console.log(`Marie Claire - Extracted ${paragraphCount} paragraphs, ${extractedContent.length} chars`);
+
         if (extractedContent.trim().length > 50) {
-          console.log(`Marie Claire - Successfully extracted ${extractedContent.length} chars for ${input.signSlugIt}`);
           return {
             success: true,
             text: extractedContent.trim().substring(0, 3500),
             url: url
           };
-        } else {
-          console.log(`Marie Claire - Extracted content too short (${extractedContent.length} chars) for ${input.signSlugIt}, trying fallback.`);
         }
-      } else {
-        console.log(`Marie Claire - Failed to find heading for ${input.signSlugIt}, trying alternative selectors`);
       }
 
-      // Fallback 1: Try to find content in article body
-      const articleBody = $('article, .article-body, .article__body, main, [class*="article"]').first();
-      if (articleBody.length > 0) {
-        let foundSign = false;
-        let extractedContent = '';
+      // Advanced fallback: DOM traversal with context awareness
+      console.log(`Marie Claire - Trying advanced DOM analysis...`);
+      
+      const allText = $('body').text();
+      const signRegex = new RegExp(`\\b${input.signSlugIt}\\b`, 'gi');
+      const matches = [...allText.matchAll(signRegex)];
+      
+      console.log(`Marie Claire - Found ${matches.length} occurrences of "${input.signSlugIt}" in body`);
 
-        articleBody.find('p, h2, h3, h4, strong').each((_, elem) => {
-          const $elem = $(elem);
-          const text = $elem.text().trim();
+      if (matches.length > 0) {
+        // Find the main content area
+        const contentSelectors = ['article', 'main', '[class*="article"]', '[class*="content"]', '.body'];
+        
+        for (const selector of contentSelectors) {
+          const $content = $(selector).first();
+          if ($content.length === 0) continue;
 
-          // Check if this element marks the start of our sign
-          if (text.toLowerCase().includes(input.signSlugIt.toLowerCase())) {
-            const signPattern = new RegExp(`\\b${input.signSlugIt}\\b`, 'i');
-            if (signPattern.test(text)) {
-              foundSign = true;
-              extractedContent = '';
+          console.log(`Marie Claire - Analyzing ${selector} container...`);
+          
+          // Find all elements containing the sign name
+          const $allElements = $content.find('*').filter((_, el) => {
+            const text = $(el).text();
+            return signRegex.test(text);
+          });
 
-              // If the sign name is in a paragraph, include that paragraph
-              if ($elem.is('p')) {
-                extractedContent = text + '\n\n';
+          console.log(`Marie Claire - Found ${$allElements.length} elements containing sign name in ${selector}`);
+
+          // Try to find a heading-like element
+          for (let i = 0; i < $allElements.length; i++) {
+            const $el = $($allElements[i]);
+            const tagName = $el.prop('tagName');
+            const elText = $el.text().trim();
+            
+            // Is this a heading with just the sign name?
+            if (['H2', 'H3', 'H4', 'STRONG', 'B'].includes(tagName) && 
+                elText.toLowerCase() === input.signSlugIt.toLowerCase()) {
+              
+              console.log(`Marie Claire - Found sign in ${tagName}: "${elText}"`);
+              
+              // Extract following paragraphs
+              let $next = $el.parent().next();
+              let content = '';
+              let pCount = 0;
+              
+              while ($next.length > 0 && pCount < 10) {
+                if ($next.is('p')) {
+                  const pText = $next.text().trim();
+                  if (pText.length > 20 && !pText.toLowerCase().startsWith('leggi anche')) {
+                    content += pText + '\n\n';
+                    pCount++;
+                  }
+                }
+                
+                // Stop at next sign
+                const nextText = $next.text().toLowerCase();
+                if (zodiacSigns.some(sign => nextText === sign)) {
+                  break;
+                }
+                
+                $next = $next.next();
               }
-              return; // Continue to next element
+              
+              if (content.trim().length > 50) {
+                console.log(`Marie Claire - Fallback extraction successful: ${content.length} chars from ${pCount} paragraphs`);
+                return {
+                  success: true,
+                  text: content.trim().substring(0, 3500),
+                  url: url
+                };
+              }
             }
           }
-
-          if (foundSign && $elem.is('p')) {
-            extractedContent += text + '\n\n';
-          } else if (foundSign && $elem.is('h2, h3, h4, strong')) {
-            // Check if this is another zodiac sign
-            const zodiacSigns = ['ariete', 'toro', 'gemelli', 'cancro', 'leone', 'vergine',
-                                 'bilancia', 'scorpione', 'sagittario', 'capricorno', 'acquario', 'pesci'];
-            if (zodiacSigns.some(sign => text.toLowerCase().includes(sign))) {
-              return false; // Stop iteration
-            }
-          }
-        });
-
-        if (extractedContent.trim().length > 50) {
-          console.log(`Marie Claire - Extracted ${extractedContent.length} chars using fallback method`);
-          return {
-            success: true,
-            text: extractedContent.trim().substring(0, 3500),
-            url: url
-          };
         }
       }
 
-      // Fallback 2: Search entire page body for sign-specific content
-      const bodyText = $('body').text();
-      const signIndex = bodyText.toLowerCase().indexOf(input.signSlugIt.toLowerCase());
-
-      if (signIndex !== -1) {
-        // Extract 500 chars after sign name
-        const snippet = bodyText.substring(signIndex, signIndex + 500).trim();
-        if (snippet.length > 50) {
-          console.log(`Marie Claire - Extracted ${snippet.length} chars from body text search`);
-          return {
-            success: true,
-            text: snippet.substring(0, 3500),
-            url: url,
-            actualUrl: url
-          };
-        }
-      }
-      console.log(`Marie Claire - Failed to find content for ${input.signSlugIt} after multiple attempts.`);
+      console.log(`Marie Claire - All extraction strategies failed for ${input.signSlugIt}`);
+      return {
+        success: false,
+        error: `Could not extract content for ${input.signSlugIt} from Marie Claire page`
+      };
     }
 
     // Special handling for Repubblica - single page with all signs
