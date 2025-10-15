@@ -1,21 +1,168 @@
 import { WeeklyScraperInput, WeeklyScraperOutput } from '@shared/schema';
 import { scrapeWeeklyWithRetry } from '../services/weeklyScraper';
+import axios from 'axios';
+import * as cheerio from 'cheerio';
 
 export class WeeklyScraperWorker {
   async process(input: WeeklyScraperInput): Promise<WeeklyScraperOutput> {
     console.log(`[WeeklyScraperWorker] Processing ${input.sourceName} - ${input.signSlugIt} for week starting ${input.weekStartDate}`);
+    console.log(`[WeeklyScraperWorker] Base URL: ${input.baseUrl}`);
+    console.log(`[WeeklyScraperWorker] URL Pattern: ${input.urlPattern}`);
 
     try {
-      const result = await scrapeWeeklyWithRetry(input, 3);
+      let modifiedInput = { ...input };
 
-      console.log(`[WeeklyScraperWorker] ✓ Successfully scraped ${input.sourceName} - ${input.signSlugIt}`);
-      console.log(`[WeeklyScraperWorker] ✓ Stored URL: ${result.original_url}`);
-      console.log(`[WeeklyScraperWorker] ✓ Content: ${result.extracted_text.length} chars`);
+      // Check if this is Marie Claire
+      const isMarieClair = input.sourceName.toLowerCase().includes('marie') || 
+                           input.domain.includes('marieclaire.it') ||
+                           input.baseUrl.includes('marieclaire.it');
+
+      if (isMarieClair) {
+        console.log('[WeeklyScraperWorker] Detected Marie Claire source, resolving URL...');
+        const resolvedUrl = await this.resolveMarieClairUrl(input.weekStartDate);
+
+        if (resolvedUrl) {
+          console.log(`[WeeklyScraperWorker] Resolved URL: ${resolvedUrl}`);
+          // Sostituisci baseUrl con l'URL completo dell'articolo
+          modifiedInput = { 
+            ...input, 
+            baseUrl: resolvedUrl,
+            urlPattern: '' // Pattern vuoto perché abbiamo già l'URL completo
+          };
+        } else {
+          console.warn('[WeeklyScraperWorker] Could not resolve URL from archive, trying fallback...');
+          const fallbackUrl = await this.findMarieClairUrlFromLifestyle();
+
+          if (fallbackUrl) {
+            console.log(`[WeeklyScraperWorker] Found fallback URL: ${fallbackUrl}`);
+            modifiedInput = { 
+              ...input, 
+              baseUrl: fallbackUrl,
+              urlPattern: ''
+            };
+          } else {
+            throw new Error('Could not find valid Marie Claire horoscope URL');
+          }
+        }
+      }
+
+      console.log(`[WeeklyScraperWorker] Final URL to scrape: ${modifiedInput.baseUrl}`);
+
+      const result = await scrapeWeeklyWithRetry(modifiedInput, 3);
+
+      console.log(`[WeeklyScraperWorker] Successfully scraped ${input.sourceName} - ${input.signSlugIt}`);
+      console.log(`[WeeklyScraperWorker] Stored URL: ${result.original_url}`);
 
       return result;
     } catch (error) {
       console.error(`[WeeklyScraperWorker] Failed to scrape ${input.sourceName} - ${input.signSlugIt}:`, error);
       throw error;
+    }
+  }
+
+  private async resolveMarieClairUrl(weekStartDate: string): Promise<string | null> {
+    try {
+      console.log('[MarieClair] Fetching archive page...');
+
+      const response = await axios.get('https://www.marieclaire.it/oroscopo/', {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'it-IT,it;q=0.9'
+        },
+        timeout: 15000
+      });
+
+      console.log(`[MarieClair] Response status: ${response.status}`);
+
+      const $ = cheerio.load(response.data);
+      const urls: string[] = [];
+
+      $('a').each((_, element) => {
+        const href = $(element).attr('href');
+
+        if (href && href.includes('oroscopo-settimana') && href.includes('/lifestyle/coolmix/a')) {
+          const fullUrl = href.startsWith('http') ? href : `https://www.marieclaire.it${href}`;
+
+          if (!urls.includes(fullUrl)) {
+            urls.push(fullUrl);
+          }
+        }
+      });
+
+      console.log(`[MarieClair] Found ${urls.length} horoscope URLs`);
+
+      if (urls.length > 0) {
+        // Ordina per ID più alto (più recente)
+        urls.sort((a, b) => {
+          const matchA = a.match(/\/a(\d+)\//);
+          const matchB = b.match(/\/a(\d+)\//);
+          const idA = matchA ? parseInt(matchA[1]) : 0;
+          const idB = matchB ? parseInt(matchB[1]) : 0;
+          return idB - idA;
+        });
+
+        console.log(`[MarieClair] Selected most recent: ${urls[0]}`);
+        return urls[0];
+      }
+
+      console.warn('[MarieClair] No URLs found in archive');
+      return null;
+    } catch (error) {
+      console.error('[MarieClair] Error resolving URL:', error);
+      return null;
+    }
+  }
+
+  private async findMarieClairUrlFromLifestyle(): Promise<string | null> {
+    try {
+      console.log('[MarieClair] Trying lifestyle page...');
+
+      const response = await axios.get('https://www.marieclaire.it/lifestyle/coolmix/', {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+        },
+        timeout: 15000
+      });
+
+      const $ = cheerio.load(response.data);
+      const urls: string[] = [];
+
+      $('a').each((_, element) => {
+        const href = $(element).attr('href');
+        const text = $(element).text().toLowerCase();
+
+        if (href && 
+            (href.includes('oroscopo-settimana') || text.includes('oroscopo')) &&
+            href.includes('/lifestyle/coolmix/a')) {
+          const fullUrl = href.startsWith('http') ? href : `https://www.marieclaire.it${href}`;
+
+          if (!urls.includes(fullUrl)) {
+            urls.push(fullUrl);
+          }
+        }
+      });
+
+      console.log(`[MarieClair] Found ${urls.length} URLs in lifestyle`);
+
+      if (urls.length > 0) {
+        urls.sort((a, b) => {
+          const matchA = a.match(/\/a(\d+)\//);
+          const matchB = b.match(/\/a(\d+)\//);
+          const idA = matchA ? parseInt(matchA[1]) : 0;
+          const idB = matchB ? parseInt(matchB[1]) : 0;
+          return idB - idA;
+        });
+
+        console.log(`[MarieClair] Selected: ${urls[0]}`);
+        return urls[0];
+      }
+
+      return null;
+    } catch (error) {
+      console.error('[MarieClair] Error in fallback:', error);
+      return null;
     }
   }
 }

@@ -358,6 +358,21 @@ async function buildWeeklyHoroscopeUrl(input: WeeklyScraperInput): Promise<strin
     return await resolveWeeklyUrlFromArchive(input);
   }
 
+  // MARIE CLAIRE SPECIFIC: Check if this is Marie Claire and resolve dynamically
+  if (input.domain.includes('marieclaire.it') || input.baseUrl.includes('marieclaire.it')) {
+    console.log(`Detected Marie Claire - checking if URL needs resolution`);
+
+    // If baseUrl already contains a full article URL pattern, use it
+    if (input.baseUrl.match(/\/a\d+\/oroscopo-settimana/)) {
+      console.log(`Using pre-resolved Marie Claire URL: ${input.baseUrl}`);
+      return input.baseUrl;
+    }
+
+    // Otherwise, resolve it from the archive page
+    console.log(`Resolving Marie Claire URL from archive...`);
+    return await resolveWeeklyUrlFromArchive(input);
+  }
+
   // Pattern strategy - build URL from pattern
   const signMap: Record<string, string> = {
     'Ariete': 'ariete', 'Toro': 'toro', 'Gemelli': 'gemelli', 'Cancro': 'cancro',
@@ -368,8 +383,7 @@ async function buildWeeklyHoroscopeUrl(input: WeeklyScraperInput): Promise<strin
   let url = input.baseUrl + input.urlPattern;
   const signSlug = signMap[input.signSlugIt] || input.signSlugIt.toLowerCase();
 
-  // Replace all placeholders - CRITICAL: replace longer patterns first to avoid partial replacements
-  // Order matters! {week_start_day} must be replaced before {start_day}
+  // Replace all placeholders
   url = url.replace(/{week_start_day}/g, input.startDay);
   url = url.replace(/{week_end_day}/g, input.endDay);
   url = url.replace(/{week_end_month}/g, input.month);
@@ -626,7 +640,7 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
 
       const allText = $('body').text();
       const signRegex = new RegExp(`\\b${input.signSlugIt}\\b`, 'gi');
-      const matches = [...allText.matchAll(signRegex)];
+      const matches = Array.from(allText.matchAll(signRegex));
 
       console.log(`Marie Claire - Found ${matches.length} occurrences of "${input.signSlugIt}" in body`);
 
@@ -648,22 +662,25 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
 
           console.log(`Marie Claire - Found ${$allElements.length} elements containing sign name in ${selector}`);
 
-          // Try to find a heading-like element
-          for (let i = 0; i < $allElements.length; i++) {
-            const $el = $($allElements[i]);
-            const tagName = $el.prop('tagName');
-            const elText = $el.text().trim();
+              // Try to find a heading-like element
+              for (let i = 0; i < $allElements.length; i++) {
+                const $el = $($allElements[i]);
+                const tagName = $el.prop('tagName') as string | undefined;
+                const elText = $el.text().trim();
 
-            // Is this a heading with just the sign name?
-            if (['H2', 'H3', 'H4', 'STRONG', 'B'].includes(tagName) &&
-                elText.toLowerCase() === input.signSlugIt.toLowerCase()) {
+                // Skip if tagName is undefined
+                if (!tagName) continue;
 
-              console.log(`Marie Claire - Found sign in ${tagName}: "${elText}"`);
+                // Is this a heading with just the sign name?
+                if (['H2', 'H3', 'H4', 'STRONG', 'B'].includes(tagName) &&
+                    elText.toLowerCase() === input.signSlugIt.toLowerCase()) {
 
-              // Extract following paragraphs
-              let $next = $el.parent().next();
-              let content = '';
-              let pCount = 0;
+                  console.log(`Marie Claire - Found sign in ${tagName}: "${elText}"`);
+
+                  // Extract following paragraphs
+                  let $next = $el.parent().next();
+                  let content = '';
+                  let pCount = 0;
 
               while ($next.length > 0 && pCount < 10) {
                 if ($next.is('p')) {
