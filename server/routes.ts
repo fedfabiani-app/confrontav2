@@ -711,6 +711,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // POST /api/cleanup - Manual cleanup endpoint
+  app.post("/api/cleanup", async (req, res) => {
+    try {
+      const { cleanupService } = await import('./services/cleanup');
+      
+      const statsBefore = await cleanupService.getDataStats();
+      console.log('[API] Data stats before cleanup:', statsBefore);
+      
+      await cleanupService.cleanupHoroscopeData();
+      
+      const statsAfter = await cleanupService.getDataStats();
+      console.log('[API] Data stats after cleanup:', statsAfter);
+      
+      res.json({
+        success: true,
+        message: 'Cleanup completed successfully',
+        statsBefore,
+        statsAfter,
+      });
+    } catch (error) {
+      console.error('[API] Cleanup error:', error);
+      res.status(500).json({
+        error: 'Failed to cleanup data',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // GET /api/cleanup/stats - Get data statistics
+  app.get("/api/cleanup/stats", async (req, res) => {
+    try {
+      const { cleanupService } = await import('./services/cleanup');
+      const stats = await cleanupService.getDataStats();
+      res.json(stats);
+    } catch (error) {
+      console.error('[API] Error fetching cleanup stats:', error);
+      res.status(500).json({
+        error: 'Failed to fetch stats',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
