@@ -610,9 +610,9 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
           currentElement = currentElement.next();
         }
 
-        console.log(`Marie Claire - Extracted ${paragraphCount} paragraphs, ${extractedContent.length} chars`);
-
         if (extractedContent.trim().length > 50) {
+          console.log(`Marie Claire - ✓ Extracted ${paragraphCount} paragraphs, ${extractedContent.length} chars`);
+          console.log(`Marie Claire - ✓ Returning URL: ${url}`);
           return {
             success: true,
             text: extractedContent.trim().substring(0, 3500),
@@ -744,7 +744,7 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
             const text = currentElement.text().trim();
             // Filter out navigation/metadata text
             if (text.length > 0 &&
-                !text.match(/^(pubblicato|condividi|leggi anche|illustrazione|share|ti potrebbe piacere|iscriviti)/i) &&
+                !text.match(/^(pubblicato|condividi|leggi anche|share|ti potrebbe piacere|iscriviti)/i) &&
                 !text.match(/^(musica:|[\d]{2}\/[\d]{2}\/[\d]{4})/i)) {
               extractedContent += text + '\n\n';
             }
