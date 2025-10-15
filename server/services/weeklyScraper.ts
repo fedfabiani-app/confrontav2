@@ -507,64 +507,72 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
       };
 
       const signId = signMap[input.signSlugIt] || input.signSlugIt.toLowerCase();
+      const zodiacSigns = ['ariete', 'toro', 'gemelli', 'cancro', 'leone', 'vergine',
+                           'bilancia', 'scorpione', 'sagittario', 'capricorno', 'acquario', 'pesci'];
 
-      // Strategy 1: Find h2 with id attribute (e.g., <h2 id="toro">)
+      // Strategy 1: Find h2 with id attribute matching sign (e.g., <h2 id="toro">)
       let signHeading = $(`h2#${signId}`).first();
+      if (signHeading.length > 0) {
+        console.log(`Marie Claire - Found heading with id="${signId}"`);
+      }
 
-      // Strategy 2: Find h2 containing exact sign name (case-insensitive)
+      // Strategy 2: Find h2 with class 'body-h2' containing the exact sign name
       if (signHeading.length === 0) {
-        $('h2').each((_, h2) => {
-          const h2Text = $(h2).text().trim();
-
-          // Check if H2 contains sign name (with or without strong tags)
-          if (h2Text.toLowerCase().includes(input.signSlugIt.toLowerCase())) {
-            // Verify it's an exact match (not part of another word)
-            const signPattern = new RegExp(`\\b${input.signSlugIt}\\b`, 'i');
-            if (signPattern.test(h2Text)) {
-              signHeading = $(h2);
-              return false; // Break loop
-            }
+        $('h2.body-h2').each((_, h2) => {
+          const $h2 = $(h2);
+          // Check text content including strong tags
+          const h2Text = $h2.text().trim();
+          const strongText = $h2.find('strong').text().trim();
+          
+          // Match exact sign name (case-insensitive, whole word)
+          const signPattern = new RegExp(`^${input.signSlugIt}$`, 'i');
+          if (signPattern.test(h2Text) || signPattern.test(strongText)) {
+            signHeading = $h2;
+            console.log(`Marie Claire - Found heading with class="body-h2" and text="${h2Text}"`);
+            return false; // Break loop
           }
         });
       }
 
-      // Strategy 3: Find h2 with class 'body-h2' containing sign name
+      // Strategy 3: Find any h2 containing exact sign name (whole word match)
       if (signHeading.length === 0) {
-        signHeading = $(`h2.body-h2:contains("${input.signSlugIt}")`).first();
+        $('h2').each((_, h2) => {
+          const $h2 = $(h2);
+          const h2Text = $h2.text().trim();
+          
+          const signPattern = new RegExp(`^${input.signSlugIt}$`, 'i');
+          if (signPattern.test(h2Text)) {
+            signHeading = $h2;
+            console.log(`Marie Claire - Found h2 with exact text="${h2Text}"`);
+            return false; // Break loop
+          }
+        });
       }
-
-      // Strategy 4: Find any heading (h2, h3) with sign name
-      if (signHeading.length === 0) {
-        signHeading = $(`h2:contains("${input.signSlugIt}"), h3:contains("${input.signSlugIt}")`).first();
-      }
-
 
       if (signHeading.length > 0) {
-        console.log(`Marie Claire - Found heading for ${input.signSlugIt} using strategy: ${signHeading.prop('tagName')}${signHeading.attr('id') ? '#' + signHeading.attr('id') : ''}`);
         let extractedContent = '';
 
-        // Traverse siblings to extract content until the next sign heading
+        // Traverse siblings to extract content until the next zodiac sign heading
         let currentElement = signHeading.next();
 
         while (currentElement.length > 0) {
           const tagName = currentElement.prop('tagName');
 
-          // Stop at next sign heading
-          if (tagName === 'H2' || tagName === 'H3') {
-            const headingText = currentElement.text().trim();
-            // Check if this is another zodiac sign
-            const zodiacSigns = ['ariete', 'toro', 'gemelli', 'cancro', 'leone', 'vergine',
-                                 'bilancia', 'scorpione', 'sagittario', 'capricorno', 'acquario', 'pesci'];
-            if (zodiacSigns.some(sign => headingText.toLowerCase().includes(sign))) {
+          // Stop at next H2 with a zodiac sign name
+          if (tagName === 'H2') {
+            const headingText = currentElement.text().trim().toLowerCase();
+            if (zodiacSigns.some(sign => headingText === sign)) {
+              console.log(`Marie Claire - Stopping at next sign: ${headingText}`);
               break;
             }
           }
 
+          // Extract paragraph content
           if (currentElement.is('p')) {
             const text = currentElement.text().trim();
-            // Filter out navigation/ad text
+            // Filter out navigation/metadata (case-insensitive)
             if (text.length > 0 &&
-                !text.match(/^(leggi anche|advertisement|pubblicità|scopri|continua|condividi)/i)) {
+                !text.match(/^(leggi anche|advertisement|pubblicità|scopri|continua|condividi|la tip karmica|pubblicità\s*-\s*continua)/i)) {
               extractedContent += text + '\n\n';
             }
           }
@@ -580,7 +588,7 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
             url: url
           };
         } else {
-            console.log(`Marie Claire - Extracted content too short for ${input.signSlugIt}, trying fallback.`);
+          console.log(`Marie Claire - Extracted content too short (${extractedContent.length} chars) for ${input.signSlugIt}, trying fallback.`);
         }
       } else {
         console.log(`Marie Claire - Failed to find heading for ${input.signSlugIt}, trying alternative selectors`);
