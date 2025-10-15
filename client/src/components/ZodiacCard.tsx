@@ -43,7 +43,7 @@ const signColors = {
   pesci: 'from-blue-300 to-blue-500',
 };
 
-export function ZodiacCard({ 
+  export function ZodiacCard({ 
   sign, 
   aggregate, 
   summary, 
@@ -74,7 +74,7 @@ export function ZodiacCard({
     e.stopPropagation();
     onToggleCollapse?.();
   };
-
+  
   return (
     <Card 
       className={cn(
@@ -86,15 +86,15 @@ export function ZodiacCard({
       onClick={handleCardClick}
       data-testid={`zodiac-card-${sign.name_english}`}
     >
-      <CardContent className="p-5">
+      <CardContent className="p-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-3">
             <div className={cn("w-10 h-10 bg-gradient-to-br rounded-full flex items-center justify-center", colorClass)}>
               <span className="text-white font-bold text-lg">{sign.symbol}</span>
             </div>
             <div>
-              <h3 className="font-bold text-card-foreground" data-testid={`sign-name-${sign.name_english}`}>
+              <h3 className="font-semibold text-card-foreground" data-testid={`sign-name-${sign.name_english}`}>
                 {sign.name_italian}
               </h3>
               <p className="text-xs text-muted-foreground">{sign.date_range}</p>
@@ -108,7 +108,7 @@ export function ZodiacCard({
                   variant="ghost"
                   size="sm"
                   onClick={handleFavoriteClick}
-                  className="p-1 h-7 w-8 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  className="p-1 h-8 w-8 hover:bg-gray-50 dark:hover:bg-gray-800"
                   data-testid={`button-favorite-${sign.name_english}`}
                   title={isFavorite ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
                 >
@@ -125,7 +125,7 @@ export function ZodiacCard({
                   variant="ghost"
                   size="sm"
                   onClick={handleCollapseClick}
-                  className="p-1 h-7 w-8 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  className="p-1 h-8 w-8 hover:bg-gray-50 dark:hover:bg-gray-800"
                   data-testid={`button-collapse-${sign.name_english}`}
                   title={isCollapsed ? 'Espandi dettagli' : 'Comprimi dettagli'}
                 >
@@ -139,7 +139,7 @@ export function ZodiacCard({
             </div>
           </div>
         </div>
-
+        
         {/* Collapsible Content */}
         <div 
           className={cn(

@@ -41,19 +41,7 @@ export default function Home() {
     total: 0,
   });
   const [refreshDismissed, setRefreshDismissed] = useState(false);
-  // Initialize selectedDate from URL parameter if present
-  const [selectedDate, setSelectedDate] = useState<Date>(() => {
-    const params = new URLSearchParams(window.location.search);
-    const dateParam = params.get('date');
-    if (dateParam) {
-      const parsed = new Date(dateParam);
-      if (!isNaN(parsed.getTime())) {
-        return parsed;
-      }
-    }
-    return new Date();
-  });
-  
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [calendarOpen, setCalendarOpen] = useState(false);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -190,8 +178,7 @@ export default function Home() {
   });
 
   const handleSignClick = (signName: string) => {
-    const dateParam = selectedDate.toLocaleDateString('en-CA');
-    navigate(`/sign/${signName}?date=${dateParam}`);
+    navigate(`/sign/${signName}`);
   };
 
   const formatDate = (date: Date) => {
@@ -207,11 +194,6 @@ export default function Home() {
     if (date) {
       setSelectedDate(date);
       setCalendarOpen(false);
-      
-      // Update URL with new date
-      const dateParam = date.toLocaleDateString('en-CA');
-      window.history.replaceState({}, '', `/?date=${dateParam}`);
-      
       // Invalidate queries to fetch new data for selected date
       queryClient.invalidateQueries({
         queryKey: ["/api/horoscopes/aggregates"],
@@ -245,59 +227,23 @@ export default function Home() {
   return (
     <div className="min-h-screen text-foreground">
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b relative overflow-hidden" 
+      <header className="sticky top-0 z-40 border-b" 
         style={{
-          background: 'linear-gradient(135deg, rgba(30, 20, 64, 0.8) 0%, rgba(45, 30, 80, 0.7) 100%)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-          borderBottom: '1px solid rgba(225, 182, 78, 0.2)',
-          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'
+          background: 'rgba(30, 20, 64, 0.6)',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)', // Per Safari
+          borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
         }}
       >
-        {/* Stelle decorative in CSS puro */}
-        <div 
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background: `
-              radial-gradient(2px 2px at 20% 30%, white, transparent),
-              radial-gradient(1px 1px at 80% 70%, rgba(225, 182, 78, 0.8), transparent),
-              radial-gradient(1px 1px at 90% 20%, white, transparent),
-              radial-gradient(2px 2px at 60% 80%, rgba(196, 181, 224, 0.6), transparent)
-            `,
-            opacity: 0.3
-          }}
-        />
-
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3">
-              {/* Logo con animazione pulse subtle */}
-              <img 
-                src={iconImage} 
-                alt="Logo" 
-                className="w-12 h-12 transition-transform hover:scale-110 duration-300"
-                style={{
-                  filter: 'drop-shadow(0 0 8px rgba(225, 182, 78, 0.3))'
-                }}
-              />
-              <div className="header-text">
-                {/* Titolo con effetto glow */}
-                <h1 
-                  className="text-lg font-semibold transition-all duration-300"
-                  style={{ 
-                    color: '#E1B64E',
-                    textShadow: '0 0 20px rgba(225, 182, 78, 0.4)'
-                  }}
-                >
+            <div className="flex items-center space-x-3">
+              <img src={iconImage} alt="Logo" className="w-12 h-12" />
+              <div>
+                <h1 className="text-xl font-bold text-white">
                   Confronta Oroscopo
                 </h1>
-                <p 
-                  className="text-xs mt-0.5"
-                  style={{ 
-                    color: '#C4B5E0',
-                    textShadow: '0 0 10px rgba(196, 181, 224, 0.3)'
-                  }}
-                >
+                <p className="text-xs font-bold text-gray-300">
                   Tutti gli Oroscopi, una sola App
                 </p>
               </div>
@@ -312,10 +258,10 @@ export default function Home() {
         <div className="mb-4 flex justify-center">
           <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
             <PopoverTrigger asChild>
-                <button
-                  className="bg-white dark:bg-gray-800 rounded-full px-6 py-3 flex items-center gap-3 shadow-md hover:shadow-lg transition-shadow border border-gray-200 dark:border-gray-700 w-full max-w-md mx-auto justify-center"
-                  data-testid="date-selector-trigger"
-                >
+              <button
+                className="bg-white dark:bg-gray-800 rounded-full px-6 py-3 flex items-center gap-3 shadow-md hover:shadow-lg transition-shadow border border-gray-200 dark:border-gray-700 min-w-[280px] justify-center"
+                data-testid="date-selector-trigger"
+              >
                 <CalendarDays className="w-5 h-5 text-[#E1B64E]" />
                 <span className="font-medium text-gray-900 dark:text-gray-100">
                   {formatDate(selectedDate)}
@@ -357,7 +303,7 @@ export default function Home() {
                 {homeFavorites.size}
               </span>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {zodiacSigns
                 .filter((sign) => isHomeFavorite(sign.name_english))
                 .map((sign) => (
@@ -379,7 +325,7 @@ export default function Home() {
 
         {/* Loading State */}
         {isLoading && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {Array.from({ length: 12 }, (_, i) => (
               <div
                 key={i}
@@ -403,7 +349,7 @@ export default function Home() {
 
         {/* Zodiac Grid */}
         {!isLoading && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {zodiacSigns
               .filter((sign) => !isHomeFavorite(sign.name_english))
               .sort((a, b) => a.id - b.id)
