@@ -252,37 +252,39 @@ export default function Home() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         {/* Date Selector */}
         <div className="mb-4 flex justify-center">
-          <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-            <PopoverTrigger asChild>
-              <button
-                className="bg-white dark:bg-gray-800 rounded-full px-6 py-3 flex items-center gap-3 shadow-md hover:shadow-lg transition-shadow border border-gray-200 dark:border-gray-700 min-w-[280px] justify-center"
-                data-testid="date-selector-trigger"
-              >
-                <CalendarDays className="w-5 h-5 text-[#E1B64E]" />
-                <span className="font-medium text-gray-900 dark:text-gray-100">
-                  {formatDate(selectedDate)}
-                </span>
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="center">
-              <div className="p-3 border-b border-border">
-                <h4 className="text-sm font-medium">Seleziona Data</h4>
-                <p className="text-xs text-muted-foreground">
-                  Ultimi 60 giorni disponibili
-                </p>
-              </div>
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={handleDateSelect}
-                disabled={(date) => date < earliestStart || date > todayStart}
-                toDate={todayStart}
-                defaultMonth={selectedDate}
-                className="border-0"
-                data-testid="date-calendar"
-              />
-            </PopoverContent>
-          </Popover>
+          <div className="w-full max-w-md">
+            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  className="w-full bg-white dark:bg-gray-800 rounded-full px-6 py-3 flex items-center justify-center gap-3 shadow-md hover:shadow-lg transition-shadow border border-gray-200 dark:border-gray-700"
+                  data-testid="date-selector-trigger"
+                >
+                  <CalendarDays className="w-5 h-5 text-[#E1B64E]" />
+                  <span className="font-medium text-gray-900 dark:text-gray-100">
+                    {formatDate(selectedDate)}
+                  </span>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="center">
+                <div className="p-3 border-b border-border">
+                  <h4 className="text-sm font-medium">Seleziona Data</h4>
+                  <p className="text-xs text-muted-foreground">
+                    Ultimi 30 giorni disponibili
+                  </p>
+                </div>
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={handleDateSelect}
+                  disabled={(date) => date < earliestStart || date > todayStart}
+                  toDate={todayStart}
+                  defaultMonth={selectedDate}
+                  className="border-0"
+                  data-testid="date-calendar"
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
 
         {/* Favorites Section */}
@@ -299,7 +301,7 @@ export default function Home() {
                 {homeFavorites.size}
               </span>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
               {zodiacSigns
                 .filter((sign) => isHomeFavorite(sign.name_english))
                 .map((sign) => (
@@ -321,7 +323,7 @@ export default function Home() {
 
         {/* Loading State */}
         {isLoading && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
             {Array.from({ length: 12 }, (_, i) => (
               <div
                 key={i}
@@ -345,7 +347,7 @@ export default function Home() {
 
         {/* Zodiac Grid */}
         {!isLoading && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
             {zodiacSigns
               .filter((sign) => !isHomeFavorite(sign.name_english))
               .sort((a, b) => a.id - b.id)

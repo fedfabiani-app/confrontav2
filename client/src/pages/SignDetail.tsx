@@ -620,100 +620,105 @@ function SignDetail({ sign }: SignDetailProps) {
         </div>
       </AppHeader>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Daily/Weekly Toggle Selector */}
-        <div className="flex flex-col items-center mb-4 space-y-4">
-          <div className="inline-flex bg-gray-200 dark:bg-gray-800 rounded-full p-1 w-full max-w-md">
-            <button
-              onClick={() => setViewType("daily")}
-              className={`flex-1 py-2 px-6 rounded-full font-medium transition-all ${
-                viewType === "daily"
-                  ? "bg-[#E1B64E] dark:bg-gray-700 text-gray-900 dark:text-white shadow-md"
-                  : "text-gray-600 dark:text-gray-400"
-              }`}
-              data-testid="button-daily-view"
-            >
-              Giornaliero
-            </button>
-            <button
-              onClick={() => setViewType("weekly")}
-              className={`flex-1 py-2 px-6 rounded-full font-medium transition-all ${
-                viewType === "weekly"
-                  ? "bg-[#E1B64E] dark:bg-gray-700 text-gray-900 dark:text-white shadow-md"
-                  : "text-gray-600 dark:text-gray-400"
-              }`}
-              data-testid="button-weekly-view"
-            >
-              Settimanale
-            </button>
-          </div>
-          {/* Date Selector for Daily View */}
-          {viewType === "daily" && (
-            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-              <PopoverTrigger asChild>
-                <button
-                  className="bg-white dark:bg-gray-800 rounded-full px-6 py-3 flex items-center gap-3 shadow-md hover:shadow-lg transition-shadow border border-gray-200 dark:border-gray-700 min-w-[320px] justify-center"
-                  data-testid="date-selector-daily"
-                >
-                  <CalendarDays className="w-5 h-5 text-[#E1B64E]" />
-                  <span className="font-medium text-gray-900 dark:text-gray-100">
-                    {formatDate(selectedDate)}
-                  </span>
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="center">
-                <div className="p-3 border-b border-border">
-                  <h4 className="text-sm font-medium">Seleziona Data</h4>
-                  <p className="text-xs text-muted-foreground">Ultimi 90 giorni disponibili</p>
-                </div>
-                <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={handleDateSelect}
-                  disabled={(date) => date < earliestStart || date > todayStart}
-                  toDate={todayStart}
-                  defaultMonth={selectedDate}
-                  className="border-0"
-                  data-testid="date-calendar-daily"
-                />
-              </PopoverContent>
-            </Popover>
-          )}
+        {/* Main Content */}
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Daily/Weekly Toggle Selector */}
+          <div className="flex flex-col items-center mb-4 space-y-4">
+            <div className="inline-flex bg-gray-200 dark:bg-gray-800 rounded-full p-1 w-full max-w-md">
+              <button
+                onClick={() => setViewType("daily")}
+                className={`flex-1 py-2 px-6 rounded-full font-medium transition-all ${
+                  viewType === "daily"
+                    ? "bg-[#E1B64E] dark:bg-gray-700 text-gray-900 dark:text-white shadow-md"
+                    : "text-gray-600 dark:text-gray-400"
+                }`}
+                data-testid="button-daily-view"
+              >
+                Giornaliero
+              </button>
+              <button
+                onClick={() => setViewType("weekly")}
+                className={`flex-1 py-2 px-6 rounded-full font-medium transition-all ${
+                  viewType === "weekly"
+                    ? "bg-[#E1B64E] dark:bg-gray-700 text-gray-900 dark:text-white shadow-md"
+                    : "text-gray-600 dark:text-gray-400"
+                }`}
+                data-testid="button-weekly-view"
+              >
+                Settimanale
+              </button>
+            </div>
 
-          {/* Week Range Display for Weekly View */}
-          {viewType === "weekly" && (
-            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-              <PopoverTrigger asChild>
-                <button
-                  className="bg-white dark:bg-gray-800 rounded-full px-6 py-3 flex items-center gap-3 shadow-md hover:shadow-lg transition-shadow border border-gray-200 dark:border-gray-700"
-                  data-testid="date-selector-weekly"
-                >
-                  <CalendarDays className="w-5 h-5 text-[#E1B64E]" />
-                  <span className="font-medium text-gray-900 dark:text-gray-100">
-                    Settimana: {weekRangeText}
-                  </span>
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="center">
-                <div className="p-3 border-b border-border">
-                  <h4 className="text-sm font-medium">Seleziona Settimana</h4>
-                  <p className="text-xs text-muted-foreground">Seleziona un giorno, verrà usata la sua settimana</p>
-                </div>
-                <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={handleDateSelect}
-                  disabled={(date) => date < earliestStart || date > todayStart}
-                  toDate={todayStart}
-                  defaultMonth={selectedDate}
-                  className="border-0"
-                  data-testid="date-calendar-weekly"
-                />
-              </PopoverContent>
-            </Popover>
-          )}
-        </div>
+            {/* Date Selector for Daily View */}
+            {viewType === "daily" && (
+              <div className="w-full max-w-md">
+                <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                  <PopoverTrigger asChild>
+                    <button
+                      className="w-full bg-white dark:bg-gray-800 rounded-full px-6 py-3 flex items-center justify-center gap-3 shadow-md hover:shadow-lg transition-shadow border border-gray-200 dark:border-gray-700"
+                      data-testid="date-selector-daily"
+                    >
+                      <CalendarDays className="w-5 h-5 text-[#E1B64E]" />
+                      <span className="font-medium text-gray-900 dark:text-gray-100">
+                        {formatDate(selectedDate)}
+                      </span>
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="center">
+                    <div className="p-3 border-b border-border">
+                      <h4 className="text-sm font-medium">Seleziona Data</h4>
+                      <p className="text-xs text-muted-foreground">Ultimi 90 giorni disponibili</p>
+                    </div>
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={handleDateSelect}
+                      disabled={(date) => date < earliestStart || date > todayStart}
+                      toDate={todayStart}
+                      defaultMonth={selectedDate}
+                      className="border-0"
+                      data-testid="date-calendar-daily"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            )}
+
+            {/* Week Range Display for Weekly View */}
+            {viewType === "weekly" && (
+              <div className="w-full max-w-md">
+                <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                  <PopoverTrigger asChild>
+                    <button
+                      className="w-full bg-white dark:bg-gray-800 rounded-full px-6 py-3 flex items-center justify-center gap-3 shadow-md hover:shadow-lg transition-shadow border border-gray-200 dark:border-gray-700"
+                      data-testid="date-selector-weekly"
+                    >
+                      <CalendarDays className="w-5 h-5 text-[#E1B64E]" />
+                      <span className="font-medium text-gray-900 dark:text-gray-100 truncate">
+                        Settimana: {weekRangeText}
+                      </span>
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="center">
+                    <div className="p-3 border-b border-border">
+                      <h4 className="text-sm font-medium">Seleziona Settimana</h4>
+                      <p className="text-xs text-muted-foreground">Seleziona un giorno, verrà usata la sua settimana</p>
+                    </div>
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={handleDateSelect}
+                      disabled={(date) => date < earliestStart || date > todayStart}
+                      toDate={todayStart}
+                      defaultMonth={selectedDate}
+                      className="border-0"
+                      data-testid="date-calendar-weekly"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            )}
+          </div>
 
         {/* Overview Cards */}
         {(viewType === "daily" ? aggregate : weeklyAggregate) && (
