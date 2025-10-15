@@ -25,10 +25,13 @@ Preferred communication style: Simple, everyday language.
 - **Worker Architecture**: Two dedicated worker modules:
   - Scraper worker for HTML parsing and content extraction
   - OpenAI worker for AI-powered content analysis and processing
-- **Automated Cleanup**: Scheduled task runs every 31 days at 3 AM to delete all horoscope data and reset ID sequences
-  - Cleanup tracker persists last cleanup date in database
-  - Manual cleanup endpoint secured with admin secret (X-Admin-Secret header)
-  - Statistics endpoint for monitoring data volume
+- **Automated Cleanup System**: 
+  - **Schedule**: Daily cron check at 3 AM; executes cleanup only when ≥31 days have passed since last cleanup
+  - **Tracker Table**: `cleanup_tracker` table persists last cleanup timestamp for accurate interval calculation
+  - **Cleanup Actions**: Deletes all horoscope_data and weekly_horoscope_data entries, then resets ID sequences to maintain data freshness
+  - **Manual Endpoint**: POST `/api/cleanup` secured with `X-Admin-Secret` header matching `ADMIN_SECRET` environment variable
+  - **Security**: Unauthorized requests return 401 and are logged; default secret is "default-admin-secret-change-me" (MUST be changed in production)
+  - **Stats Endpoint**: GET `/api/cleanup/stats` returns current horoscope and weekly horoscope counts for monitoring
 
 ### Data Processing Pipeline
 - **Web Scraping**: Axios and Cheerio for fetching and parsing HTML content from Italian horoscope sources
