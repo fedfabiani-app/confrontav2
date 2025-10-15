@@ -276,7 +276,7 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
     if (candidateDateStr === targetDateStr) {
       console.log(`✓ Matched archive URL (exact match): ${candidate.url}`);
       archiveUrlCache.set(cacheKey, candidate.url);
-      return candidate.url;
+      return candidate.url; // This is the actual article URL, not the archive page
     }
   }
 
@@ -288,7 +288,7 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
     if (targetDate >= startDate && targetDate <= endDate) {
       console.log(`✓ Matched archive URL (within range): ${candidate.url}`);
       archiveUrlCache.set(cacheKey, candidate.url);
-      return candidate.url;
+      return candidate.url; // This is the actual article URL, not the archive page
     }
   }
 
@@ -304,7 +304,7 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
   if (closestCandidate) {
     console.log(`✓ Using closest match (${closestCandidate.daysDiff} days diff): ${closestCandidate.url}`);
     archiveUrlCache.set(cacheKey, closestCandidate.url);
-    return closestCandidate.url;
+    return closestCandidate.url; // This is the actual article URL, not the archive page
   }
 
   throw new Error(`No matching weekly horoscope found in archive for week starting ${input.weekStartDate}. Found ${candidates.length} candidates but none matched ${targetDateStr}`);
@@ -331,11 +331,15 @@ export async function scrapeWeeklyHoroscope(input: WeeklyScraperInput): Promise<
       throw new Error(`Failed to scrape weekly horoscope: ${scrapeResult.error}`);
     }
 
+    // Priority: actualUrl (discovered from archive) > url (returned from scraper) > original url
+    const finalUrl = scrapeResult.actualUrl || scrapeResult.url || url;
+    console.log(`[WeeklyScraper] Final URL for database: ${finalUrl}`);
+
     const result: WeeklyScraperOutput = {
       sourceId: input.sourceId,
       signSlugIt: input.signSlugIt,
       weekStartDate: input.weekStartDate,
-      original_url: scrapeResult.actualUrl || scrapeResult.url || url, // Use actualUrl if available
+      original_url: finalUrl,
       scraped_at: new Date(),
       extracted_text: scrapeResult.text,
     };
@@ -574,8 +578,7 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
           return {
             success: true,
             text: extractedContent.trim().substring(0, 3500),
-            url, // This is the generic URL pattern from the archive
-            actualUrl: url // Return the actual scraped URL
+            url: url // This URL comes from archive resolution and is the actual article URL
           };
         } else {
             console.log(`Marie Claire - Extracted content too short for ${input.signSlugIt}, trying fallback.`);
@@ -626,8 +629,7 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
           return {
             success: true,
             text: extractedContent.trim().substring(0, 3500),
-            url,
-            actualUrl: url
+            url: url
           };
         }
       }
@@ -644,8 +646,7 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
           return {
             success: true,
             text: snippet.substring(0, 3500),
-            url,
-            actualUrl: url
+            url: url
           };
         }
       }
@@ -741,8 +742,7 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
           return {
             success: true,
             text: extractedContent.trim().substring(0, 3500),
-            url,
-            actualUrl: url
+            url: url
           };
         }
       }
@@ -758,8 +758,7 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
           return {
             success: true,
             text: text.substring(0, 3500),
-            url,
-            actualUrl: url
+            url: url
           };
         }
       }
@@ -820,8 +819,7 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
     return {
       success: true,
       text: bestContent.substring(0, 3500),
-      url,
-      actualUrl: url // Return the actual scraped URL
+      url: url
     };
   } catch (error) {
     return {
