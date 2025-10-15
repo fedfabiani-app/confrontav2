@@ -227,7 +227,19 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
           score += Math.min(articleId / 1000000, 50);
         }
 
-        const absoluteUrl = href.startsWith('http') ? href : input.baseUrl + href;
+        // Ensure full absolute URL with https protocol
+        let absoluteUrl = href;
+        if (href.startsWith('/')) {
+          absoluteUrl = input.baseUrl + href;
+        } else if (!href.startsWith('http')) {
+          absoluteUrl = input.baseUrl + '/' + href;
+        }
+        
+        // Ensure https protocol
+        if (absoluteUrl.startsWith('http://')) {
+          absoluteUrl = absoluteUrl.replace('http://', 'https://');
+        }
+
         candidates.push({ url: absoluteUrl, dateRange, score });
 
         console.log(`Found Marie Claire URL (score: ${score}): ${absoluteUrl} => ${dateRange.startDate.toISOString().split('T')[0]}`);
@@ -561,7 +573,8 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
           return {
             success: true,
             text: extractedContent.trim().substring(0, 3500),
-            url
+            url,
+            actualUrl: url  // Ensure the full URL is returned
           };
         } else {
             console.log(`Marie Claire - Extracted content too short for ${input.signSlugIt}, trying fallback.`);
@@ -612,7 +625,8 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
           return {
             success: true,
             text: extractedContent.trim().substring(0, 3500),
-            url
+            url,
+            actualUrl: url
           };
         }
       }
@@ -629,7 +643,8 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
           return {
             success: true,
             text: snippet.substring(0, 3500),
-            url
+            url,
+            actualUrl: url
           };
         }
       }
