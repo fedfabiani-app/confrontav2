@@ -1,10 +1,14 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { startCleanupScheduler } from "./jobs/cleanup";
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Start the database cleanup scheduler
+startCleanupScheduler();
 
 app.use((req, res, next) => {
   const start = Date.now();

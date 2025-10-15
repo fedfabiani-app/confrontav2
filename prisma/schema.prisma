@@ -131,3 +131,15 @@ model UserPreferences {
 
   @@map("user_preferences")
 }
+
+model CleanupLog {
+  id                           Int      @id @default(autoincrement())
+  timestamp                    DateTime @default(now())
+  success                      Boolean
+  horoscope_data_deleted       Int      @default(0)
+  weekly_horoscope_data_deleted Int     @default(0)
+  error_message                String?  @db.Text
+  created_at                   DateTime @default(now())
+
+  @@map("cleanup_logs")
+}
