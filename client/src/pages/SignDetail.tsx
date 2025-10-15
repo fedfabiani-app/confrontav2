@@ -572,82 +572,39 @@ function SignDetail({ sign }: SignDetailProps) {
   return (
     <div className="min-h-screen text-foreground">
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b relative overflow-hidden" 
+      <header className="sticky top-0 z-40 border-b" 
         style={{
-          background: 'linear-gradient(135deg, rgba(30, 20, 64, 0.8) 0%, rgba(45, 30, 80, 0.7) 100%)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-          borderBottom: '1px solid rgba(225, 182, 78, 0.2)',
-          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'
+          background: 'rgba(30, 20, 64, 0.6)',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)', // Per Safari
+          borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
         }}
       >
-        {/* Stelle decorative in CSS puro */}
-        <div 
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background: `
-              radial-gradient(2px 2px at 20% 30%, white, transparent),
-              radial-gradient(1px 1px at 80% 70%, rgba(225, 182, 78, 0.8), transparent),
-              radial-gradient(1px 1px at 90% 20%, white, transparent),
-              radial-gradient(2px 2px at 60% 80%, rgba(196, 181, 224, 0.6), transparent)
-            `,
-            opacity: 0.3
-          }}
-        />
-
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-3 relative z-10">
-              {/* Bottone Back con effetto glow */}
+            <div className="flex items-center space-x-3">
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => {
-                  const dateParam = selectedDate.toLocaleDateString('en-CA');
-                  navigate(`/?date=${dateParam}`);
-                }}
+                onClick={() => navigate("/")}
                 data-testid="button-back"
-                className="text-white hover:bg-white/20 border border-white/30 transition-all duration-300 hover:border-[#E1B64E] hover:shadow-lg"
-                style={{
-                  boxShadow: '0 0 15px rgba(225, 182, 78, 0.2)'
-                }}
+                className="text-white hover:bg-white/20 border border-white/30"
               >
                 <ArrowLeft className="w-4 h-4" />
               </Button>
-
               <div className="flex items-center space-x-4">
-                {/* Simbolo zodiacale con glow e animazione */}
                 <div
-                  className={`w-12 h-12 bg-gradient-to-br ${colorClass} rounded-full flex items-center justify-center transition-transform hover:scale-110 duration-300`}
-                  style={{
-                    boxShadow: '0 0 20px rgba(225, 182, 78, 0.4), 0 0 40px rgba(225, 182, 78, 0.2)',
-                    border: '2px solid rgba(225, 182, 78, 0.3)'
-                  }}
+                  className={`w-12 h-12 bg-gradient-to-br ${colorClass} rounded-full flex items-center justify-center`}
                 >
                   <span className="text-white font-bold text-xl">
                     {currentSign.symbol}
                   </span>
                 </div>
-
                 <div>
-                  {/* Nome segno con effetto glow */}
-                  <h1 
-                    className="text-xl font-bold transition-all duration-300"
-                    style={{ 
-                      color: '#E1B64E',
-                      textShadow: '0 0 20px rgba(225, 182, 78, 0.4)'
-                    }}
-                  >
+                  <h1 className="text-xl font-bold text-white">
                     {currentSign.name_italian}
                   </h1>
-                  {/* Date range con glow subtle */}
-                  <p 
-                    className="text-sm"
-                    style={{ 
-                      color: '#C4B5E0',
-                      textShadow: '0 0 10px rgba(196, 181, 224, 0.3)'
-                    }}
-                  >
+                  <p className="text-sm text-gray-300">
                     {currentSign.date_range}
                   </p>
                 </div>
@@ -943,12 +900,12 @@ function SignDetail({ sign }: SignDetailProps) {
                     </p>
 
                     {/* Read More Link */}
-                    <div className="mb-4 text-right">
+                    <div className="mb-4">
                       <a
                         href={horoscope.original_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center text-sm font-semibold text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+                        className="inline-flex items-right text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
                         data-testid={`link-read-more-${horoscope.source.id}`}
                       >
                         Leggi tutto
