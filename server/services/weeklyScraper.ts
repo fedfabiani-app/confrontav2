@@ -578,7 +578,7 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
           return {
             success: true,
             text: extractedContent.trim().substring(0, 3500),
-            url: url // This URL comes from archive resolution and is the actual article URL
+            url: url
           };
         } else {
             console.log(`Marie Claire - Extracted content too short for ${input.signSlugIt}, trying fallback.`);
