@@ -657,84 +657,50 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
     if (url.includes('repubblica.it')) {
       console.log(`Repubblica - Extracting content for ${input.signSlugIt} from URL: ${url}`);
 
-      // Try multiple selectors for the main content area
-      const contentSelectors = [
-        '.story__content',
-        'article .article-content',
-        '[data-component="ArticleBody"]',
-        'main article'
-      ];
+      const zodiacSigns = ['ariete', 'toro', 'gemelli', 'cancro', 'leone', 'vergine',
+                           'bilancia', 'scorpione', 'sagittario', 'capricorno', 'acquario', 'pesci'];
 
-      let mainContent = $('body');
-      for (const selector of contentSelectors) {
-        const elem = $(selector);
-        if (elem.length > 0) {
-          mainContent = elem;
-          console.log(`Repubblica - Using content selector: ${selector}`);
-          break;
-        }
-      }
-
-      // Find the heading for this sign (try different heading levels)
-      const signHeadingSelectors = [
-        `h2:contains("${input.signSlugIt}")`,
-        `h3:contains("${input.signSlugIt}")`,
-        `h4:contains("${input.signSlugIt}")`,
-        `strong:contains("${input.signSlugIt}")`
-      ];
-
+      // Find the H2 heading that exactly matches the sign name
       let signHeading = $();
-      for (const selector of signHeadingSelectors) {
-        signHeading = mainContent.find(selector).first();
-        if (signHeading.length > 0) {
-          console.log(`Repubblica - Found ${input.signSlugIt} using: ${selector}`);
-          break;
+      $('h2').each((_, h2) => {
+        const h2Text = $(h2).text().trim();
+        // Exact match (case-insensitive)
+        if (h2Text.toLowerCase() === input.signSlugIt.toLowerCase()) {
+          signHeading = $(h2);
+          console.log(`Repubblica - Found exact H2 match for ${input.signSlugIt}: "${h2Text}"`);
+          return false; // Break the loop
         }
-      }
+      });
 
       if (signHeading.length > 0) {
         let extractedContent = '';
+        let currentElement = signHeading.next();
 
-        // Get parent container if heading is within a structured section
-        const parent = signHeading.parent();
+        // Extract all content until the next zodiac sign H2 or end of content
+        while (currentElement.length > 0) {
+          const tagName = currentElement.prop('tagName');
 
-        // Strategy 1: Extract from structured section
-        if (parent.is('div') || parent.is('section')) {
-          parent.find('p').each((_, p) => {
-            const text = $(p).text().trim();
-            if (text.length > 0 && !text.match(/^(pubblicato|condividi|leggi anche)/i)) {
+          // Stop if we hit another H2 with a zodiac sign name
+          if (tagName === 'H2') {
+            const nextH2Text = currentElement.text().trim().toLowerCase();
+            if (zodiacSigns.some(sign => nextH2Text === sign)) {
+              console.log(`Repubblica - Stopping at next sign: ${nextH2Text}`);
+              break;
+            }
+          }
+
+          // Extract text from paragraphs
+          if (currentElement.is('p')) {
+            const text = currentElement.text().trim();
+            // Filter out navigation/metadata text
+            if (text.length > 0 && 
+                !text.match(/^(pubblicato|condividi|leggi anche|illustrazione|share|ti potrebbe piacere|iscriviti)/i) &&
+                !text.match(/^(musica:|[\d]{2}\/[\d]{2}\/[\d]{4})/i)) {
               extractedContent += text + '\n\n';
             }
-          });
-        }
-
-        // Strategy 2: Get siblings after heading
-        if (!extractedContent || extractedContent.length < 50) {
-          extractedContent = '';
-          let currentElement = signHeading.next();
-
-          while (currentElement.length > 0) {
-            const tagName = currentElement.prop('tagName');
-
-            // Stop at next sign heading
-            if (['H2', 'H3', 'H4'].includes(tagName)) {
-              const headingText = currentElement.text();
-              const zodiacSigns = ['ariete', 'toro', 'gemelli', 'cancro', 'leone', 'vergine',
-                                   'bilancia', 'scorpione', 'sagittario', 'capricorno', 'acquario', 'pesci'];
-              if (zodiacSigns.some(sign => headingText.toLowerCase().includes(sign))) {
-                break;
-              }
-            }
-
-            if (currentElement.is('p')) {
-              const text = currentElement.text().trim();
-              if (text.length > 0 && !text.match(/^(pubblicato|condividi|leggi anche)/i)) {
-                extractedContent += text + '\n\n';
-              }
-            }
-
-            currentElement = currentElement.next();
           }
+
+          currentElement = currentElement.next();
         }
 
         if (extractedContent.trim().length > 50) {
@@ -744,25 +710,43 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
             text: extractedContent.trim().substring(0, 3500),
             url: url
           };
+        } else {
+          console.log(`Repubblica - Extracted content too short (${extractedContent.length} chars) for ${input.signSlugIt}`);
         }
+      } else {
+        console.log(`Repubblica - Could not find H2 heading for ${input.signSlugIt}`);
       }
 
-      console.log(`Repubblica - Failed to find heading or content for ${input.signSlugIt}`);
+      // Fallback: Search entire page for the sign name and extract surrounding content
+      const bodyText = $('body').text();
+      const signIndex = bodyText.toLowerCase().indexOf(input.signSlugIt.toLowerCase());
 
-      // Fallback: try to find content in a tab-based layout
-      const tabContent = mainContent.find(`[data-sign="${input.signSlugIt.toLowerCase()}"], .tab-content:contains("${input.signSlugIt}")`);
-      if (tabContent.length > 0) {
-        const text = tabContent.text().trim();
-        if (text.length > 50) {
-          console.log(`Repubblica - Found content in tab layout for ${input.signSlugIt}`);
+      if (signIndex !== -1) {
+        // Find the next zodiac sign after this one
+        let nextSignIndex = bodyText.length;
+        for (const sign of zodiacSigns) {
+          if (sign.toLowerCase() === input.signSlugIt.toLowerCase()) continue;
+          const nextIndex = bodyText.toLowerCase().indexOf(sign.toLowerCase(), signIndex + input.signSlugIt.length);
+          if (nextIndex !== -1 && nextIndex < nextSignIndex) {
+            nextSignIndex = nextIndex;
+          }
+        }
+
+        const snippet = bodyText.substring(signIndex, nextSignIndex).trim();
+        if (snippet.length > 100) {
+          console.log(`Repubblica - Extracted ${snippet.length} chars from body text search`);
           return {
             success: true,
-            text: text.substring(0, 3500),
-            url: url,
-            actualUrl: url
+            text: snippet.substring(0, 3500),
+            url: url
           };
         }
       }
+
+      return {
+        success: false,
+        error: `Could not extract content for ${input.signSlugIt} from Repubblica weekly page`
+      };
     }
 
     // Generic extraction for other sources
