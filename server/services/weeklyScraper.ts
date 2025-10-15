@@ -16,7 +16,6 @@ interface ScrapeResult {
   success: boolean;
   text?: string;
   url?: string;
-  actualUrl?: string; // Added to store the actual scraped URL
   error?: string;
 }
 
@@ -320,26 +319,26 @@ const COMPREHENSIVE_HOROSCOPE_KEYWORDS = [
 
 export async function scrapeWeeklyHoroscope(input: WeeklyScraperInput): Promise<WeeklyScraperOutput> {
   try {
-    const url = await buildWeeklyHoroscopeUrl(input);
-    console.log(`Attempting to scrape weekly URL: ${url}`);
+    const resolvedUrl = await buildWeeklyHoroscopeUrl(input);
+    console.log(`[WeeklyScraper] Resolved URL: ${resolvedUrl}`);
 
     await respectDomainRateLimit(input.domain);
 
-    const scrapeResult = await scrapeWeeklyHoroscopeText(url, input);
+    const scrapeResult = await scrapeWeeklyHoroscopeText(resolvedUrl, input);
 
     if (!scrapeResult.success || !scrapeResult.text) {
       throw new Error(`Failed to scrape weekly horoscope: ${scrapeResult.error}`);
     }
 
-    // Priority: actualUrl (discovered from archive) > url (returned from scraper) > original url
-    const finalUrl = scrapeResult.actualUrl || scrapeResult.url || url;
-    console.log(`[WeeklyScraper] Final URL for database: ${finalUrl}`);
+    // The resolvedUrl is already the actual article URL (from archive or pattern)
+    // Use it directly - it's the most accurate URL we have
+    console.log(`[WeeklyScraper] Storing URL in database: ${resolvedUrl}`);
 
     const result: WeeklyScraperOutput = {
       sourceId: input.sourceId,
       signSlugIt: input.signSlugIt,
       weekStartDate: input.weekStartDate,
-      original_url: finalUrl,
+      original_url: resolvedUrl,
       scraped_at: new Date(),
       extracted_text: scrapeResult.text,
     };
