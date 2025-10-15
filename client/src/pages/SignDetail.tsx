@@ -831,8 +831,8 @@ function SignDetail({ sign }: SignDetailProps) {
         {/* Individual Source Cards */}
         {!((viewType === "daily" ? horoscopesLoading : weeklyHoroscopesLoading)) &&
          (viewType === "daily" ? horoscopes : weeklyHoroscopes).length > 0 && (
-              <div className="space-y-4 mb-8">                
-          {(() => {
+          <div className="space-y-4 mb-8">
+            {(() => {
             // First sort alphabetically, then reorder to pin favorites
             const currentHoroscopes = viewType === "daily" ? horoscopes : weeklyHoroscopes;
             const sortedHoroscopes = [...currentHoroscopes].sort((a, b) => 
@@ -943,12 +943,12 @@ function SignDetail({ sign }: SignDetailProps) {
                     </p>
 
                     {/* Read More Link */}
-                    <div className="mb-4">
+                    <div className="mb-4 text-right">
                       <a
                         href={horoscope.original_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-right text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+                        className="inline-flex items-center text-sm font-semibold text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
                         data-testid={`link-read-more-${horoscope.source.id}`}
                       >
                         Leggi tutto
@@ -990,9 +990,9 @@ function SignDetail({ sign }: SignDetailProps) {
                 </CardContent>
               </Card>
             );
-          })}
-        </div>
-      )}
+            })}
+          </div>
+        )}
 
       {/* No data state */}
       {!((viewType === "daily" ? horoscopesLoading : weeklyHoroscopesLoading)) &&
