@@ -646,7 +646,8 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
           return {
             success: true,
             text: snippet.substring(0, 3500),
-            url: url
+            url: url,
+            actualUrl: url
           };
         }
       }
@@ -758,7 +759,8 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
           return {
             success: true,
             text: text.substring(0, 3500),
-            url: url
+            url: url,
+            actualUrl: url
           };
         }
       }
