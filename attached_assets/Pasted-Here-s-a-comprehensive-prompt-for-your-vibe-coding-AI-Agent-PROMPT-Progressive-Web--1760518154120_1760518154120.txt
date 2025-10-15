@@ -1,0 +1,130 @@
+Here's a comprehensive prompt for your vibe coding AI Agent:
+
+---
+
+## **PROMPT: Progressive Web App - Automatic Database Cleanup System**
+
+### **Objective**
+Implement an automated database maintenance system for a Progressive Web App that cleans up horoscope data every 31 days.
+
+### **Requirements**
+
+**Database Tables to Clean:**
+- `horoscope_data`
+- `weekly_horoscope_data`
+
+**Cleanup Operations (every 31 days):**
+1. **DELETE** all existing records from both tables
+2. **RESET** the auto-increment `id` column to start from 1
+3. **LOG** the cleanup operation with timestamp
+4. **VERIFY** operation success
+
+### **Technical Specifications**
+
+**Cleanup Frequency:** Every 31 days (744 hours)
+
+**Implementation Options:**
+1. **Cron Job** (Linux/Unix servers)
+2. **Database Scheduled Events** (MySQL/PostgreSQL)
+3. **Application-level Scheduler** (Node.js with node-cron)
+4. **Cloud Functions** (Serverless approach)
+
+### **Code Requirements**
+
+**SQL Operations Needed:**
+```sql
+-- Clean tables
+DELETE FROM horoscope_data;
+DELETE FROM weekly_horoscope_data;
+
+-- Reset auto-increment
+ALTER TABLE horoscope_data AUTO_INCREMENT = 1;
+ALTER TABLE weekly_horoscope_data AUTO_INCREMENT = 1;
+```
+
+**Implementation Features:**
+- ✅ **Error Handling**: Catch and log any database errors
+- ✅ **Backup Option**: Optional backup before deletion
+- ✅ **Rollback Mechanism**: Ability to restore if needed
+- ✅ **Logging System**: Track all cleanup operations
+- ✅ **Health Checks**: Verify system status after cleanup
+- ✅ **Configuration**: Easy to modify cleanup interval
+
+### **Suggested Architecture**
+
+**Option 1: Node.js with node-cron**
+```javascript
+const cron = require('node-cron');
+const db = require('./database');
+
+// Every 31 days at 2:00 AM
+cron.schedule('0 2 */31 * *', async () => {
+  await performDatabaseCleanup();
+});
+```
+
+**Option 2: Database Scheduled Event (MySQL)**
+```sql
+CREATE EVENT cleanup_horoscope_data
+ON SCHEDULE EVERY 31 DAY
+DO
+  CALL cleanup_horoscope_tables();
+```
+
+### **Expected Deliverables**
+
+1. **Cleanup Function/Procedure**:
+   - Clean both tables completely
+   - Reset ID sequences
+   - Handle transactions safely
+
+2. **Scheduler Implementation**:
+   - 31-day interval automation
+   - Configurable timing (default: 2:00 AM)
+
+3. **Logging System**:
+   - Operation timestamps
+   - Success/failure status
+   - Records count before/after
+
+4. **Configuration File**:
+   ```json
+   {
+     "cleanup": {
+       "enabled": true,
+       "intervalDays": 31,
+       "time": "02:00",
+       "backup": true,
+       "tables": ["horoscope_data", "weekly_horoscope_data"]
+     }
+   }
+   ```
+
+5. **Error Handling**:
+   - Retry mechanism (3 attempts)
+   - Email/notification on failure
+   - Graceful degradation
+
+### **Safety Considerations**
+- **Transaction Wrapper**: Ensure atomicity
+- **Backup Creation**: Before deletion (optional)
+- **Lock Mechanism**: Prevent concurrent operations
+- **Environment Check**: Only run in production mode
+
+### **Performance Notes**
+- Consider table size for cleanup duration
+- Off-peak hours execution (2:00 AM suggested)
+- Monitor system resources during cleanup
+
+### **Questions for Implementation**
+1. What's your current tech stack? (Node.js, Python, PHP, etc.)
+2. Database system in use? (MySQL, PostgreSQL, etc.)
+3. Hosting environment? (VPS, Cloud, Serverless)
+4. Do you want backup functionality before cleanup?
+5. Should cleanup time be configurable?
+
+**Please provide a complete, production-ready solution with proper error handling and logging.**
+
+---
+
+This prompt should give your AI Agent all the context needed to create a robust database cleanup system! 🚀
