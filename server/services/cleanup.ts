@@ -30,8 +30,8 @@ export class CleanupService {
   }
 
   async getDataStats(): Promise<{ horoscopes: number; weeklyHoroscopes: number }> {
-    const horoscopes = await prisma.horoscope_data.count();
-    const weeklyHoroscopes = await prisma.weekly_horoscope_data.count();
+    const horoscopes = await prisma.horoscopeData.count();
+    const weeklyHoroscopes = await prisma.weeklyHoroscopeData.count();
     
     return {
       horoscopes,
