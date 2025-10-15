@@ -711,15 +711,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // POST /api/cleanup - Manual cleanup endpoint
+  // POST /api/cleanup - Manual cleanup endpoint (ADMIN ONLY - requires admin_secret header)
   app.post("/api/cleanup", async (req, res) => {
+    // Security: Require admin secret for destructive operations
+    const adminSecret = req.headers['x-admin-secret'];
+    const expectedSecret = process.env.ADMIN_SECRET || 'default-admin-secret-change-me';
+    
+    if (adminSecret !== expectedSecret) {
+      console.warn('[API] Unauthorized cleanup attempt blocked');
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Valid admin credentials required for cleanup operations'
+      });
+    }
+
     try {
       const { cleanupService } = await import('./services/cleanup');
+      const { cleanupTracker } = await import('./services/cleanupTracker');
       
       const statsBefore = await cleanupService.getDataStats();
       console.log('[API] Data stats before cleanup:', statsBefore);
       
       await cleanupService.cleanupHoroscopeData();
+      await cleanupTracker.setLastCleanupDate(new Date());
       
       const statsAfter = await cleanupService.getDataStats();
       console.log('[API] Data stats after cleanup:', statsAfter);
@@ -729,6 +743,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: 'Cleanup completed successfully',
         statsBefore,
         statsAfter,
+        lastCleanup: new Date().toISOString(),
       });
     } catch (error) {
       console.error('[API] Cleanup error:', error);

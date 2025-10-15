@@ -1,18 +1,32 @@
 import cron from 'node-cron';
 import { cleanupService } from './services/cleanup';
+import { cleanupTracker } from './services/cleanupTracker';
 
-export function initializeScheduledTasks() {
-  // Run cleanup every 31 days at 3 AM
-  // Cron expression: "0 3 */31 * *" means "at 3:00 AM every 31 days"
-  cron.schedule('0 3 */31 * *', async () => {
-    console.log('[Scheduler] Starting scheduled 31-day cleanup...');
+export async function initializeScheduledTasks() {
+  // Ensure tracker table exists
+  await cleanupTracker.ensureTrackerTable();
+
+  // Check daily at 3 AM if cleanup should run (every 31 days)
+  cron.schedule('0 3 * * *', async () => {
     try {
-      await cleanupService.cleanupHoroscopeData();
-      console.log('[Scheduler] Scheduled cleanup completed successfully');
+      const shouldRun = await cleanupTracker.shouldRunCleanup();
+      
+      if (shouldRun) {
+        console.log('[Scheduler] Starting scheduled 31-day cleanup...');
+        await cleanupService.cleanupHoroscopeData();
+        await cleanupTracker.setLastCleanupDate(new Date());
+        console.log('[Scheduler] Scheduled cleanup completed successfully');
+      }
     } catch (error) {
       console.error('[Scheduler] Error during scheduled cleanup:', error);
     }
   });
 
+  const lastCleanup = await cleanupTracker.getLastCleanupDate();
   console.log('[Scheduler] Scheduled tasks initialized: cleanup runs every 31 days at 3 AM');
+  if (lastCleanup) {
+    console.log(`[Scheduler] Last cleanup: ${lastCleanup.toISOString()}`);
+  } else {
+    console.log('[Scheduler] No previous cleanup found');
+  }
 }

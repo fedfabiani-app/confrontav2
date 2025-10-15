@@ -25,6 +25,10 @@ Preferred communication style: Simple, everyday language.
 - **Worker Architecture**: Two dedicated worker modules:
   - Scraper worker for HTML parsing and content extraction
   - OpenAI worker for AI-powered content analysis and processing
+- **Automated Cleanup**: Scheduled task runs every 31 days at 3 AM to delete all horoscope data and reset ID sequences
+  - Cleanup tracker persists last cleanup date in database
+  - Manual cleanup endpoint secured with admin secret (X-Admin-Secret header)
+  - Statistics endpoint for monitoring data volume
 
 ### Data Processing Pipeline
 - **Web Scraping**: Axios and Cheerio for fetching and parsing HTML content from Italian horoscope sources
