@@ -289,3 +289,31 @@
 .hover\:to-red-600:hover {
   --tw-gradient-to: hsl(0, 84%, 52%);
 }
+
+/* App Header Styles - Stable classes that survive HMR */
+.header-bg {
+  background: var(--header-gradient);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: var(--header-border);
+  box-shadow: var(--header-shadow);
+}
+
+.header-stars {
+  background: var(--header-stars);
+  opacity: 0.3;
+}
+
+.header-title {
+  color: var(--header-gold);
+  text-shadow: var(--header-gold-glow);
+}
+
+.header-subtitle {
+  color: var(--header-purple);
+  text-shadow: var(--header-purple-glow);
+}
+
+.header-logo-glow {
+  filter: drop-shadow(0 0 8px rgba(225, 182, 78, 0.3));
+}
