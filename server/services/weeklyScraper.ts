@@ -230,27 +230,19 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
         // Ensure full absolute URL with https protocol
         let absoluteUrl = href;
         if (href.startsWith('/')) {
-          // Relative URL starting with /
-          absoluteUrl = 'https://www.marieclaire.it' + href;
+          absoluteUrl = input.baseUrl + href;
         } else if (!href.startsWith('http')) {
-          // Relative URL without leading /
-          absoluteUrl = 'https://www.marieclaire.it/' + href;
-        } else if (href.startsWith('http://')) {
-          // Force HTTPS
-          absoluteUrl = href.replace('http://', 'https://');
-        } else {
-          // Already absolute with https
-          absoluteUrl = href;
+          absoluteUrl = input.baseUrl + '/' + href;
         }
 
-        // Validate URL
-        try {
-          new URL(absoluteUrl);
-          candidates.push({ url: absoluteUrl, dateRange, score });
-          console.log(`Found Marie Claire URL (score: ${score}): ${absoluteUrl} => ${dateRange.startDate.toISOString().split('T')[0]}`);
-        } catch (error) {
-          console.log(`Invalid Marie Claire URL constructed, skipping: ${absoluteUrl}`);
+        // Ensure https protocol
+        if (absoluteUrl.startsWith('http://')) {
+          absoluteUrl = absoluteUrl.replace('http://', 'https://');
         }
+
+        candidates.push({ url: absoluteUrl, dateRange, score });
+
+        console.log(`Found Marie Claire URL (score: ${score}): ${absoluteUrl} => ${dateRange.startDate.toISOString().split('T')[0]}`);
       }
     });
   } else {
@@ -310,16 +302,8 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
 
   if (closestCandidate) {
     console.log(`✓ Using closest match (${closestCandidate.daysDiff} days diff): ${closestCandidate.url}`);
-    // Validate the URL before caching and returning
-    try {
-      new URL(closestCandidate.url);
-      archiveUrlCache.set(cacheKey, closestCandidate.url);
-      console.log(`✓ Validated and cached Marie Claire URL: ${closestCandidate.url}`);
-      return closestCandidate.url;
-    } catch (error) {
-      console.log(`✗ Invalid URL detected: ${closestCandidate.url}`);
-      throw new Error(`Constructed invalid URL: ${closestCandidate.url}`);
-    }
+    archiveUrlCache.set(cacheKey, closestCandidate.url);
+    return closestCandidate.url; // This is the actual article URL, not the archive page
   }
 
   throw new Error(`No matching weekly horoscope found in archive for week starting ${input.weekStartDate}. Found ${candidates.length} candidates but none matched ${targetDateStr}`);

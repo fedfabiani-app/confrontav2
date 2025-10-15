@@ -43,7 +43,7 @@ const signColors = {
   pesci: 'from-blue-300 to-blue-500',
 };
 
-export function ZodiacCard({ 
+  export function ZodiacCard({ 
   sign, 
   aggregate, 
   summary, 
@@ -58,6 +58,7 @@ export function ZodiacCard({
   const colorClass = signColors[signKey as keyof typeof signColors] || 'from-gray-500 to-gray-700';
 
   const handleCardClick = (e: React.MouseEvent) => {
+    // Don't trigger card click if clicking on control buttons
     if ((e.target as HTMLElement).closest('button')) {
       return;
     }
@@ -73,7 +74,7 @@ export function ZodiacCard({
     e.stopPropagation();
     onToggleCollapse?.();
   };
-
+  
   return (
     <Card 
       className={cn(
@@ -85,57 +86,60 @@ export function ZodiacCard({
       onClick={handleCardClick}
       data-testid={`zodiac-card-${sign.name_english}`}
     >
-      <CardContent className="p-4">
+      <CardContent className="p-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center space-x-2">
-            <div className={cn("w-8 h-8 bg-gradient-to-br rounded-full flex items-center justify-center", colorClass)}>
-              <span className="text-white font-bold text-base">{sign.symbol}</span>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-3">
+            <div className={cn("w-10 h-10 bg-gradient-to-br rounded-full flex items-center justify-center", colorClass)}>
+              <span className="text-white font-bold text-lg">{sign.symbol}</span>
             </div>
             <div>
-              <h3 className="font-semibold text-sm text-card-foreground" data-testid={`sign-name-${sign.name_english}`}>
+              <h3 className="font-semibold text-card-foreground" data-testid={`sign-name-${sign.name_english}`}>
                 {sign.name_italian}
               </h3>
               <p className="text-xs text-muted-foreground">{sign.date_range}</p>
             </div>
           </div>
-          <div className="flex items-center space-x-1">
-            {onToggleFavorite && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleFavoriteClick}
-                className="p-1 h-7 w-7 hover:bg-gray-50 dark:hover:bg-gray-800"
-                data-testid={`button-favorite-${sign.name_english}`}
-                title={isFavorite ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
-              >
-                <Heart 
-                  className={cn(
-                    "w-3.5 h-3.5",
-                    isFavorite ? "text-red-500 fill-red-500" : "text-muted-foreground"
-                  )} 
-                />
-              </Button>
-            )}
-            {onToggleCollapse && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleCollapseClick}
-                className="p-1 h-7 w-7 hover:bg-gray-50 dark:hover:bg-gray-800"
-                data-testid={`button-collapse-${sign.name_english}`}
-                title={isCollapsed ? 'Espandi dettagli' : 'Comprimi dettagli'}
-              >
-                {isCollapsed ? (
-                  <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
-                ) : (
-                  <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" />
-                )}
-              </Button>
-            )}
+          <div className="flex items-center space-x-2">
+            {/* Control Buttons */}
+            <div className="flex items-center space-x-1">
+              {onToggleFavorite && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleFavoriteClick}
+                  className="p-1 h-8 w-8 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  data-testid={`button-favorite-${sign.name_english}`}
+                  title={isFavorite ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
+                >
+                  <Heart 
+                    className={cn(
+                      "w-4 h-4",
+                      isFavorite ? "text-red-500 fill-red-500" : "text-muted-foreground"
+                    )} 
+                  />
+                </Button>
+              )}
+              {onToggleCollapse && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleCollapseClick}
+                  className="p-1 h-8 w-8 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  data-testid={`button-collapse-${sign.name_english}`}
+                  title={isCollapsed ? 'Espandi dettagli' : 'Comprimi dettagli'}
+                >
+                  {isCollapsed ? (
+                    <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                  )}
+                </Button>
+              )}
+            </div>
           </div>
         </div>
-
+        
         {/* Collapsible Content */}
         <div 
           className={cn(
@@ -143,6 +147,7 @@ export function ZodiacCard({
             isCollapsed ? "max-h-0 opacity-0" : "max-h-[500px] opacity-100"
           )}
         >
+          {/* Summary */}
           {summary && (
             <p className="text-sm text-card-foreground line-clamp-3" data-testid={`sign-summary-${sign.name_english}`}>
               {summary}
