@@ -346,16 +346,15 @@ export async function scrapeWeeklyHoroscope(input: WeeklyScraperInput): Promise<
       throw new Error(`Failed to scrape weekly horoscope: ${scrapeResult.error}`);
     }
 
-    // Use the URL from scrapeResult if available (might be different if redirected),
-    // otherwise use resolvedUrl
-    const finalUrl = scrapeResult.url || resolvedUrl;
-    console.log(`[WeeklyScraper] Final URL for database: ${finalUrl}`);
+    // The resolvedUrl is already the actual article URL (from archive or pattern)
+    // Use it directly - it's the most accurate URL we have
+    console.log(`[WeeklyScraper] Storing URL in database: ${resolvedUrl}`);
 
     const result: WeeklyScraperOutput = {
       sourceId: input.sourceId,
       signSlugIt: input.signSlugIt,
       weekStartDate: input.weekStartDate,
-      original_url: finalUrl,
+      original_url: resolvedUrl,
       scraped_at: new Date(),
       extracted_text: scrapeResult.text,
     };

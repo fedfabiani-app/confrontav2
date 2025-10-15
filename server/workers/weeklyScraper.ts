@@ -9,9 +9,6 @@ export class WeeklyScraperWorker {
       const result = await scrapeWeeklyWithRetry(input, 3);
       
       console.log(`[WeeklyScraperWorker] Successfully scraped ${input.sourceName} - ${input.signSlugIt}`);
-      console.log(`[WeeklyScraperWorker] Result URL: ${result.original_url}`);
-      console.log(`[WeeklyScraperWorker] Extracted text length: ${result.extracted_text.length} chars`);
-      
       return result;
     } catch (error) {
       console.error(`[WeeklyScraperWorker] Failed to scrape ${input.sourceName} - ${input.signSlugIt}:`, error);
