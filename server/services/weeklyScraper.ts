@@ -26,7 +26,7 @@ interface WeekDateRange {
 
 function parseItalianWeekRange(text: string, currentYear: number): WeekDateRange | null {
   const lowerText = text.toLowerCase();
-  
+
   const patterns = [
     /dal[l]?(\d{1,2})\s*[-]?\s*al\s*[-]?\s*(\d{1,2})\s*[-]?\s*(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:\s*[-]?\s*\d{4})?/i,
     /dal[l]?\s+(\d{1,2})\s*(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)\s*al\s*[-]?\s*(\d{1,2})\s*[-]?\s*(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:\s*[-]?\s*\d{4})?/i,
@@ -41,15 +41,15 @@ function parseItalianWeekRange(text: string, currentYear: number): WeekDateRange
         const endDay = parseInt(match[2]);
         const monthName = match[3].toLowerCase();
         const month = ITALIAN_MONTHS[monthName];
-        
+
         if (month) {
           const startDate = new Date(currentYear, month - 1, startDay);
           const endDate = new Date(currentYear, month - 1, endDay);
-          
+
           if (endDate < startDate) {
             endDate.setMonth(endDate.getMonth() + 1);
           }
-          
+
           return { startDate, endDate };
         }
       } else if (match.length === 5) {
@@ -57,89 +57,89 @@ function parseItalianWeekRange(text: string, currentYear: number): WeekDateRange
         const startMonthName = match[2].toLowerCase();
         const endDay = parseInt(match[3]);
         const endMonthName = match[4].toLowerCase();
-        
+
         const startMonth = ITALIAN_MONTHS[startMonthName];
         const endMonth = ITALIAN_MONTHS[endMonthName];
-        
+
         if (startMonth && endMonth) {
           const startDate = new Date(currentYear, startMonth - 1, startDay);
           const endDate = new Date(currentYear, endMonth - 1, endDay);
-          
+
           if (endDate < startDate) {
             endDate.setFullYear(endDate.getFullYear() + 1);
           }
-          
+
           return { startDate, endDate };
         }
       }
     }
   }
-  
+
   return null;
 }
 
 async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<string> {
   const cacheKey = `${input.sourceId}-${input.weekStartDate}`;
-  
+
   const cached = archiveUrlCache.get(cacheKey);
   if (cached) {
     console.log(`Using cached archive URL for ${input.sourceName}`);
     return cached;
   }
-  
+
   const archiveUrl = input.baseUrl + input.urlPattern;
   console.log(`Fetching archive page: ${archiveUrl}`);
-  
+
   await respectDomainRateLimit(input.domain);
-  
+
   const html = await fetchHtml(archiveUrl, input.userAgent);
   const $ = cheerio.load(html);
-  
+
   const targetDate = new Date(input.weekStartDate);
   const currentYear = targetDate.getFullYear();
-  
+
   const candidates: { url: string; dateRange: WeekDateRange; score: number }[] = [];
-  
+
   // Special handling for Repubblica - extract URLs and dates from archive page
   if (input.domain.includes('repubblica.it')) {
     console.log('Repubblica archive - Extracting weekly URLs with enhanced pattern matching');
-    
+
     // Pattern to match Repubblica weekly URLs with variations
     const urlPattern = /oroscopo[-_](?:della[-_])?settimana/i;
-    
+
     $('a').each((_, elem) => {
       const href = $(elem).attr('href');
       const linkText = $(elem).text().trim();
-      
+
       if (!href || !urlPattern.test(href)) {
         return;
       }
-      
+
       let score = 0;
-      
+
       // Extract date from URL path: /YYYY/MM/DD/news/...
       const urlDateMatch = href.match(/\/(\d{4})\/(\d{1,2})\/(\d{1,2})\//);
-      
+
       if (urlDateMatch) {
         const urlYear = parseInt(urlDateMatch[1]);
         const urlMonth = parseInt(urlDateMatch[2]);
         const urlDay = parseInt(urlDateMatch[3]);
         const urlDate = new Date(urlYear, urlMonth - 1, urlDay);
-        
+
         // Check if this is a weekend date (likely publication day)
         const dayOfWeek = urlDate.getDay();
         const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Sunday or Saturday
-        
+
         if (isWeekend) {
           score += 10;
         }
-        
+
         // Repubblica publishes weekly horoscopes, week starts on publication day
         const dateRange = {
           startDate: urlDate,
           endDate: new Date(urlDate.getTime() + 6 * 24 * 60 * 60 * 1000)
         };
-        
+
         // Try to extract date range from link text or URL slug
         const dateRangeFromText = parseItalianWeekRange(linkText + ' ' + href, currentYear);
         if (dateRangeFromText) {
@@ -147,36 +147,102 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
           dateRange.endDate = dateRangeFromText.endDate;
           score += 20;
         }
-        
+
         // Bonus for containing "previsioni" in URL
         if (/previsioni/i.test(href)) {
           score += 5;
         }
-        
+
         // Bonus for containing author name patterns
         if (/(marco[-_]pesatori|branko|paolo[-_]fox)/i.test(href)) {
           score += 3;
         }
-        
+
         const absoluteUrl = href.startsWith('http') ? href : 'https://d.repubblica.it' + href;
         candidates.push({ url: absoluteUrl, dateRange, score });
-        
+
         console.log(`Found Repubblica URL (score: ${score}): ${absoluteUrl} => ${urlDate.toISOString().split('T')[0]}`);
       }
     });
-    
+
     // Sort by score (highest first)
     candidates.sort((a, b) => b.score - a.score);
+  } else if (input.domain.includes('marieclaire.it')) {
+    console.log('Marie Claire archive - Extracting weekly URLs');
+
+    // Marie Claire specific pattern: /lifestyle/coolmix/a{random}/oroscopo-settimana
+    const urlPattern = /\/lifestyle\/coolmix\/a\d+\/oroscopo[-_]settimana/i;
+
+    $('a').each((_, elem) => {
+      const href = $(elem).attr('href');
+      const linkText = $(elem).text().trim();
+
+      if (!href || !urlPattern.test(href)) {
+        return;
+      }
+
+      let score = 0;
+
+      // Extract date range from URL or link text - Marie Claire uses Italian dates
+      const fullText = href + ' ' + linkText;
+
+      // Enhanced Italian date range pattern for Marie Claire
+      // Examples: "dal-13-al-19-ottobre", "dal13-al-19-ottobre-2025"
+      const marieClairePattern = /dal[l]?[-_]?(\d{1,2})[-_]al[-_](\d{1,2})[-_](gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:[-_](\d{4}))?/i;
+      const match = fullText.toLowerCase().match(marieClairePattern);
+
+      let dateRange: WeekDateRange | null = null;
+
+      if (match) {
+        const startDay = parseInt(match[1]);
+        const endDay = parseInt(match[2]);
+        const monthName = match[3].toLowerCase();
+        const year = match[4] ? parseInt(match[4]) : currentYear;
+        const month = ITALIAN_MONTHS[monthName];
+
+        if (month) {
+          const startDate = new Date(year, month - 1, startDay);
+          const endDate = new Date(year, month - 1, endDay);
+
+          if (endDate < startDate) {
+            endDate.setMonth(endDate.getMonth() + 1);
+          }
+
+          dateRange = { startDate, endDate };
+          score += 20;
+        }
+      } else {
+        // Fallback to generic Italian date parser
+        dateRange = parseItalianWeekRange(fullText, currentYear);
+        if (dateRange) {
+          score += 15;
+        }
+      }
+
+      if (dateRange) {
+        // Bonus for recent articles (higher article ID = more recent)
+        const articleMatch = href.match(/\/a(\d+)\//);
+        if (articleMatch) {
+          const articleId = parseInt(articleMatch[1]);
+          score += Math.min(articleId / 1000000, 50);
+        }
+
+        const absoluteUrl = href.startsWith('http') ? href : input.baseUrl + href;
+        candidates.push({ url: absoluteUrl, dateRange, score });
+
+        console.log(`Found Marie Claire URL (score: ${score}): ${absoluteUrl} => ${dateRange.startDate.toISOString().split('T')[0]}`);
+      }
+    });
   } else {
     // Generic archive handling for other sources
     $('a').each((_, elem) => {
       const href = $(elem).attr('href');
       const text = $(elem).text();
-      
+
       if (href && (href.includes('oroscopo') || href.includes('branko') || href.includes('settimana'))) {
         const fullText = href + ' ' + text;
         const dateRange = parseItalianWeekRange(fullText, currentYear);
-        
+
         if (dateRange) {
           const absoluteUrl = href.startsWith('http') ? href : input.baseUrl + href;
           candidates.push({ url: absoluteUrl, dateRange, score: 0 });
@@ -184,35 +250,35 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
       }
     });
   }
-  
+
   console.log(`Found ${candidates.length} candidate URLs in archive`);
-  
+
   const targetDateStr = targetDate.toISOString().split('T')[0];
-  
+
   // First try: exact date match
   for (const candidate of candidates) {
     const candidateDateStr = candidate.dateRange.startDate.toISOString().split('T')[0];
     console.log(`Candidate: ${candidate.url} => ${candidateDateStr} (target: ${targetDateStr}, score: ${candidate.score})`);
-    
+
     if (candidateDateStr === targetDateStr) {
       console.log(`✓ Matched archive URL (exact match): ${candidate.url}`);
       archiveUrlCache.set(cacheKey, candidate.url);
       return candidate.url;
     }
   }
-  
+
   // Second try: date within range (for weekly horoscopes that cover a week)
   for (const candidate of candidates) {
     const startDate = candidate.dateRange.startDate;
     const endDate = candidate.dateRange.endDate;
-    
+
     if (targetDate >= startDate && targetDate <= endDate) {
       console.log(`✓ Matched archive URL (within range): ${candidate.url}`);
       archiveUrlCache.set(cacheKey, candidate.url);
       return candidate.url;
     }
   }
-  
+
   // Third try: closest date (within 3 days)
   const closestCandidate = candidates
     .map(c => ({
@@ -221,13 +287,13 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
     }))
     .filter(c => c.daysDiff <= 3)
     .sort((a, b) => a.daysDiff - b.daysDiff || b.score - a.score)[0];
-  
+
   if (closestCandidate) {
     console.log(`✓ Using closest match (${closestCandidate.daysDiff} days diff): ${closestCandidate.url}`);
     archiveUrlCache.set(cacheKey, closestCandidate.url);
     return closestCandidate.url;
   }
-  
+
   throw new Error(`No matching weekly horoscope found in archive for week starting ${input.weekStartDate}. Found ${candidates.length} candidates but none matched ${targetDateStr}`);
 }
 
@@ -274,7 +340,7 @@ async function buildWeeklyHoroscopeUrl(input: WeeklyScraperInput): Promise<strin
     console.log(`Using archive strategy for ${input.sourceName}`);
     return await resolveWeeklyUrlFromArchive(input);
   }
-  
+
   // Pattern strategy - build URL from pattern
   const signMap: Record<string, string> = {
     'Ariete': 'ariete', 'Toro': 'toro', 'Gemelli': 'gemelli', 'Cancro': 'cancro',
@@ -341,13 +407,13 @@ async function fetchHtml(url: string, userAgent: string): Promise<string> {
   try {
     // Validate URL format first
     const urlObj = new URL(url);
-    
+
     // Pre-flight DNS check with timeout
     try {
       const dns = await import('dns');
       const { promisify } = await import('util');
       const resolve4 = promisify(dns.resolve4);
-      
+
       await Promise.race([
         resolve4(urlObj.hostname),
         new Promise((_, reject) => setTimeout(() => reject(new Error('DNS timeout')), 2000))
@@ -355,14 +421,14 @@ async function fetchHtml(url: string, userAgent: string): Promise<string> {
     } catch (dnsError) {
       throw new Error(`DNS resolution failed for ${urlObj.hostname}: ${dnsError instanceof Error ? dnsError.message : 'Unknown DNS error'}`);
     }
-    
+
     // Add random delay between 1-3 seconds
     const delay = 1000 + Math.random() * 2000;
     await new Promise(resolve => setTimeout(resolve, delay));
-    
+
     // Rotate user agents for reliability
     const selectedUserAgent = userAgent || USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
-    
+
     const response = await axios.get(url, {
       headers: {
         'User-Agent': selectedUserAgent,
@@ -416,8 +482,8 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
 
     // Special handling for Marie Claire - single page with all signs
     if (url.includes('marieclaire.it')) {
-      console.log(`Marie Claire - Extracting content for ${input.signSlugIt}`);
-      
+      console.log(`Marie Claire - Extracting content for ${input.signSlugIt} from URL: ${url}`);
+
       const signMap: Record<string, string> = {
         'Ariete': 'ariete', 'Toro': 'toro', 'Gemelli': 'gemelli', 'Cancro': 'cancro',
         'Leone': 'leone', 'Vergine': 'vergine', 'Bilancia': 'bilancia', 'Scorpione': 'scorpione',
@@ -425,29 +491,71 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
       };
 
       const signId = signMap[input.signSlugIt] || input.signSlugIt.toLowerCase();
-      
-      // Find the h2 heading for this sign (e.g., <h2 id="toro">)
-      const signHeading = $(`h2#${signId}, h2:contains("${input.signSlugIt}")`).first();
-      
+
+      // Strategy 1: Find h2 with id attribute (e.g., <h2 id="toro">)
+      let signHeading = $(`h2#${signId}`).first();
+
+      // Strategy 2: Find h2 containing exact sign name (case-insensitive)
+      if (signHeading.length === 0) {
+        $('h2').each((_, h2) => {
+          const h2Text = $(h2).text().trim();
+
+          // Check if H2 contains sign name (with or without strong tags)
+          if (h2Text.toLowerCase().includes(input.signSlugIt.toLowerCase())) {
+            // Verify it's an exact match (not part of another word)
+            const signPattern = new RegExp(`\\b${input.signSlugIt}\\b`, 'i');
+            if (signPattern.test(h2Text)) {
+              signHeading = $(h2);
+              return false; // Break loop
+            }
+          }
+        });
+      }
+
+      // Strategy 3: Find h2 with class 'body-h2' containing sign name
+      if (signHeading.length === 0) {
+        signHeading = $(`h2.body-h2:contains("${input.signSlugIt}")`).first();
+      }
+
+      // Strategy 4: Find any heading (h2, h3) with sign name
+      if (signHeading.length === 0) {
+        signHeading = $(`h2:contains("${input.signSlugIt}"), h3:contains("${input.signSlugIt}")`).first();
+      }
+
+
       if (signHeading.length > 0) {
+        console.log(`Marie Claire - Found heading for ${input.signSlugIt} using strategy: ${signHeading.prop('tagName')}${signHeading.attr('id') ? '#' + signHeading.attr('id') : ''}`);
         let extractedContent = '';
-        
-        // Get all siblings after the heading until the next h2
+
+        // Traverse siblings to extract content until the next sign heading
         let currentElement = signHeading.next();
-        
-        while (currentElement.length > 0 && currentElement.prop('tagName') !== 'H2') {
+
+        while (currentElement.length > 0) {
+          const tagName = currentElement.prop('tagName');
+
+          // Stop at next sign heading
+          if (tagName === 'H2' || tagName === 'H3') {
+            const headingText = currentElement.text().trim();
+            // Check if this is another zodiac sign
+            const zodiacSigns = ['ariete', 'toro', 'gemelli', 'cancro', 'leone', 'vergine', 
+                                 'bilancia', 'scorpione', 'sagittario', 'capricorno', 'acquario', 'pesci'];
+            if (zodiacSigns.some(sign => headingText.toLowerCase().includes(sign))) {
+              break;
+            }
+          }
+
           if (currentElement.is('p')) {
             const text = currentElement.text().trim();
-            if (text.length > 0 && !text.startsWith('La tip karmica:')) {
-              extractedContent += text + '\n\n';
-            } else if (text.startsWith('La tip karmica:')) {
-              // Extract the karmic tip separately
+            // Filter out navigation/ad text
+            if (text.length > 0 && 
+                !text.match(/^(leggi anche|advertisement|pubblicità|scopri|continua|condividi)/i)) {
               extractedContent += text + '\n\n';
             }
           }
+
           currentElement = currentElement.next();
         }
-        
+
         if (extractedContent.trim().length > 50) {
           console.log(`Marie Claire - Successfully extracted ${extractedContent.length} chars for ${input.signSlugIt}`);
           return {
@@ -455,16 +563,83 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
             text: extractedContent.trim().substring(0, 3500),
             url
           };
+        } else {
+            console.log(`Marie Claire - Extracted content too short for ${input.signSlugIt}, trying fallback.`);
+        }
+      } else {
+        console.log(`Marie Claire - Failed to find heading for ${input.signSlugIt}, trying alternative selectors`);
+      }
+
+      // Fallback 1: Try to find content in article body
+      const articleBody = $('article, .article-body, .article__body, main, [class*="article"]').first();
+      if (articleBody.length > 0) {
+        let foundSign = false;
+        let extractedContent = '';
+
+        articleBody.find('p, h2, h3, h4, strong').each((_, elem) => {
+          const $elem = $(elem);
+          const text = $elem.text().trim();
+
+          // Check if this element marks the start of our sign
+          if (text.toLowerCase().includes(input.signSlugIt.toLowerCase())) {
+            const signPattern = new RegExp(`\\b${input.signSlugIt}\\b`, 'i');
+            if (signPattern.test(text)) {
+              foundSign = true;
+              extractedContent = '';
+
+              // If the sign name is in a paragraph, include that paragraph
+              if ($elem.is('p')) {
+                extractedContent = text + '\n\n';
+              }
+              return; // Continue to next element
+            }
+          }
+
+          if (foundSign && $elem.is('p')) {
+            extractedContent += text + '\n\n';
+          } else if (foundSign && $elem.is('h2, h3, h4, strong')) {
+            // Check if this is another zodiac sign
+            const zodiacSigns = ['ariete', 'toro', 'gemelli', 'cancro', 'leone', 'vergine', 
+                                 'bilancia', 'scorpione', 'sagittario', 'capricorno', 'acquario', 'pesci'];
+            if (zodiacSigns.some(sign => text.toLowerCase().includes(sign))) {
+              return false; // Stop iteration
+            }
+          }
+        });
+
+        if (extractedContent.trim().length > 50) {
+          console.log(`Marie Claire - Extracted ${extractedContent.length} chars using fallback method`);
+          return {
+            success: true,
+            text: extractedContent.trim().substring(0, 3500),
+            url
+          };
         }
       }
-      
-      console.log(`Marie Claire - Failed to find content for ${input.signSlugIt}`);
+
+      // Fallback 2: Search entire page body for sign-specific content
+      const bodyText = $('body').text();
+      const signIndex = bodyText.toLowerCase().indexOf(input.signSlugIt.toLowerCase());
+
+      if (signIndex !== -1) {
+        // Extract 500 chars after sign name
+        const snippet = bodyText.substring(signIndex, signIndex + 500).trim();
+        if (snippet.length > 50) {
+          console.log(`Marie Claire - Extracted ${snippet.length} chars from body text search`);
+          return {
+            success: true,
+            text: snippet.substring(0, 3500),
+            url
+          };
+        }
+      }
+      console.log(`Marie Claire - Failed to find content for ${input.signSlugIt} after multiple attempts.`);
     }
 
     // Special handling for Repubblica - single page with all signs
     if (url.includes('repubblica.it')) {
       console.log(`Repubblica - Extracting content for ${input.signSlugIt} from URL: ${url}`);
-      
+
       // Try multiple selectors for the main content area
       const contentSelectors = [
         '.story__content',
@@ -472,7 +647,7 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
         '[data-component="ArticleBody"]',
         'main article'
       ];
-      
+
       let mainContent = $('body');
       for (const selector of contentSelectors) {
         const elem = $(selector);
@@ -482,7 +657,7 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
           break;
         }
       }
-      
+
       // Find the heading for this sign (try different heading levels)
       const signHeadingSelectors = [
         `h2:contains("${input.signSlugIt}")`,
@@ -490,7 +665,7 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
         `h4:contains("${input.signSlugIt}")`,
         `strong:contains("${input.signSlugIt}")`
       ];
-      
+
       let signHeading = $();
       for (const selector of signHeadingSelectors) {
         signHeading = mainContent.find(selector).first();
@@ -499,13 +674,13 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
           break;
         }
       }
-      
+
       if (signHeading.length > 0) {
         let extractedContent = '';
-        
+
         // Get parent container if heading is within a structured section
         const parent = signHeading.parent();
-        
+
         // Strategy 1: Extract from structured section
         if (parent.is('div') || parent.is('section')) {
           parent.find('p').each((_, p) => {
@@ -515,15 +690,15 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
             }
           });
         }
-        
+
         // Strategy 2: Get siblings after heading
         if (!extractedContent || extractedContent.length < 50) {
           extractedContent = '';
           let currentElement = signHeading.next();
-          
+
           while (currentElement.length > 0) {
             const tagName = currentElement.prop('tagName');
-            
+
             // Stop at next sign heading
             if (['H2', 'H3', 'H4'].includes(tagName)) {
               const headingText = currentElement.text();
@@ -533,18 +708,18 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
                 break;
               }
             }
-            
+
             if (currentElement.is('p')) {
               const text = currentElement.text().trim();
               if (text.length > 0 && !text.match(/^(pubblicato|condividi|leggi anche)/i)) {
                 extractedContent += text + '\n\n';
               }
             }
-            
+
             currentElement = currentElement.next();
           }
         }
-        
+
         if (extractedContent.trim().length > 50) {
           console.log(`Repubblica - Successfully extracted ${extractedContent.length} chars for ${input.signSlugIt}`);
           return {
@@ -554,9 +729,9 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
           };
         }
       }
-      
+
       console.log(`Repubblica - Failed to find heading or content for ${input.signSlugIt}`);
-      
+
       // Fallback: try to find content in a tab-based layout
       const tabContent = mainContent.find(`[data-sign="${input.signSlugIt.toLowerCase()}"], .tab-content:contains("${input.signSlugIt}")`);
       if (tabContent.length > 0) {
@@ -596,7 +771,7 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
 
       if (combinedText.length > 50) {
         const score = scoreHoroscopeContent(combinedText, input.signSlugIt);
-        
+
         if (score > highestScore) {
           highestScore = score;
           bestContent = combinedText;
@@ -639,20 +814,20 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
 
 export async function scrapeWeeklyWithRetry(input: WeeklyScraperInput, maxRetries: number = 3): Promise<WeeklyScraperOutput> {
   let lastError: Error | null = null;
-  
+
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       return await scrapeWeeklyHoroscope(input);
     } catch (error) {
       lastError = error instanceof Error ? error : new Error('Unknown error');
       console.log(`Weekly scrape attempt ${attempt}/${maxRetries} failed:`, lastError.message);
-      
+
       if (attempt < maxRetries) {
         const delay = attempt * 1000;
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
   }
-  
+
   throw lastError || new Error('Failed to scrape weekly horoscope');
 }
