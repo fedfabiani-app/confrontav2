@@ -50,6 +50,19 @@
   --sidebar-foreground: hsl(210 25% 7.8431%);
   --sidebar-accent-foreground: hsl(203.8863 88.2845% 53.1373%);
   --sidebar-primary-foreground: hsl(0 0% 100%);
+  
+  /* Custom App Header Variables */
+  --header-gradient: linear-gradient(135deg, rgba(30, 20, 64, 0.8) 0%, rgba(45, 30, 80, 0.7) 100%);
+  --header-border: 1px solid rgba(225, 182, 78, 0.2);
+  --header-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  --header-gold: #E1B64E;
+  --header-gold-glow: 0 0 20px rgba(225, 182, 78, 0.4);
+  --header-purple: #C4B5E0;
+  --header-purple-glow: 0 0 10px rgba(196, 181, 224, 0.3);
+  --header-stars: radial-gradient(2px 2px at 20% 30%, white, transparent),
+                   radial-gradient(1px 1px at 80% 70%, rgba(225, 182, 78, 0.8), transparent),
+                   radial-gradient(1px 1px at 90% 20%, white, transparent),
+                   radial-gradient(2px 2px at 60% 80%, rgba(196, 181, 224, 0.6), transparent);
 }
 
 .dark {
@@ -167,6 +180,34 @@
 
 .star-empty {
   color: hsl(220, 13%, 91%);
+}
+
+/* App Header Stable Styles - Won't reset on HMR */
+.app-header {
+  background: var(--header-gradient);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: var(--header-border);
+  box-shadow: var(--header-shadow);
+}
+
+.app-header-stars {
+  background: var(--header-stars);
+  opacity: 0.3;
+}
+
+.header-title {
+  color: var(--header-gold);
+  text-shadow: var(--header-gold-glow);
+}
+
+.header-subtitle {
+  color: var(--header-purple);
+  text-shadow: var(--header-purple-glow);
+}
+
+.header-logo-glow {
+  filter: drop-shadow(0 0 8px rgba(225, 182, 78, 0.3));
 }
 
 /* Tone badge styles */
