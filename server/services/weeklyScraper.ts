@@ -230,18 +230,20 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
         // Ensure full absolute URL with https protocol
         let absoluteUrl = href;
         if (href.startsWith('/')) {
-          absoluteUrl = input.baseUrl + href;
+          // Relative URL starting with /
+          absoluteUrl = 'https://www.marieclaire.it' + href;
         } else if (!href.startsWith('http')) {
-          absoluteUrl = input.baseUrl + '/' + href;
-        }
-
-        // Ensure https protocol
-        if (absoluteUrl.startsWith('http://')) {
-          absoluteUrl = absoluteUrl.replace('http://', 'https://');
+          // Relative URL without leading /
+          absoluteUrl = 'https://www.marieclaire.it/' + href;
+        } else if (href.startsWith('http://')) {
+          // Force HTTPS
+          absoluteUrl = href.replace('http://', 'https://');
+        } else {
+          // Already absolute with https
+          absoluteUrl = href;
         }
 
         candidates.push({ url: absoluteUrl, dateRange, score });
-
         console.log(`Found Marie Claire URL (score: ${score}): ${absoluteUrl} => ${dateRange.startDate.toISOString().split('T')[0]}`);
       }
     });
@@ -303,7 +305,7 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
   if (closestCandidate) {
     console.log(`✓ Using closest match (${closestCandidate.daysDiff} days diff): ${closestCandidate.url}`);
     archiveUrlCache.set(cacheKey, closestCandidate.url);
-    return closestCandidate.url; // This is the actual article URL, not the archive page
+    return closestCandidate.url;
   }
 
   throw new Error(`No matching weekly horoscope found in archive for week starting ${input.weekStartDate}. Found ${candidates.length} candidates but none matched ${targetDateStr}`);
@@ -330,8 +332,7 @@ export async function scrapeWeeklyHoroscope(input: WeeklyScraperInput): Promise<
       throw new Error(`Failed to scrape weekly horoscope: ${scrapeResult.error}`);
     }
 
-    // The resolvedUrl is already the actual article URL (from archive or pattern)
-    // Use it directly - it's the most accurate URL we have
+    // Store the actual URL that was successfully scraped
     console.log(`[WeeklyScraper] Storing URL in database: ${resolvedUrl}`);
 
     const result: WeeklyScraperOutput = {
@@ -500,7 +501,7 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
     if (url.includes('marieclaire.it')) {
       console.log(`Marie Claire - Extracting content for ${input.signSlugIt} from URL: ${url}`);
       console.log(`Marie Claire - Page structure analysis:`);
-      
+
       const signMap: Record<string, string> = {
         'Ariete': 'ariete', 'Toro': 'toro', 'Gemelli': 'gemelli', 'Cancro': 'cancro',
         'Leone': 'leone', 'Vergine': 'vergine', 'Bilancia': 'bilancia', 'Scorpione': 'scorpione',
@@ -537,7 +538,7 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
           const h2Text = $h2.text().trim().toLowerCase();
           const strongText = $h2.find('strong').text().trim().toLowerCase();
           const targetSign = input.signSlugIt.toLowerCase();
-          
+
           if (h2Text === targetSign || strongText === targetSign) {
             signHeading = $h2;
             console.log(`Marie Claire - Strategy 2 SUCCESS: Found H2 with exact match "${$h2.text().trim()}"`);
@@ -557,7 +558,7 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
         $('h2, h3').each((_, heading) => {
           const $heading = $(heading);
           const headingText = $heading.text().trim();
-          
+
           if (patterns.some(p => p.test(headingText))) {
             signHeading = $heading;
             console.log(`Marie Claire - Strategy 3 SUCCESS: Found heading "${headingText}"`);
@@ -587,7 +588,7 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
           if (currentElement.is('p')) {
             const text = currentElement.text().trim();
             const textLower = text.toLowerCase();
-            
+
             // Enhanced filtering
             const isNoise = textLower.startsWith('leggi anche') ||
                            textLower.startsWith('advertisement') ||
@@ -599,7 +600,7 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
                            textLower.match(/^la tip karmica/i) ||
                            textLower.match(/^\[.*\]$/) ||
                            text.length < 20;
-            
+
             if (!isNoise) {
               extractedContent += text + '\n\n';
               paragraphCount++;
@@ -622,23 +623,23 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
 
       // Advanced fallback: DOM traversal with context awareness
       console.log(`Marie Claire - Trying advanced DOM analysis...`);
-      
+
       const allText = $('body').text();
       const signRegex = new RegExp(`\\b${input.signSlugIt}\\b`, 'gi');
       const matches = [...allText.matchAll(signRegex)];
-      
+
       console.log(`Marie Claire - Found ${matches.length} occurrences of "${input.signSlugIt}" in body`);
 
       if (matches.length > 0) {
         // Find the main content area
         const contentSelectors = ['article', 'main', '[class*="article"]', '[class*="content"]', '.body'];
-        
+
         for (const selector of contentSelectors) {
           const $content = $(selector).first();
           if ($content.length === 0) continue;
 
           console.log(`Marie Claire - Analyzing ${selector} container...`);
-          
+
           // Find all elements containing the sign name
           const $allElements = $content.find('*').filter((_, el) => {
             const text = $(el).text();
@@ -652,18 +653,18 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
             const $el = $($allElements[i]);
             const tagName = $el.prop('tagName');
             const elText = $el.text().trim();
-            
+
             // Is this a heading with just the sign name?
-            if (['H2', 'H3', 'H4', 'STRONG', 'B'].includes(tagName) && 
+            if (['H2', 'H3', 'H4', 'STRONG', 'B'].includes(tagName) &&
                 elText.toLowerCase() === input.signSlugIt.toLowerCase()) {
-              
+
               console.log(`Marie Claire - Found sign in ${tagName}: "${elText}"`);
-              
+
               // Extract following paragraphs
               let $next = $el.parent().next();
               let content = '';
               let pCount = 0;
-              
+
               while ($next.length > 0 && pCount < 10) {
                 if ($next.is('p')) {
                   const pText = $next.text().trim();
@@ -672,16 +673,16 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
                     pCount++;
                   }
                 }
-                
+
                 // Stop at next sign
                 const nextText = $next.text().toLowerCase();
                 if (zodiacSigns.some(sign => nextText === sign)) {
                   break;
                 }
-                
+
                 $next = $next.next();
               }
-              
+
               if (content.trim().length > 50) {
                 console.log(`Marie Claire - Fallback extraction successful: ${content.length} chars from ${pCount} paragraphs`);
                 return {
@@ -742,7 +743,7 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
           if (currentElement.is('p')) {
             const text = currentElement.text().trim();
             // Filter out navigation/metadata text
-            if (text.length > 0 && 
+            if (text.length > 0 &&
                 !text.match(/^(pubblicato|condividi|leggi anche|illustrazione|share|ti potrebbe piacere|iscriviti)/i) &&
                 !text.match(/^(musica:|[\d]{2}\/[\d]{2}\/[\d]{4})/i)) {
               extractedContent += text + '\n\n';

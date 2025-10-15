@@ -4,11 +4,14 @@ import { scrapeWeeklyWithRetry } from '../services/weeklyScraper';
 export class WeeklyScraperWorker {
   async process(input: WeeklyScraperInput): Promise<WeeklyScraperOutput> {
     console.log(`[WeeklyScraperWorker] Processing ${input.sourceName} - ${input.signSlugIt} for week starting ${input.weekStartDate}`);
-    
+
     try {
       const result = await scrapeWeeklyWithRetry(input, 3);
-      
-      console.log(`[WeeklyScraperWorker] Successfully scraped ${input.sourceName} - ${input.signSlugIt}`);
+
+      console.log(`[WeeklyScraperWorker] ✓ Successfully scraped ${input.sourceName} - ${input.signSlugIt}`);
+      console.log(`[WeeklyScraperWorker] ✓ Stored URL: ${result.original_url}`);
+      console.log(`[WeeklyScraperWorker] ✓ Content: ${result.extracted_text.length} chars`);
+
       return result;
     } catch (error) {
       console.error(`[WeeklyScraperWorker] Failed to scrape ${input.sourceName} - ${input.signSlugIt}:`, error);
