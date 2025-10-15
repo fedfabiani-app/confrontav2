@@ -167,6 +167,45 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
     
     // Sort by score (highest first)
     candidates.sort((a, b) => b.score - a.score);
+  } else if (input.domain.includes('marieclaire.it')) {
+    console.log('Marie Claire archive - Extracting weekly URLs');
+    
+    // Marie Claire specific pattern: /lifestyle/coolmix/a{random}/oroscopo-settimana...
+    const urlPattern = /\/lifestyle\/coolmix\/a\d+\/oroscopo[-_]settimana/i;
+    
+    $('a').each((_, elem) => {
+      const href = $(elem).attr('href');
+      const linkText = $(elem).text().trim();
+      
+      if (!href || !urlPattern.test(href)) {
+        return;
+      }
+      
+      let score = 0;
+      
+      // Extract date range from URL or link text
+      const fullText = href + ' ' + linkText;
+      const dateRange = parseItalianWeekRange(fullText, currentYear);
+      
+      if (dateRange) {
+        score += 20;
+        
+        // Bonus for recent articles
+        const articleMatch = href.match(/\/a(\d+)\//);
+        if (articleMatch) {
+          const articleId = parseInt(articleMatch[1]);
+          score += Math.min(articleId / 1000000, 50); // Higher article ID = more recent
+        }
+        
+        const absoluteUrl = href.startsWith('http') ? href : input.baseUrl + href;
+        candidates.push({ url: absoluteUrl, dateRange, score });
+        
+        console.log(`Found Marie Claire URL (score: ${score}): ${absoluteUrl}`);
+      }
+    });
+    
+    // Sort by score (highest first)
+    candidates.sort((a, b) => b.score - a.score);
   } else {
     // Generic archive handling for other sources
     $('a').each((_, elem) => {
@@ -426,8 +465,24 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
 
       const signId = signMap[input.signSlugIt] || input.signSlugIt.toLowerCase();
       
-      // Find the h2 heading for this sign (e.g., <h2 id="toro">)
-      const signHeading = $(`h2#${signId}, h2:contains("${input.signSlugIt}")`).first();
+      // Strategy 1: Find h2 with id attribute
+      let signHeading = $(`h2#${signId}`).first();
+      
+      // Strategy 2: Find h2 containing the sign name in strong tag
+      if (signHeading.length === 0) {
+        $('h2').each((_, h2) => {
+          const strongText = $(h2).find('strong').text().trim();
+          if (strongText.toLowerCase() === input.signSlugIt.toLowerCase()) {
+            signHeading = $(h2);
+            return false; // Break loop
+          }
+        });
+      }
+      
+      // Strategy 3: Find h2 containing sign name anywhere
+      if (signHeading.length === 0) {
+        signHeading = $(`h2:contains("${input.signSlugIt}")`).first();
+      }
       
       if (signHeading.length > 0) {
         let extractedContent = '';
@@ -438,10 +493,7 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
         while (currentElement.length > 0 && currentElement.prop('tagName') !== 'H2') {
           if (currentElement.is('p')) {
             const text = currentElement.text().trim();
-            if (text.length > 0 && !text.startsWith('La tip karmica:')) {
-              extractedContent += text + '\n\n';
-            } else if (text.startsWith('La tip karmica:')) {
-              // Extract the karmic tip separately
+            if (text.length > 0) {
               extractedContent += text + '\n\n';
             }
           }
@@ -458,7 +510,40 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
         }
       }
       
-      console.log(`Marie Claire - Failed to find content for ${input.signSlugIt}`);
+      console.log(`Marie Claire - Failed to find heading for ${input.signSlugIt}, trying alternative selectors`);
+      
+      // Fallback: Try to find content in article body with different structure
+      const articleBody = $('article, .article-body, [class*="article"]').first();
+      if (articleBody.length > 0) {
+        let foundSign = false;
+        let extractedContent = '';
+        
+        articleBody.find('p, h2, h3, h4').each((_, elem) => {
+          const $elem = $(elem);
+          const text = $elem.text().trim();
+          
+          if ($elem.is('h2, h3, h4') && text.toLowerCase().includes(input.signSlugIt.toLowerCase())) {
+            foundSign = true;
+            extractedContent = '';
+          } else if (foundSign && $elem.is('p')) {
+            extractedContent += text + '\n\n';
+          } else if (foundSign && $elem.is('h2, h3, h4')) {
+            // Next sign found, stop
+            return false;
+          }
+        });
+        
+        if (extractedContent.trim().length > 50) {
+          console.log(`Marie Claire - Extracted ${extractedContent.length} chars using fallback method`);
+          return {
+            success: true,
+            text: extractedContent.trim().substring(0, 3500),
+            url
+          };
+        }
+      }
+      
+      console.log(`Marie Claire - All extraction methods failed for ${input.signSlugIt}`);
     }
 
     // Special handling for Repubblica - single page with all signs
