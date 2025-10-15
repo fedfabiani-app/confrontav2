@@ -16,6 +16,7 @@ interface ScrapeResult {
   success: boolean;
   text?: string;
   url?: string;
+  actualUrl?: string; // Added to store the actual scraped URL
   error?: string;
 }
 
@@ -234,7 +235,7 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
         } else if (!href.startsWith('http')) {
           absoluteUrl = input.baseUrl + '/' + href;
         }
-        
+
         // Ensure https protocol
         if (absoluteUrl.startsWith('http://')) {
           absoluteUrl = absoluteUrl.replace('http://', 'https://');
@@ -310,8 +311,8 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
 }
 
 const COMPREHENSIVE_HOROSCOPE_KEYWORDS = [
-  'oroscopo', 'previsioni', 'stelle', 'fortuna', 'destino', 'zodiaco', 'segno', 'astrale', 
-  'amore', 'lavoro', 'salute', 'benessere', 'relazioni', 'carriera', 
+  'oroscopo', 'previsioni', 'stelle', 'fortuna', 'destino', 'zodiaco', 'segno', 'astrale',
+  'amore', 'lavoro', 'salute', 'benessere', 'relazioni', 'carriera',
   'settimana', 'settimanale', 'periodo', 'futuro',
   'energia', 'emozioni', 'sentimenti', 'passione',
   'luna', 'sole', 'pianeti', 'mercurio', 'venere', 'marte', 'giove', 'saturno'
@@ -334,7 +335,7 @@ export async function scrapeWeeklyHoroscope(input: WeeklyScraperInput): Promise<
       sourceId: input.sourceId,
       signSlugIt: input.signSlugIt,
       weekStartDate: input.weekStartDate,
-      original_url: url,
+      original_url: scrapeResult.actualUrl || scrapeResult.url || url, // Use actualUrl if available
       scraped_at: new Date(),
       extracted_text: scrapeResult.text,
     };
@@ -549,7 +550,7 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
           if (tagName === 'H2' || tagName === 'H3') {
             const headingText = currentElement.text().trim();
             // Check if this is another zodiac sign
-            const zodiacSigns = ['ariete', 'toro', 'gemelli', 'cancro', 'leone', 'vergine', 
+            const zodiacSigns = ['ariete', 'toro', 'gemelli', 'cancro', 'leone', 'vergine',
                                  'bilancia', 'scorpione', 'sagittario', 'capricorno', 'acquario', 'pesci'];
             if (zodiacSigns.some(sign => headingText.toLowerCase().includes(sign))) {
               break;
@@ -559,7 +560,7 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
           if (currentElement.is('p')) {
             const text = currentElement.text().trim();
             // Filter out navigation/ad text
-            if (text.length > 0 && 
+            if (text.length > 0 &&
                 !text.match(/^(leggi anche|advertisement|pubblicità|scopri|continua|condividi)/i)) {
               extractedContent += text + '\n\n';
             }
@@ -573,8 +574,8 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
           return {
             success: true,
             text: extractedContent.trim().substring(0, 3500),
-            url,
-            actualUrl: url  // Ensure the full URL is returned
+            url, // This is the generic URL pattern from the archive
+            actualUrl: url // Return the actual scraped URL
           };
         } else {
             console.log(`Marie Claire - Extracted content too short for ${input.signSlugIt}, trying fallback.`);
@@ -612,7 +613,7 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
             extractedContent += text + '\n\n';
           } else if (foundSign && $elem.is('h2, h3, h4, strong')) {
             // Check if this is another zodiac sign
-            const zodiacSigns = ['ariete', 'toro', 'gemelli', 'cancro', 'leone', 'vergine', 
+            const zodiacSigns = ['ariete', 'toro', 'gemelli', 'cancro', 'leone', 'vergine',
                                  'bilancia', 'scorpione', 'sagittario', 'capricorno', 'acquario', 'pesci'];
             if (zodiacSigns.some(sign => text.toLowerCase().includes(sign))) {
               return false; // Stop iteration
@@ -717,7 +718,7 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
             // Stop at next sign heading
             if (['H2', 'H3', 'H4'].includes(tagName)) {
               const headingText = currentElement.text();
-              const zodiacSigns = ['ariete', 'toro', 'gemelli', 'cancro', 'leone', 'vergine', 
+              const zodiacSigns = ['ariete', 'toro', 'gemelli', 'cancro', 'leone', 'vergine',
                                    'bilancia', 'scorpione', 'sagittario', 'capricorno', 'acquario', 'pesci'];
               if (zodiacSigns.some(sign => headingText.toLowerCase().includes(sign))) {
                 break;
@@ -740,7 +741,8 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
           return {
             success: true,
             text: extractedContent.trim().substring(0, 3500),
-            url
+            url,
+            actualUrl: url
           };
         }
       }
@@ -756,7 +758,8 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
           return {
             success: true,
             text: text.substring(0, 3500),
-            url
+            url,
+            actualUrl: url
           };
         }
       }
@@ -817,7 +820,8 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
     return {
       success: true,
       text: bestContent.substring(0, 3500),
-      url
+      url,
+      actualUrl: url // Return the actual scraped URL
     };
   } catch (error) {
     return {
