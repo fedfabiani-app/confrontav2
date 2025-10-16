@@ -27,10 +27,21 @@ interface WeekDateRange {
 function parseItalianWeekRange(text: string, currentYear: number): WeekDateRange | null {
   const lowerText = text.toLowerCase();
 
+  // Enhanced patterns to handle various Italian date formats including:
+  // - "dal 11 al 17 ottobre" (with spaces)
+  // - "dal-11-al-17-ottobre" (with hyphens)
+  // - "dall11-al-17-ottobre" (mixed - no space after dall, hyphen before al)
+  // - "dall11al17ottobre" (completely concatenated)
+  // - "dal11-al-17-ottobre" (no space after dal)
   const patterns = [
-    /dal[l]?(\d{1,2})\s*[-]?\s*al\s*[-]?\s*(\d{1,2})\s*[-]?\s*(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:\s*[-]?\s*\d{4})?/i,
-    /dal[l]?\s+(\d{1,2})\s*(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)\s*al\s*[-]?\s*(\d{1,2})\s*[-]?\s*(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:\s*[-]?\s*\d{4})?/i,
-    /(\d{1,2})\s*[-]\s*(\d{1,2})\s*[-]?\s*(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:\s*[-]?\s*\d{4})?/i,
+    // Pattern 1: Flexible "dal/dall + number + al + number + month" with optional separators
+    /dall?[-\s]?(\d{1,2})[-\s]*al[-\s]*(\d{1,2})[-\s]*(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:[-\s]*\d{4})?/i,
+    
+    // Pattern 2: Two months format "dal/dall + day + month + al + day + month"
+    /dall?[-\s]?(\d{1,2})[-\s]*(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)[-\s]*al[-\s]*(\d{1,2})[-\s]*(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:[-\s]*\d{4})?/i,
+    
+    // Pattern 3: Simple "number - number - month" format
+    /(\d{1,2})[-\s]+(\d{1,2})[-\s]+(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:[-\s]*\d{4})?/i,
   ];
 
   for (const pattern of patterns) {
@@ -187,8 +198,8 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
       const fullText = href + ' ' + linkText;
 
       // Enhanced Italian date range pattern for Marie Claire
-      // Examples: "dal-13-al-19-ottobre", "dal13-al-19-ottobre-2025"
-      const marieClairePattern = /dal[l]?[-_]?(\d{1,2})[-_]al[-_](\d{1,2})[-_](gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:[-_](\d{4}))?/i;
+      // Examples: "dal-13-al-19-ottobre", "dal13-al-19-ottobre-2025", "dall11-al-17-ottobre"
+      const marieClairePattern = /dall?[-_\s]?(\d{1,2})[-_\s]*al[-_\s]*(\d{1,2})[-_\s]*(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:[-_\s]*(\d{4}))?/i;
       const match = fullText.toLowerCase().match(marieClairePattern);
 
       let dateRange: WeekDateRange | null = null;
