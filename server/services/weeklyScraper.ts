@@ -182,6 +182,7 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
     candidates.sort((a, b) => b.score - a.score);
   } else if (input.domain.includes('sorrisi.com')) {
     console.log('Sorrisi.com archive - Extracting weekly URLs with Saturday-based weeks');
+    console.log(`Archive URL: ${archiveUrl}`);
 
     // Sorrisi.com specific pattern: /lifestyle/oroscopo/oroscopo-della-settimana-...
     const urlPattern = /\/lifestyle\/oroscopo\/oroscopo[-_]della[-_]settimana/i;
@@ -198,6 +199,8 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
 
       // Extract date range from URL or link text
       const fullText = href + ' ' + linkText;
+
+      console.log(`Sorrisi.com - Checking link: ${href}`);
 
       // Use the flexible Italian date parser
       const dateRange = parseItalianWeekRange(fullText, currentYear);
@@ -224,11 +227,14 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
 
         candidates.push({ url: absoluteUrl, dateRange, score });
         console.log(`Found Sorrisi.com URL (score: ${score}): ${absoluteUrl} => ${dateRange.startDate.toISOString().split('T')[0]}`);
+      } else {
+        console.log(`Sorrisi.com - Could not parse date from: ${fullText}`);
       }
     });
 
     // Sort by score (highest first)
     candidates.sort((a, b) => b.score - a.score);
+    console.log(`Sorrisi.com - Total candidates found: ${candidates.length}`);
   } else if (input.domain.includes('marieclaire.it')) {
     console.log('Marie Claire archive - Extracting weekly URLs');
 
@@ -465,6 +471,12 @@ export async function scrapeWeeklyHoroscope(input: WeeklyScraperInput): Promise<
 }
 
 async function buildWeeklyHoroscopeUrl(input: WeeklyScraperInput): Promise<string> {
+  // SORRISI.COM SPECIFIC: Always use archive strategy
+  if (input.domain.includes('sorrisi.com') || input.baseUrl.includes('sorrisi.com')) {
+    console.log(`Detected Sorrisi.com - forcing archive strategy`);
+    return await resolveWeeklyUrlFromArchive(input);
+  }
+
   // Archive strategy - resolve from archive page
   if (input.scrapeStrategy === 'archive') {
     console.log(`Using archive strategy for ${input.sourceName}`);
