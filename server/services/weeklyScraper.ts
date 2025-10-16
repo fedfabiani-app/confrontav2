@@ -471,10 +471,17 @@ export async function scrapeWeeklyHoroscope(input: WeeklyScraperInput): Promise<
 }
 
 async function buildWeeklyHoroscopeUrl(input: WeeklyScraperInput): Promise<string> {
-  // SORRISI.COM SPECIFIC: Always use archive strategy
+  // SORRISI.COM SPECIFIC: Try archive strategy first, fallback to URL pattern
   if (input.domain.includes('sorrisi.com') || input.baseUrl.includes('sorrisi.com')) {
-    console.log(`Detected Sorrisi.com - forcing archive strategy`);
-    return await resolveWeeklyUrlFromArchive(input);
+    console.log(`Detected Sorrisi.com - trying archive strategy first`);
+    try {
+      const archiveUrl = await resolveWeeklyUrlFromArchive(input);
+      console.log(`Sorrisi.com - Archive resolution successful: ${archiveUrl}`);
+      return archiveUrl;
+    } catch (error) {
+      console.warn(`Sorrisi.com - Archive resolution failed, falling back to URL pattern: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      // Continue to pattern-based construction below
+    }
   }
 
   // Archive strategy - resolve from archive page
