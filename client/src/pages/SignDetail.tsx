@@ -723,8 +723,8 @@ function SignDetail({ sign }: SignDetailProps) {
         {/* Overview Cards */}
         {(viewType === "daily" ? aggregate : weeklyAggregate) && (
           <div className="grid grid-cols-3 md:grid-cols-4 gap-2 md:gap-4 mb-8">
-            <Card>
-              <CardContent className="p-2 md:p-4">
+                    <Card>
+                      <CardContent className="p-2 md:p-4">
                 <div className="flex flex-col md:flex-row items-center md:justify-between">
                   <div className="text-center md:text-left">
                     <p className="text-xs md:text-sm text-muted-foreground font-bold">Relazioni</p>
@@ -739,8 +739,8 @@ function SignDetail({ sign }: SignDetailProps) {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardContent className="p-2 md:p-4">
+                   <Card>
+                     <CardContent className="p-2 md:p-4">
                 <div className="flex flex-col md:flex-row items-center md:justify-between">
                   <div className="text-center md:text-left">
                     <p className="text-xs md:text-sm text-muted-foreground font-bold">Lavoro</p>
@@ -755,8 +755,8 @@ function SignDetail({ sign }: SignDetailProps) {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardContent className="p-2 md:p-4">
+                <Card>
+                  <CardContent className="p-2 md:p-4">
                 <div className="flex flex-col md:flex-row items-center md:justify-between">
                   <div className="text-center md:text-left">
                     <p className="text-xs md:text-sm text-muted-foreground font-bold">Benessere</p>
@@ -816,7 +816,7 @@ function SignDetail({ sign }: SignDetailProps) {
                 className="relative cursor-pointer hover:shadow-md transition-shadow"
                 onClick={() => toggleCollapse(horoscope.source.id)}
               >
-                <CardContent className="p-6">
+                <CardContent className="p-4">
                   {/* Source Header */}
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center space-x-3">

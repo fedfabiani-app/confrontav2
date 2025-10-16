@@ -86,9 +86,9 @@ const signColors = {
       onClick={handleCardClick}
       data-testid={`zodiac-card-${sign.name_english}`}
     >
-      <CardContent className="p-6">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
+          <CardContent className="p-4">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-2">
           <div className="flex items-center space-x-3">
             <div className={cn("w-10 h-10 bg-gradient-to-br rounded-full flex items-center justify-center", colorClass)}>
               <span className="text-white font-bold text-lg">{sign.symbol}</span>

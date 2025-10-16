@@ -91,81 +91,87 @@ export function buildHoroscopeUrl(source: Source, zodiacSign: ZodiacSign, date: 
   if (source.domain.includes('repubblica.it')) {
     return source.base_url + source.url_pattern; // This will be the index page
   }
-  
-  // Handle IO Donna special case - try date-specific URL first
-  if (source.domain.includes('iodonna.it')) {
-    return buildIoDonnaUrl(source, zodiacSign, date);
+
+  // 🔥 Handle Gazzetta.it special case BEFORE generic URL building
+  if (input.domain && input.domain.includes('gazzetta.it')) {
+    console.log(`🔥 GAZZETTA DETECTED in routes.ts! domain=${input.domain}`);
+    console.log(`🔍 DEBUG: input.baseUrl = "${input.baseUrl}"`);
+
+    const targetDate = new Date(input.dateISO);
+    const day = targetDate.getDate();
+    const month = targetDate.getMonth();
+    const year = targetDate.getFullYear();
+    const weekday = ITALIAN_WEEKDAYS[targetDate.getDay()];
+    const monthName = ITALIAN_MONTHS[month];
+
+    const signMap: Record<string, string> = {
+      'Ariete': 'ariete', 'Toro': 'toro', 'Gemelli': 'gemelli', 'Cancro': 'cancro',
+      'Leone': 'leone', 'Vergine': 'vergine', 'Bilancia': 'bilancia', 'Scorpione': 'scorpione',
+      'Sagittario': 'sagittario', 'Capricorno': 'capricorno', 'Acquario': 'acquario', 'Pesci': 'pesci'
+    };
+
+    const gazzettaSignSlug = signMap[input.signSlugIt] || input.signSlugIt.toLowerCase();
+
+    const prevDate = new Date(targetDate);
+    prevDate.setDate(prevDate.getDate() - 1);
+    const prevDateFormatted = prevDate.toISOString().split('T')[0].split('-').reverse().join('-');
+    const currentDateFormatted = targetDate.toISOString().split('T')[0].split('-').reverse().join('-');
+
+    const baseSlug = `oroscopo-${weekday}-${day}-${monthName}-${year}`;
+    const slug1 = `${baseSlug}-previsioni-per-12-i-segni`;
+    const slug2 = `${baseSlug}-previsioni-per-tutti-i-segni`;
+    const slug3 = `${baseSlug}-previsioni-per-tutti-i-12-segni`;
+
+    // FIX: Ensure proper slash handling
+    const baseUrl = input.baseUrl.endsWith('/') ? input.baseUrl.slice(0, -1) : input.baseUrl;
+
+    const url1 = `${baseUrl}/oroscopo/storie/${prevDateFormatted}/${slug3}/${gazzettaSignSlug}.shtml`;
+    const url2 = `${baseUrl}/oroscopo/storie/${prevDateFormatted}/${slug1}/${gazzettaSignSlug}.shtml`;
+    const url3 = `${baseUrl}/oroscopo/storie/${currentDateFormatted}/${slug3}/${gazzettaSignSlug}.shtml`;
+    const url4 = `${baseUrl}/oroscopo/storie/${currentDateFormatted}/${slug1}/${gazzettaSignSlug}.shtml`;
+
+    console.log(`Gazzetta.it - Generated URLs:`, { url1, url2, url3, url4 });
+
+    return [url1, url2, url3, url4];
   }
-  
+
   // Most URLs are now generic and don't need zodiac sign specific URLs
-  // The scraping will need to extract all zodiac signs from these pages
   let url = source.base_url + source.url_pattern;
-  
+
   // Handle date-specific URLs for sources that need them
   const targetDate = new Date(date);
   const dateFormatted = targetDate.toISOString().split('T')[0];
-  
+
   console.log(`Building URL for ${source.domain} - ${zodiacSign.name_italian} on ${date}`);
-  
-  // Handle Alfemminile, Fanpage, and Gazzetta specific date formatting with Italian weekdays
-  if ((source.domain.includes('alfemminile.com') || source.domain.includes('fanpage.it') || source.domain.includes('gazzetta.it')) && url.includes('{weekday}')) {
+
+  // Handle Alfemminile and Fanpage specific date formatting with Italian weekdays
+  if ((source.domain.includes('alfemminile.com') || source.domain.includes('fanpage.it')) && url.includes('{weekday}')) {
     const italianWeekdays = [
       'domenica', 'lunedi', 'martedi', 'mercoledi', 
       'giovedi', 'venerdi', 'sabato'
     ];
-    
+
     const italianMonths = [
       'gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno',
       'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'
     ];
-    
-    // Create date object ensuring correct timezone handling
+
     const dateForTarget = new Date(targetDate.getTime());
     const weekday = italianWeekdays[dateForTarget.getDay()];
     const day = dateForTarget.getDate();
     const month = italianMonths[dateForTarget.getMonth()];
     const year = dateForTarget.getFullYear();
-    
+
     console.log(`Date calculation for ${date}: weekday=${weekday}, day=${day}, month=${month}, year=${year}`);
-    
+
     url = url.replace('{weekday}', weekday);
     url = url.replace('{day}', day.toString());
     url = url.replace('{month}', month);
     url = url.replace('{year}', year.toString());
     url = url.replace('{optionalSuffix}', ''); // Remove optional suffix for Fanpage
-    
-    // Enhanced handling for Gazzetta.it - they use multiple URL patterns
-    if (source.domain.includes('gazzetta.it')) {
-      const prevDate = new Date(dateForTarget);
-      prevDate.setDate(prevDate.getDate() - 1);
-      const prevDateFormatted = prevDate.toISOString().split('T')[0].split('-').reverse().join('-'); // DD-MM-YYYY format
-      
-      // Generate signSlug for gazzetta specifically
-      const gazzettaSignSlug = signMap[zodiacSign.name_italian] || zodiacSign.name_italian.toLowerCase();
-      
-      // Generate both possible URL variations for Gazzetta.it
-      const baseSlug = `oroscopo-${weekday}-${day}-${month}-${year}`;
-      const slug1 = `${baseSlug}-previsioni-per-12-i-segni`;
-      const slug2 = `${baseSlug}-previsioni-per-tutti-i-segni`;
-      
-      // Also try with alternative date formats that Gazzetta might use
-      const currentDateFormatted = dateForTarget.toISOString().split('T')[0].split('-').reverse().join('-'); // DD-MM-YYYY format
-      
-      const url1 = `${source.base_url}oroscopo/storie/${prevDateFormatted}/${slug1}/${gazzettaSignSlug}.shtml`;
-      const url2 = `${source.base_url}oroscopo/storie/${prevDateFormatted}/${slug2}/${gazzettaSignSlug}.shtml`;
-      const url3 = `${source.base_url}oroscopo/storie/${currentDateFormatted}/${slug1}/${gazzettaSignSlug}.shtml`;
-      const url4 = `${source.base_url}oroscopo/storie/${currentDateFormatted}/${slug2}/${gazzettaSignSlug}.shtml`;
-      
-      console.log(`Gazzetta.it - Date info: target=${date}, weekday=${weekday}, day=${day}, month=${month}, year=${year}`);
-      console.log(`Gazzetta.it - Generated URLs:`, { url1, url2, url3, url4 });
-      
-      return [url1, url2, url3, url4];
-    }
-    
+
     // Fix for Fanpage.it - ensure the URL format is correct
     if (source.domain.includes('fanpage.it')) {
-      // Fanpage URL pattern should be: /oroscopo/giorno/martedi-24-settembre-2024/
-      // Make sure we construct it properly
       url = url.replace('{optionalSuffix}', '');
       if (!url.endsWith('/')) {
         url += '/';
@@ -175,23 +181,21 @@ export function buildHoroscopeUrl(source: Source, zodiacSign: ZodiacSign, date: 
     // Standard date replacement for other sources
     url = url.replace('{date}', dateFormatted);
   }
-  
+
   // For sources that still use zodiac signs in URL (if any)
-  
-  // Handle special cases for specific sources
   let signSlug = signMap[zodiacSign.name_italian] || zodiacSign.name_italian.toLowerCase();
-  
+
   // Oggi.it uses capitalized zodiac sign names  
   if (source.domain.includes('oggi.it')) {
     signSlug = zodiacSign.name_italian; // Keep original capitalization for Oggi.it
     console.log(`OGGI.IT URL construction for ${zodiacSign.name_italian} (${date}): using signSlug="${signSlug}"`);
   }
-  
+
   url = url.replace('{sign}', signSlug);
-  
+
   // Log final URL for debugging
   console.log(`Final URL constructed for ${source.domain}: ${url}`);
-  
+
   return url;
 }
 
@@ -1384,6 +1388,10 @@ export async function scrapeAndProcessHoroscope(
     
     // Use the actual URL that was scraped
     const urlToSave = scrapeResult.actualUrl || usedUrl;
+
+    console.log(`🔍 DEBUG - Saving URL for ${source.name}: ${urlToSave}`);
+    console.log(`🔍 DEBUG - scrapeResult.actualUrl: ${scrapeResult.actualUrl}`);
+    console.log(`🔍 DEBUG - usedUrl: ${usedUrl}`);
     
     await saveHoroscopeData(db, {
       source_id: source.id,

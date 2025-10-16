@@ -821,15 +821,12 @@ function buildHoroscopeUrl(input: ScraperInput): string | string[] {
       const currentDateFormatted = targetDate.toISOString().split('T')[0].split('-').reverse().join('-');
       
       const gazzettaSignSlug = signMap[input.signSlugIt] || input.signSlugIt.toLowerCase();
-      const baseSlug = `oroscopo-${weekday}-${day}-${monthName}-${year}`;
-      const slug1 = `${baseSlug}-previsioni-per-12-i-segni`;
-      const slug2 = `${baseSlug}-previsioni-per-tutti-i-segni`;
+      const url1 = `${baseUrlWithSlash}oroscopo/storie/${prevDateFormatted}/${slug3}/${gazzettaSignSlug}.shtml`;
+      const url2 = `${baseUrlWithSlash}oroscopo/storie/${prevDateFormatted}/${slug1}/${gazzettaSignSlug}.shtml`;
+      const url3 = `${baseUrlWithSlash}oroscopo/storie/${currentDateFormatted}/${slug3}/${gazzettaSignSlug}.shtml`;
+      const url4 = `${baseUrlWithSlash}oroscopo/storie/${currentDateFormatted}/${slug1}/${gazzettaSignSlug}.shtml`;
       
-      const url1 = `${input.baseUrl}/oroscopo/storie/${prevDateFormatted}/${slug1}/${gazzettaSignSlug}.shtml`;
-      const url2 = `${input.baseUrl}/oroscopo/storie/${prevDateFormatted}/${slug2}/${gazzettaSignSlug}.shtml`;
-      const url3 = `${input.baseUrl}/oroscopo/storie/${currentDateFormatted}/${slug1}/${gazzettaSignSlug}.shtml`;
-      const url4 = `${input.baseUrl}/oroscopo/storie/${currentDateFormatted}/${slug2}/${gazzettaSignSlug}.shtml`;
-      
+          
       return [url1, url2, url3, url4];
     }
   }

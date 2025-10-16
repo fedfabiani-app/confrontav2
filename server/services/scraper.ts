@@ -118,6 +118,44 @@ function buildHoroscopeUrl(input: ScraperInput): string | string[] {
     return input.baseUrl + input.urlPattern;
   }
 
+  // 🔥 Handle Gazzetta.it special case BEFORE generic URL building
+  if (input.domain && input.domain.includes('gazzetta.it')) {
+    console.log(`🔥 GAZZETTA DETECTED in routes.ts! domain=${input.domain}`);
+
+    const targetDate = new Date(input.dateISO);
+    const day = targetDate.getDate();
+    const month = targetDate.getMonth();
+    const year = targetDate.getFullYear();
+    const weekday = ITALIAN_WEEKDAYS[targetDate.getDay()];
+    const monthName = ITALIAN_MONTHS[month];
+
+    const signMap: Record<string, string> = {
+      'Ariete': 'ariete', 'Toro': 'toro', 'Gemelli': 'gemelli', 'Cancro': 'cancro',
+      'Leone': 'leone', 'Vergine': 'vergine', 'Bilancia': 'bilancia', 'Scorpione': 'scorpione',
+      'Sagittario': 'sagittario', 'Capricorno': 'capricorno', 'Acquario': 'acquario', 'Pesci': 'pesci'
+    };
+
+    const gazzettaSignSlug = signMap[input.signSlugIt] || input.signSlugIt.toLowerCase();
+
+    const prevDate = new Date(targetDate);
+    prevDate.setDate(prevDate.getDate() - 1);
+    const prevDateFormatted = prevDate.toISOString().split('T')[0].split('-').reverse().join('-');
+    const currentDateFormatted = targetDate.toISOString().split('T')[0].split('-').reverse().join('-');
+
+    const baseSlug = `oroscopo-${weekday}-${day}-${monthName}-${year}`;
+    const slug1 = `${baseSlug}-previsioni-per-12-i-segni`;
+    const slug2 = `${baseSlug}-previsioni-per-tutti-i-segni`;
+
+    const url1 = `${input.baseUrl}oroscopo/storie/${prevDateFormatted}/${slug1}/${gazzettaSignSlug}.shtml`;
+    const url2 = `${input.baseUrl}oroscopo/storie/${prevDateFormatted}/${slug2}/${gazzettaSignSlug}.shtml`;
+    const url3 = `${input.baseUrl}oroscopo/storie/${currentDateFormatted}/${slug1}/${gazzettaSignSlug}.shtml`;
+    const url4 = `${input.baseUrl}oroscopo/storie/${currentDateFormatted}/${slug2}/${gazzettaSignSlug}.shtml`;
+
+    console.log(`Gazzetta.it - Generated URLs:`, { url1, url2, url3, url4 });
+
+    return [url1, url2, url3, url4];
+  }
+
   // Handle IO Donna special case - try date-specific URL first
   if (input.domain.includes('iodonna.it')) {
     const signSlug = signMap[input.signSlugIt] || input.signSlugIt.toLowerCase();
