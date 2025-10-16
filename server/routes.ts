@@ -878,8 +878,8 @@ function createScraperInput(source: any, zodiacSign: any, dateISO: string): Scra
 function createWeeklyScraperInput(source: any, zodiacSign: any, weekStartDateISO: string): WeeklyScraperInput {
   const weekStartDate = new Date(weekStartDateISO);
   
-  // Repubblica uses Saturday-based weeks (Saturday to Friday)
-  const isSaturdayBased = source.domain.includes('repubblica.it');
+  // Some sources use Saturday-based weeks (Saturday to Friday)
+  const isSaturdayBased = source.domain.includes('repubblica.it') || source.domain.includes('sorrisi.com');
   const useNumericMonth = source.domain.includes('repubblica.it');
   
   const { startDay, endDay, month, year } = formatWeekUrlParams(weekStartDate, isSaturdayBased, useNumericMonth);

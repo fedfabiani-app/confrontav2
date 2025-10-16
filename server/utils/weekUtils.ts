@@ -74,6 +74,13 @@ export function getCurrentWeekMonday(): string {
 }
 
 /**
+ * Check if a source uses Saturday-based weeks instead of Monday-based
+ */
+export function isSaturdayBasedSource(domain: string): boolean {
+  return domain.includes('repubblica.it') || domain.includes('sorrisi.com');
+}
+
+/**
  * Format date components for weekly URL patterns
  */
 export function formatWeekUrlParams(weekStartDate: Date, isSaturdayBased: boolean = false, useNumericMonth: boolean = false): {
@@ -91,7 +98,7 @@ export function formatWeekUrlParams(weekStartDate: Date, isSaturdayBased: boolea
   let start: Date, end: Date;
   
   if (isSaturdayBased) {
-    // Repubblica uses Saturday-Friday weeks
+    // Some sources (Repubblica, Sorrisi) use Saturday-Friday weeks
     start = getSaturdayOfWeek(weekStartDate);
     end = new Date(start);
     end.setDate(start.getDate() + 6); // Friday
