@@ -193,7 +193,21 @@ function SignDetail({ sign }: SignDetailProps) {
 
   // Daily/Weekly view state
   const [viewType, setViewType] = useState<"daily" | "weekly">("daily");
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  
+  // Initialize date from URL parameter or use today
+  const getInitialDate = (): Date => {
+    const params = new URLSearchParams(window.location.search);
+    const dateParam = params.get('date');
+    if (dateParam) {
+      const parsedDate = new Date(dateParam);
+      if (!isNaN(parsedDate.getTime())) {
+        return parsedDate;
+      }
+    }
+    return new Date();
+  };
+  
+  const [selectedDate, setSelectedDate] = useState<Date>(getInitialDate());
   const [calendarOpen, setCalendarOpen] = useState(false);
 
   // Helper function to get Monday of current week
@@ -299,6 +313,11 @@ function SignDetail({ sign }: SignDetailProps) {
     if (date) {
       setSelectedDate(date);
       setCalendarOpen(false);
+      
+      // Update URL with selected date
+      const dateParam = date.toLocaleDateString('en-CA');
+      navigate(`/sign/${sign}?date=${dateParam}`, { replace: true });
+      
       // Invalidate queries to fetch new data for selected date
       if (viewType === "daily") {
         queryClient.invalidateQueries({ queryKey: ["/api/horoscopes", today, sign] });
