@@ -30,15 +30,17 @@ function parseItalianWeekRange(text: string, currentYear: number): WeekDateRange
   // Enhanced patterns to handle various Italian date formats including:
   // - "dal 11 al 17 ottobre" (with spaces)
   // - "dal-11-al-17-ottobre" (with hyphens)
-  // - "dall11-al-17-ottobre" (mixed - no space after dall, hyphen before al)
+  // - "dall-11-al-17-ottobre" (dall with hyphen)
+  // - "dal11-al-17-ottobre" (dal + number, no separator)
+  // - "dall11-al-17-ottobre" (dall + number, no separator)
   // - "dall11al17ottobre" (completely concatenated)
-  // - "dal11-al-17-ottobre" (no space after dal)
   const patterns = [
-    // Pattern 1: Flexible "dal/dall + number + al + number + month" with optional separators
-    /dall?[-\s]?(\d{1,2})[-\s]*al[-\s]*(\d{1,2})[-\s]*(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:[-\s]*\d{4})?/i,
+    // Pattern 1: Most flexible - handles dal/dall with any combination of separators
+    // Matches: dal11, dall11, dal-11, dall-11, dal 11, dall 11
+    /dall?(?:[-\s])?(\d{1,2})(?:[-\s])*al(?:[-\s])*(\d{1,2})(?:[-\s])*(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:(?:[-\s])*\d{4})?/i,
     
     // Pattern 2: Two months format "dal/dall + day + month + al + day + month"
-    /dall?[-\s]?(\d{1,2})[-\s]*(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)[-\s]*al[-\s]*(\d{1,2})[-\s]*(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:[-\s]*\d{4})?/i,
+    /dall?(?:[-\s])?(\d{1,2})(?:[-\s])*(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:[-\s])*al(?:[-\s])*(\d{1,2})(?:[-\s])*(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:(?:[-\s])*\d{4})?/i,
     
     // Pattern 3: Simple "number - number - month" format
     /(\d{1,2})[-\s]+(\d{1,2})[-\s]+(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:[-\s]*\d{4})?/i,
@@ -178,6 +180,106 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
 
     // Sort by score (highest first)
     candidates.sort((a, b) => b.score - a.score);
+  } else if (input.domain.includes('sorrisi.com')) {
+    console.log('Sorrisi.com archive - Extracting weekly URLs with Saturday-based weeks');
+
+    // Sorrisi.com specific pattern: /lifestyle/oroscopo/oroscopo-della-settimana-...
+    const urlPattern = /\/lifestyle\/oroscopo\/oroscopo[-_]della[-_]settimana/i;
+
+    $('a').each((_, elem) => {
+      const href = $(elem).attr('href');
+      const linkText = $(elem).text().trim();
+
+      if (!href || !urlPattern.test(href)) {
+        return;
+      }
+
+      let score = 0;
+
+      // Extract date range from URL or link text
+      const fullText = href + ' ' + linkText;
+
+      // Use the flexible Italian date parser
+      const dateRange = parseItalianWeekRange(fullText, currentYear);
+
+      if (dateRange) {
+        score += 20;
+
+        // Bonus for containing year in URL
+        if (/\d{4}/.test(href)) {
+          score += 5;
+        }
+
+        // Ensure full absolute URL with https protocol
+        let absoluteUrl = href;
+        if (href.startsWith('/')) {
+          absoluteUrl = 'https://www.sorrisi.com' + href;
+        } else if (!href.startsWith('http')) {
+          absoluteUrl = 'https://www.sorrisi.com/' + href;
+        } else if (href.startsWith('http://')) {
+          absoluteUrl = href.replace('http://', 'https://');
+        } else {
+          absoluteUrl = href;
+        }
+
+        candidates.push({ url: absoluteUrl, dateRange, score });
+        console.log(`Found Sorrisi.com URL (score: ${score}): ${absoluteUrl} => ${dateRange.startDate.toISOString().split('T')[0]}`);
+      }
+    });
+
+    // Sort by score (highest first)
+    candidates.sort((a, b) => b.score - a.score);
+  } else if (input.domain.includes('marieclaire.it')) {
+    console.log('Marie Claire archive - Extracting weekly URLs');
+
+    // Marie Claire specific pattern: /lifestyle/coolmix/a{random}/oroscopo-settimana
+    const urlPattern = /\/lifestyle\/coolmix\/a\d+\/oroscopo[-_]settimana/i;
+  } else if (input.domain.includes('sorrisi.com')) {
+    console.log('Sorrisi.com archive - Extracting weekly URLs with Saturday-based weeks');
+
+    // Sorrisi.com specific pattern: /lifestyle/oroscopo/oroscopo-della-settimana-...
+    const urlPattern = /\/lifestyle\/oroscopo\/oroscopo[-_]della[-_]settimana/i;
+
+    $('a').each((_, elem) => {
+      const href = $(elem).attr('href');
+      const linkText = $(elem).text().trim();
+
+      if (!href || !urlPattern.test(href)) {
+        return;
+      }
+
+      let score = 0;
+
+      // Extract date range from URL or link text
+      const fullText = href + ' ' + linkText;
+
+      // Use the flexible Italian date parser
+      const dateRange = parseItalianWeekRange(fullText, currentYear);
+
+      if (dateRange) {
+        score += 20;
+
+        // Bonus for containing year in URL
+        if (/\d{4}/.test(href)) {
+          score += 5;
+        }
+
+        // Ensure full absolute URL with https protocol
+        let absoluteUrl = href;
+        if (href.startsWith('/')) {
+          absoluteUrl = 'https://www.sorrisi.com' + href;
+        } else if (!href.startsWith('http')) {
+          absoluteUrl = 'https://www.sorrisi.com/' + href;
+        } else if (href.startsWith('http://')) {
+          absoluteUrl = href.replace('http://', 'https://');
+        } else {
+          absoluteUrl = href;
+        }
+
+        candidates.push({ url: absoluteUrl, dateRange, score });
+        console.log(`Found Sorrisi.com URL (score: ${score}): ${absoluteUrl} => ${dateRange.startDate.toISOString().split('T')[0]}`);
+      }
+    });
   } else if (input.domain.includes('marieclaire.it')) {
     console.log('Marie Claire archive - Extracting weekly URLs');
 
@@ -198,8 +300,8 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
       const fullText = href + ' ' + linkText;
 
       // Enhanced Italian date range pattern for Marie Claire
-      // Examples: "dal-13-al-19-ottobre", "dal13-al-19-ottobre-2025", "dall11-al-17-ottobre"
-      const marieClairePattern = /dall?[-_\s]?(\d{1,2})[-_\s]*al[-_\s]*(\d{1,2})[-_\s]*(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:[-_\s]*(\d{4}))?/i;
+      // Examples: "dal-13-al-19-ottobre", "dal13-al-19-ottobre-2025", "dall11-al-17-ottobre", "dal11", "dall11"
+      const marieClairePattern = /dall?(?:[-_\s])?(\d{1,2})(?:[-_\s])*al(?:[-_\s])*(\d{1,2})(?:[-_\s])*(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:(?:[-_\s])*(\d{4}))?/i;
       const match = fullText.toLowerCase().match(marieClairePattern);
 
       let dateRange: WeekDateRange | null = null;
