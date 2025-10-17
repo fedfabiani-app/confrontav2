@@ -91,6 +91,97 @@ function parseItalianWeekRange(text: string, currentYear: number): WeekDateRange
   return null;
 }
 
+async function findFanpageWeeklyArticleUrl(archiveUrl: string, weekStartDate: string): Promise<string | null> {
+  try {
+    console.log('Fanpage.it - Searching archive for weekly horoscope...');
+
+    const response = await axios.get(archiveUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': 'https://www.fanpage.it/',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'it-IT,it;q=0.9',
+      },
+      timeout: 15000
+    });
+
+    const html = response.data;
+    const startDate = new Date(weekStartDate);
+
+    // Calcola la data di fine (6 giorni dopo)
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + 6);
+
+    const startDay = startDate.getDate();
+    const endDay = endDate.getDate();
+    const year = startDate.getFullYear();
+
+    // Ottieni i nomi dei mesi
+    const monthNames = Object.keys(ITALIAN_MONTHS);
+    const startMonthName = monthNames[startDate.getMonth()];
+    const endMonthName = monthNames[endDate.getMonth()];
+
+    // Pattern: loroscopo-della-settimana-dal-{day}-al-{day}-{month}-{year}
+    const patterns: (string | null)[] = [
+      // Pattern 1: Exact match
+      `loroscopo-della-settimana-dal-${startDay}-al-${endDay}-${startMonthName}-${year}`,
+      // Pattern 2: Con apostrofo
+      `l-oroscopo-della-settimana-dal-${startDay}-al-${endDay}-${startMonthName}-${year}`,
+      // Pattern 3: Senza anno
+      `loroscopo-della-settimana-dal-${startDay}-al-${endDay}-${startMonthName}`,
+      // Pattern 4: Con mese della data di fine (se diverso)
+      startMonthName !== endMonthName ? `loroscopo-della-settimana-dal-${startDay}-${startMonthName}-al-${endDay}-${endMonthName}-${year}` : null,
+    ];
+
+    console.log(`Fanpage.it - Looking for patterns:`, patterns.filter(Boolean));
+
+    for (const pattern of patterns) {
+      if (!pattern) continue;
+
+      const escapedPattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const urlPattern = new RegExp(`href=["']([^"']*${escapedPattern}[^"']*)["']`, 'gi');
+      let match;
+
+      while ((match = urlPattern.exec(html)) !== null) {
+        let foundUrl = match[1];
+
+        if (foundUrl.startsWith('/')) {
+          foundUrl = 'https://www.fanpage.it' + foundUrl;
+        }
+
+        if (foundUrl.includes('attualita') && foundUrl.includes('oroscopo')) {
+          console.log(`Fanpage.it - Found weekly article URL: ${foundUrl}`);
+          return foundUrl;
+        }
+      }
+    }
+
+    // Fallback: cerca qualsiasi URL con "settimana" e le date
+    const fallbackPattern = new RegExp(
+      `href=["']([^"']*attualita[^"']*oroscopo[^"']*settimana[^"']*${startDay}[^"']*${endDay}[^"']*)["']`,
+      'gi'
+    );
+
+    let match;
+    while ((match = fallbackPattern.exec(html)) !== null) {
+      let foundUrl = match[1];
+
+      if (foundUrl.startsWith('/')) {
+        foundUrl = 'https://www.fanpage.it' + foundUrl;
+      }
+
+      console.log(`Fanpage.it - Found weekly article URL (fallback): ${foundUrl}`);
+      return foundUrl;
+    }
+
+    console.log('Fanpage.it - No weekly article found in archive page');
+    return null;
+  } catch (error) {
+    console.error('Fanpage.it - Error searching archive:', error);
+    return null;
+  }
+}
+
 async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<string> {
   const cacheKey = `${input.sourceId}-${input.weekStartDate}`;
 
@@ -100,7 +191,41 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
     return cached;
   }
 
-  const archiveUrl = input.baseUrl + input.urlPattern;
+  // Determine the actual archive URL (listing page)
+  let archiveUrl: string;
+
+  if (input.domain.includes('fanpage.it')) {
+    console.log('Fanpage.it - Using archive page to find weekly horoscope');
+    archiveUrl = 'https://www.fanpage.it/stile-e-trend/story/oroscopo/';
+
+    console.log(`Fetching Fanpage archive page: ${archiveUrl}`);
+    await respectDomainRateLimit(input.domain);
+
+    const articleUrl = await findFanpageWeeklyArticleUrl(archiveUrl, input.weekStartDate);
+
+    if (articleUrl) {
+      console.log(`✓ Found Fanpage weekly article: ${articleUrl}`);
+      archiveUrlCache.set(cacheKey, articleUrl);
+      return articleUrl;
+    } else {
+      throw new Error(`No matching weekly horoscope found in Fanpage archive for week starting ${input.weekStartDate}`);
+    }
+  }
+
+  
+  if (input.domain.includes('sorrisi.com')) {
+    // For Sorrisi, the archive is just the base URL (no pattern with placeholders)
+    archiveUrl = input.baseUrl.endsWith('/') ? input.baseUrl : input.baseUrl + '/';
+    console.log(`Sorrisi.com - Using base URL as archive: ${archiveUrl}`);
+  } else if (input.domain.includes('gazzetta.it')) {
+    // For Gazzetta, the archive is also just the base URL
+    archiveUrl = input.baseUrl.endsWith('/') ? input.baseUrl : input.baseUrl + '/';
+    console.log(`Gazzetta.it - Using base URL as archive: ${archiveUrl}`);
+  } else {
+    // For other sources, use baseUrl + urlPattern (if it makes sense)
+    archiveUrl = input.baseUrl + input.urlPattern;
+  }
+
   console.log(`Fetching archive page: ${archiveUrl}`);
 
   await respectDomainRateLimit(input.domain);
@@ -113,11 +238,10 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
 
   const candidates: { url: string; dateRange: WeekDateRange; score: number }[] = [];
 
-  // Special handling for Repubblica - extract URLs and dates from archive page
+  // Special handling for Repubblica
   if (input.domain.includes('repubblica.it')) {
     console.log('Repubblica archive - Extracting weekly URLs with enhanced pattern matching');
 
-    // Pattern to match Repubblica weekly URLs with variations
     const urlPattern = /oroscopo[-_](?:della[-_])?settimana/i;
 
     $('a').each((_, elem) => {
@@ -130,7 +254,6 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
 
       let score = 0;
 
-      // Extract date from URL path: /YYYY/MM/DD/news/...
       const urlDateMatch = href.match(/\/(\d{4})\/(\d{1,2})\/(\d{1,2})\//);
 
       if (urlDateMatch) {
@@ -139,21 +262,18 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
         const urlDay = parseInt(urlDateMatch[3]);
         const urlDate = new Date(urlYear, urlMonth - 1, urlDay);
 
-        // Check if this is a weekend date (likely publication day)
         const dayOfWeek = urlDate.getDay();
-        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Sunday or Saturday
+        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
         if (isWeekend) {
           score += 10;
         }
 
-        // Repubblica publishes weekly horoscopes, week starts on publication day
         const dateRange = {
           startDate: urlDate,
           endDate: new Date(urlDate.getTime() + 6 * 24 * 60 * 60 * 1000)
         };
 
-        // Try to extract date range from link text or URL slug
         const dateRangeFromText = parseItalianWeekRange(linkText + ' ' + href, currentYear);
         if (dateRangeFromText) {
           dateRange.startDate = dateRangeFromText.startDate;
@@ -161,12 +281,10 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
           score += 20;
         }
 
-        // Bonus for containing "previsioni" in URL
         if (/previsioni/i.test(href)) {
           score += 5;
         }
 
-        // Bonus for containing author name patterns
         if (/(marco[-_]pesatori|branko|paolo[-_]fox)/i.test(href)) {
           score += 3;
         }
@@ -178,13 +296,13 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
       }
     });
 
-    // Sort by score (highest first)
     candidates.sort((a, b) => b.score - a.score);
-  } else if (input.domain.includes('sorrisi.com')) {
+  } 
+  // Special handling for Sorrisi.com
+  else if (input.domain.includes('sorrisi.com')) {
     console.log('Sorrisi.com archive - Extracting weekly URLs with Saturday-based weeks');
     console.log(`Archive URL: ${archiveUrl}`);
 
-    // Sorrisi.com specific pattern: /lifestyle/oroscopo/oroscopo-della-settimana-...
     const urlPattern = /\/lifestyle\/oroscopo\/oroscopo[-_]della[-_]settimana/i;
 
     $('a').each((_, elem) => {
@@ -197,23 +315,19 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
 
       let score = 0;
 
-      // Extract date range from URL or link text
       const fullText = href + ' ' + linkText;
 
       console.log(`Sorrisi.com - Checking link: ${href}`);
 
-      // Use the flexible Italian date parser
       const dateRange = parseItalianWeekRange(fullText, currentYear);
 
       if (dateRange) {
         score += 20;
 
-        // Bonus for containing year in URL
         if (/\d{4}/.test(href)) {
           score += 5;
         }
 
-        // Ensure full absolute URL with https protocol
         let absoluteUrl = href;
         if (href.startsWith('/')) {
           absoluteUrl = 'https://www.sorrisi.com' + href;
@@ -221,8 +335,6 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
           absoluteUrl = 'https://www.sorrisi.com/' + href;
         } else if (href.startsWith('http://')) {
           absoluteUrl = href.replace('http://', 'https://');
-        } else {
-          absoluteUrl = href;
         }
 
         candidates.push({ url: absoluteUrl, dateRange, score });
@@ -232,19 +344,15 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
       }
     });
 
-    // Sort by score (highest first)
     candidates.sort((a, b) => b.score - a.score);
     console.log(`Sorrisi.com - Total candidates found: ${candidates.length}`);
-  } else if (input.domain.includes('marieclaire.it')) {
-    console.log('Marie Claire archive - Extracting weekly URLs');
+  }
+  // Special handling for Gazzetta.it
+  else if (input.domain.includes('gazzetta.it')) {
+    console.log('Gazzetta.it archive - Extracting weekly URLs');
+    console.log(`Archive URL: ${archiveUrl}`);
 
-    // Marie Claire specific pattern: /lifestyle/coolmix/a{random}/oroscopo-settimana
-    const urlPattern = /\/lifestyle\/coolmix\/a\d+\/oroscopo[-_]settimana/i;
-  } else if (input.domain.includes('sorrisi.com')) {
-    console.log('Sorrisi.com archive - Extracting weekly URLs with Saturday-based weeks');
-
-    // Sorrisi.com specific pattern: /lifestyle/oroscopo/oroscopo-della-settimana-...
-    const urlPattern = /\/lifestyle\/oroscopo\/oroscopo[-_]della[-_]settimana/i;
+    const urlPattern = /\/oroscopo\/storie\/.*?\/oroscopo-settimanale/i;
 
     $('a').each((_, elem) => {
       const href = $(elem).attr('href');
@@ -256,40 +364,80 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
 
       let score = 0;
 
-      // Extract date range from URL or link text
       const fullText = href + ' ' + linkText;
 
-      // Use the flexible Italian date parser
-      const dateRange = parseItalianWeekRange(fullText, currentYear);
+      console.log(`Gazzetta.it - Checking link: ${href}`);
+
+      // Parse dates from URL slug
+      // Example: oroscopo-settimanale-13-19-ottobre-2025
+      const datePattern = /oroscopo-settimanale-(\d{1,2})-(\d{1,2})-(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)-(\d{4})/i;
+      const match = href.match(datePattern);
+
+      let dateRange: WeekDateRange | null = null;
+
+      if (match) {
+        const startDay = parseInt(match[1]);
+        const endDay = parseInt(match[2]);
+        const monthName = match[3].toLowerCase();
+        const year = parseInt(match[4]);
+        const month = ITALIAN_MONTHS[monthName];
+
+        if (month) {
+          const startDate = new Date(year, month - 1, startDay);
+          const endDate = new Date(year, month - 1, endDay);
+
+          if (endDate < startDate) {
+            endDate.setMonth(endDate.getMonth() + 1);
+          }
+
+          dateRange = { startDate, endDate };
+          score += 20;
+
+          console.log(`Gazzetta.it - Parsed date range: ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`);
+        }
+      } else {
+        // Fallback to generic parser
+        dateRange = parseItalianWeekRange(fullText, currentYear);
+        if (dateRange) {
+          score += 15;
+        }
+      }
 
       if (dateRange) {
-        score += 20;
+        // Check if this is the "tutti i segni" URL (contains all signs)
+        if (/tutti.*segni/i.test(href) || /tutti.*i.*segni/i.test(linkText)) {
+          score += 10;
+        }
 
-        // Bonus for containing year in URL
-        if (/\d{4}/.test(href)) {
+        // Bonus for .shtml extension
+        if (/\.shtml$/i.test(href)) {
           score += 5;
         }
 
-        // Ensure full absolute URL with https protocol
+        // Ensure absolute URL
         let absoluteUrl = href;
         if (href.startsWith('/')) {
-          absoluteUrl = 'https://www.sorrisi.com' + href;
+          absoluteUrl = 'https://www.gazzetta.it' + href;
         } else if (!href.startsWith('http')) {
-          absoluteUrl = 'https://www.sorrisi.com/' + href;
+          absoluteUrl = 'https://www.gazzetta.it/' + href;
         } else if (href.startsWith('http://')) {
           absoluteUrl = href.replace('http://', 'https://');
-        } else {
-          absoluteUrl = href;
         }
 
         candidates.push({ url: absoluteUrl, dateRange, score });
-        console.log(`Found Sorrisi.com URL (score: ${score}): ${absoluteUrl} => ${dateRange.startDate.toISOString().split('T')[0]}`);
+        console.log(`Found Gazzetta.it URL (score: ${score}): ${absoluteUrl} => ${dateRange.startDate.toISOString().split('T')[0]}`);
+      } else {
+        console.log(`Gazzetta.it - Could not parse date from: ${fullText}`);
       }
     });
-  } else if (input.domain.includes('marieclaire.it')) {
+
+    candidates.sort((a, b) => b.score - a.score);
+    console.log(`Gazzetta.it - Total candidates found: ${candidates.length}`);
+  }
+  // Special handling for Marie Claire
+  else if (input.domain.includes('marieclaire.it')) {
     console.log('Marie Claire archive - Extracting weekly URLs');
 
-    // Marie Claire specific pattern: /lifestyle/coolmix/a{random}/oroscopo-settimana
     const urlPattern = /\/lifestyle\/coolmix\/a\d+\/oroscopo[-_]settimana/i;
 
     $('a').each((_, elem) => {
@@ -302,11 +450,8 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
 
       let score = 0;
 
-      // Extract date range from URL or link text - Marie Claire uses Italian dates
       const fullText = href + ' ' + linkText;
 
-      // Enhanced Italian date range pattern for Marie Claire
-      // Examples: "dal-13-al-19-ottobre", "dal13-al-19-ottobre-2025", "dall11-al-17-ottobre", "dal11", "dall11"
       const marieClairePattern = /dall?(?:[-_\s])?(\d{1,2})(?:[-_\s])*al(?:[-_\s])*(\d{1,2})(?:[-_\s])*(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:(?:[-_\s])*(\d{4}))?/i;
       const match = fullText.toLowerCase().match(marieClairePattern);
 
@@ -331,7 +476,6 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
           score += 20;
         }
       } else {
-        // Fallback to generic Italian date parser
         dateRange = parseItalianWeekRange(fullText, currentYear);
         if (dateRange) {
           score += 15;
@@ -339,35 +483,30 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
       }
 
       if (dateRange) {
-        // Bonus for recent articles (higher article ID = more recent)
         const articleMatch = href.match(/\/a(\d+)\//);
         if (articleMatch) {
           const articleId = parseInt(articleMatch[1]);
           score += Math.min(articleId / 1000000, 50);
         }
 
-        // Ensure full absolute URL with https protocol
         let absoluteUrl = href;
         if (href.startsWith('/')) {
-          // Relative URL starting with /
           absoluteUrl = 'https://www.marieclaire.it' + href;
         } else if (!href.startsWith('http')) {
-          // Relative URL without leading /
           absoluteUrl = 'https://www.marieclaire.it/' + href;
         } else if (href.startsWith('http://')) {
-          // Force HTTPS
           absoluteUrl = href.replace('http://', 'https://');
-        } else {
-          // Already absolute with https
-          absoluteUrl = href;
         }
 
         candidates.push({ url: absoluteUrl, dateRange, score });
         console.log(`Found Marie Claire URL (score: ${score}): ${absoluteUrl} => ${dateRange.startDate.toISOString().split('T')[0]}`);
       }
     });
-  } else {
-    // Generic archive handling for other sources
+
+    candidates.sort((a, b) => b.score - a.score);
+  } 
+  // Generic archive handling
+  else {
     $('a').each((_, elem) => {
       const href = $(elem).attr('href');
       const text = $(elem).text();
@@ -396,11 +535,11 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
     if (candidateDateStr === targetDateStr) {
       console.log(`✓ Matched archive URL (exact match): ${candidate.url}`);
       archiveUrlCache.set(cacheKey, candidate.url);
-      return candidate.url; // This is the actual article URL, not the archive page
+      return candidate.url;
     }
   }
 
-  // Second try: date within range (for weekly horoscopes that cover a week)
+  // Second try: date within range
   for (const candidate of candidates) {
     const startDate = candidate.dateRange.startDate;
     const endDate = candidate.dateRange.endDate;
@@ -408,7 +547,7 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
     if (targetDate >= startDate && targetDate <= endDate) {
       console.log(`✓ Matched archive URL (within range): ${candidate.url}`);
       archiveUrlCache.set(cacheKey, candidate.url);
-      return candidate.url; // This is the actual article URL, not the archive page
+      return candidate.url;
     }
   }
 
@@ -470,80 +609,147 @@ export async function scrapeWeeklyHoroscope(input: WeeklyScraperInput): Promise<
   }
 }
 
-async function buildWeeklyHoroscopeUrl(input: WeeklyScraperInput): Promise<string> {
-  // SORRISI.COM SPECIFIC: Try archive strategy first, fallback to URL pattern
-  if (input.domain.includes('sorrisi.com') || input.baseUrl.includes('sorrisi.com')) {
-    console.log(`Detected Sorrisi.com - trying archive strategy first`);
-    try {
-      const archiveUrl = await resolveWeeklyUrlFromArchive(input);
-      console.log(`Sorrisi.com - Archive resolution successful: ${archiveUrl}`);
-      return archiveUrl;
-    } catch (error) {
-      console.warn(`Sorrisi.com - Archive resolution failed, falling back to URL pattern: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      // Continue to pattern-based construction below
+    async function buildWeeklyHoroscopeUrl(input: WeeklyScraperInput): Promise<string> {
+      // SORRISI.COM SPECIFIC: Try archive strategy first, with proper fallback
+      if (input.domain.includes('sorrisi.com') || input.baseUrl.includes('sorrisi.com')) {
+        console.log(`Detected Sorrisi.com - trying archive strategy first`);
+        try {
+          const archiveUrl = await resolveWeeklyUrlFromArchive(input);
+          console.log(`Sorrisi.com - Archive resolution successful: ${archiveUrl}`);
+          return archiveUrl;
+        } catch (error) {
+          console.warn(`Sorrisi.com - Archive resolution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          console.log(`Sorrisi.com - Attempting URL pattern construction...`);
+
+          // Fallback to pattern-based construction
+          const startDay = input.startDay;
+          const endDay = input.endDay;
+          const month = input.month;
+
+          // Handle "dall" vs "dal" - use "dall" for days with vowel sounds (1=uno, 8=otto, 11=undici)
+          const dayNum = parseInt(startDay);
+          const usesDall = dayNum === 1 || dayNum === 8 || dayNum === 11;
+          const prefix = usesDall ? 'dall' : 'dal';
+
+          const url = `https://www.sorrisi.com/lifestyle/oroscopo/oroscopo-della-settimana-${prefix}${startDay}-al-${endDay}-${month}/`;
+          console.log(`Sorrisi.com - Constructed fallback URL: ${url}`);
+          return url;
+        }
+      }
+
+      // GAZZETTA.IT SPECIFIC: Use archive strategy and append sign
+      if (input.domain.includes('gazzetta.it') || input.baseUrl.includes('gazzetta.it')) {
+        console.log(`Detected Gazzetta.it - using archive strategy`);
+        try {
+          const baseArticleUrl = await resolveWeeklyUrlFromArchive(input);
+          console.log(`Gazzetta.it - Archive resolution: ${baseArticleUrl}`);
+
+          // Map sign to URL slug
+          const signMap: Record<string, string> = {
+            'Ariete': 'ariete', 'Toro': 'toro', 'Gemelli': 'gemelli', 'Cancro': 'cancro',
+            'Leone': 'leone', 'Vergine': 'vergine', 'Bilancia': 'bilancia', 'Scorpione': 'scorpione',
+            'Sagittario': 'sagittario', 'Capricorno': 'capricorno', 'Acquario': 'acquario', 'Pesci': 'pesci'
+          };
+
+          const signSlug = signMap[input.signSlugIt] || input.signSlugIt.toLowerCase();
+
+          // Check if URL already has a sign in it
+          const signInUrlMatch = baseArticleUrl.match(/\/(ariete|toro|gemelli|cancro|leone|vergine|bilancia|scorpione|sagittario|capricorno|acquario|pesci)\.shtml$/i);
+
+          if (signInUrlMatch) {
+            // Replace the existing sign with our target sign
+            const finalUrl = baseArticleUrl.replace(/\/(ariete|toro|gemelli|cancro|leone|vergine|bilancia|scorpione|sagittario|capricorno|acquario|pesci)\.shtml$/i, `/${signSlug}.shtml`);
+            console.log(`Gazzetta.it - Replaced sign in URL: ${finalUrl}`);
+            return finalUrl;
+          } 
+
+          // Check if URL ends with .shtml but has no sign
+          if (baseArticleUrl.endsWith('.shtml')) {
+            // Insert sign before .shtml
+            const finalUrl = baseArticleUrl.replace(/\.shtml$/, `/${signSlug}.shtml`);
+            console.log(`Gazzetta.it - Inserted sign before .shtml: ${finalUrl}`);
+            return finalUrl;
+          }
+
+          // Check if URL ends with a directory (e.g., "tutti-i-segni/")
+          if (baseArticleUrl.endsWith('/')) {
+            // Append sign.shtml
+            const finalUrl = `${baseArticleUrl}${signSlug}.shtml`;
+            console.log(`Gazzetta.it - Appended to directory: ${finalUrl}`);
+            return finalUrl;
+          }
+
+          // Default case: append /sign.shtml
+          const finalUrl = `${baseArticleUrl}/${signSlug}.shtml`;
+          console.log(`Gazzetta.it - Default append: ${finalUrl}`);
+          return finalUrl;
+
+        } catch (error) {
+          console.error(`Gazzetta.it - Archive resolution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          throw new Error(`Cannot construct Gazzetta.it URL: archive resolution failed`);
+        }
+      }
+
+      // Archive strategy - resolve from archive page
+      if (input.scrapeStrategy === 'archive') {
+        console.log(`Using archive strategy for ${input.sourceName}`);
+        return await resolveWeeklyUrlFromArchive(input);
+      }
+
+      // MARIE CLAIRE SPECIFIC: Check if this is Marie Claire and resolve dynamically
+      if (input.domain.includes('marieclaire.it') || input.baseUrl.includes('marieclaire.it')) {
+        console.log(`Detected Marie Claire - checking if URL needs resolution`);
+
+        // If baseUrl already contains a full article URL pattern, use it
+        if (input.baseUrl.match(/\/a\d+\/oroscopo-settimana/)) {
+          console.log(`Using pre-resolved Marie Claire URL: ${input.baseUrl}`);
+          return input.baseUrl;
+        }
+
+        // Otherwise, resolve it from the archive page
+        console.log(`Resolving Marie Claire URL from archive...`);
+        return await resolveWeeklyUrlFromArchive(input);
+      }
+
+      // Pattern strategy - build URL from pattern
+      const signMap: Record<string, string> = {
+        'Ariete': 'ariete', 'Toro': 'toro', 'Gemelli': 'gemelli', 'Cancro': 'cancro',
+        'Leone': 'leone', 'Vergine': 'vergine', 'Bilancia': 'bilancia', 'Scorpione': 'scorpione',
+        'Sagittario': 'sagittario', 'Capricorno': 'capricorno', 'Acquario': 'acquario', 'Pesci': 'pesci'
+      };
+
+      let url = input.baseUrl + input.urlPattern;
+      const signSlug = signMap[input.signSlugIt] || input.signSlugIt.toLowerCase();
+
+      // Replace all placeholders
+      url = url.replace(/{week_start_day}/g, input.startDay);
+      url = url.replace(/{week_end_day}/g, input.endDay);
+      url = url.replace(/{week_end_month}/g, input.month);
+      url = url.replace(/{month_name}/g, input.month);
+      url = url.replace(/{start_day}/g, input.startDay);
+      url = url.replace(/{end_day}/g, input.endDay);
+      url = url.replace(/{yyyy}/g, input.year);
+      url = url.replace(/{year}/g, input.year);
+      url = url.replace(/{sign}/g, signSlug);
+      url = url.replace(/{month}/g, input.month);
+      url = url.replace(/{mm}/g, input.month);
+      url = url.replace(/{dd}/g, input.startDay);
+
+      // Validate URL - ensure no placeholders remain
+      if (url.includes('{') || url.includes('}')) {
+        throw new Error(`URL contains unreplaced placeholders: ${url}`);
+      }
+
+      // Validate URL format
+      try {
+        new URL(url);
+      } catch (error) {
+        throw new Error(`Invalid URL constructed: ${url}`);
+      }
+
+      console.log(`Built weekly URL for ${input.sourceName}: ${url}`);
+      return url;
     }
-  }
-
-  // Archive strategy - resolve from archive page
-  if (input.scrapeStrategy === 'archive') {
-    console.log(`Using archive strategy for ${input.sourceName}`);
-    return await resolveWeeklyUrlFromArchive(input);
-  }
-
-  // MARIE CLAIRE SPECIFIC: Check if this is Marie Claire and resolve dynamically
-  if (input.domain.includes('marieclaire.it') || input.baseUrl.includes('marieclaire.it')) {
-    console.log(`Detected Marie Claire - checking if URL needs resolution`);
-
-    // If baseUrl already contains a full article URL pattern, use it
-    if (input.baseUrl.match(/\/a\d+\/oroscopo-settimana/)) {
-      console.log(`Using pre-resolved Marie Claire URL: ${input.baseUrl}`);
-      return input.baseUrl;
-    }
-
-    // Otherwise, resolve it from the archive page
-    console.log(`Resolving Marie Claire URL from archive...`);
-    return await resolveWeeklyUrlFromArchive(input);
-  }
-
-  // Pattern strategy - build URL from pattern
-  const signMap: Record<string, string> = {
-    'Ariete': 'ariete', 'Toro': 'toro', 'Gemelli': 'gemelli', 'Cancro': 'cancro',
-    'Leone': 'leone', 'Vergine': 'vergine', 'Bilancia': 'bilancia', 'Scorpione': 'scorpione',
-    'Sagittario': 'sagittario', 'Capricorno': 'capricorno', 'Acquario': 'acquario', 'Pesci': 'pesci'
-  };
-
-  let url = input.baseUrl + input.urlPattern;
-  const signSlug = signMap[input.signSlugIt] || input.signSlugIt.toLowerCase();
-
-  // Replace all placeholders
-  url = url.replace(/{week_start_day}/g, input.startDay);
-  url = url.replace(/{week_end_day}/g, input.endDay);
-  url = url.replace(/{week_end_month}/g, input.month);
-  url = url.replace(/{month_name}/g, input.month);
-  url = url.replace(/{start_day}/g, input.startDay);
-  url = url.replace(/{end_day}/g, input.endDay);
-  url = url.replace(/{yyyy}/g, input.year);
-  url = url.replace(/{year}/g, input.year);
-  url = url.replace(/{sign}/g, signSlug);
-  url = url.replace(/{month}/g, input.month);
-  url = url.replace(/{mm}/g, input.month);
-  url = url.replace(/{dd}/g, input.startDay);
-
-  // Validate URL - ensure no placeholders remain
-  if (url.includes('{') || url.includes('}')) {
-    throw new Error(`URL contains unreplaced placeholders: ${url}`);
-  }
-
-  // Validate URL format
-  try {
-    new URL(url);
-  } catch (error) {
-    throw new Error(`Invalid URL constructed: ${url}`);
-  }
-
-  console.log(`Built weekly URL for ${input.sourceName}: ${url}`);
-  return url;
-}
 
 async function respectDomainRateLimit(domain: string): Promise<void> {
   const lastRequest = domainLastRequest.get(domain) || 0;
@@ -566,8 +772,8 @@ const USER_AGENTS = [
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15',
 ];
 
-async function fetchHtml(url: string, userAgent: string): Promise<string> {
-  try {
+  async function fetchHtml(url: string, userAgent: string): Promise<string> {  try {
+    
     // Validate URL format first
     const urlObj = new URL(url);
 
@@ -585,27 +791,69 @@ async function fetchHtml(url: string, userAgent: string): Promise<string> {
       throw new Error(`DNS resolution failed for ${urlObj.hostname}: ${dnsError instanceof Error ? dnsError.message : 'Unknown DNS error'}`);
     }
 
-    // Add random delay between 1-3 seconds
-    const delay = 1000 + Math.random() * 2000;
-    await new Promise(resolve => setTimeout(resolve, delay));
-
     // Rotate user agents for reliability
     const selectedUserAgent = userAgent || USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
 
+    const headers: Record<string, string> = {
+      'User-Agent': selectedUserAgent,
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7',
+      'Accept-Encoding': 'gzip, deflate, br',
+      'DNT': '1',
+      'Connection': 'keep-alive',
+      'Upgrade-Insecure-Requests': '1',
+      'Cache-Control': 'max-age=0',
+    };
+
+    // Special headers for Fanpage.it
+    if (url.includes('fanpage.it')) {
+      console.log('Fanpage.it - Using enhanced headers for weekly scraping');
+      headers['Referer'] = 'https://www.fanpage.it/stile-e-trend/story/oroscopo/';
+      headers['Origin'] = 'https://www.fanpage.it';
+      headers['Sec-Fetch-Dest'] = 'document';
+      headers['Sec-Fetch-Mode'] = 'navigate';
+      headers['Sec-Fetch-Site'] = 'same-origin';
+      headers['Sec-Fetch-User'] = '?1';
+      headers['Sec-Ch-Ua'] = '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"';
+      headers['Sec-Ch-Ua-Mobile'] = '?0';
+      headers['Sec-Ch-Ua-Platform'] = '"Windows"';
+
+      // Random delay (1-3 seconds) to appear human-like
+      const randomDelay = Math.floor(Math.random() * 2000) + 1000;
+      console.log(`Fanpage.it - Adding ${randomDelay}ms delay`);
+      await new Promise(resolve => setTimeout(resolve, randomDelay));
+    } else {
+      // Add random delay between 1-3 seconds for other sources
+      const delay = 1000 + Math.random() * 2000;
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+
     const response = await axios.get(url, {
-      headers: {
-        'User-Agent': selectedUserAgent,
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'DNT': '1',
-        'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1',
-        'Cache-Control': 'max-age=0',
-      },
+      headers,
       timeout: 15000,
       maxRedirects: 5,
+      validateStatus: (status) => status < 500,
     });
+
+    // If we get 403 on Fanpage, try with different user agent
+    if (response.status === 403 && url.includes('fanpage.it')) {
+      console.log('Fanpage.it - Got 403, trying with Safari user agent...');
+      headers['User-Agent'] = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15';
+
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      const retryResponse = await axios.get(url, {
+        headers,
+        timeout: 15000,
+        maxRedirects: 5,
+      });
+
+      return retryResponse.data;
+    }
+
+    if (response.status >= 400) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
 
     return response.data;
   } catch (error) {
@@ -947,6 +1195,198 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
         error: `Could not extract content for ${input.signSlugIt} from Repubblica weekly page`
       };
     }
+
+    // Special handling for Repubblica - single page with all signs
+    if (url.includes('repubblica.it')) {
+      // ... codice esistente Repubblica ...
+
+      return {
+        success: false,
+        error: `Could not extract content for ${input.signSlugIt} from Repubblica weekly page`
+      };
+    } // <-- CHIUSURA REPUBBLICA
+
+    // CODICE PER FANPAGE
+    // Special handling for Fanpage.it - single page with all signs
+    if (url.includes('fanpage.it')) {
+      console.log(`Fanpage.it - Extracting weekly content for ${input.signSlugIt} from URL: ${url}`);
+
+      const zodiacSigns = ['ariete', 'toro', 'gemelli', 'cancro', 'leone', 'vergine',
+                           'bilancia', 'scorpione', 'sagittario', 'capricorno', 'acquario', 'pesci'];
+
+      // Log structure
+      console.log(`Fanpage.it - Found ${$('h2').length} H2 elements`);
+      console.log(`Fanpage.it - Found ${$('h3').length} H3 elements`);
+      console.log(`Fanpage.it - Found ${$('h4').length} H4 elements`);
+      console.log(`Fanpage.it - Found ${$('strong').length} STRONG elements`);
+
+      let signHeading = $();
+      let extractedContent = '';
+
+      // Strategy 1: Try H3 headings (most likely for Fanpage)
+      $('h3').each((_, h3) => {
+        const $h3 = $(h3);
+        const h3Text = $h3.text().trim().toLowerCase();
+
+        // Check for exact match or "Oroscopo [sign]" pattern
+        if (h3Text === input.signSlugIt.toLowerCase() || 
+            h3Text === `oroscopo ${input.signSlugIt.toLowerCase()}` ||
+            h3Text.includes(input.signSlugIt.toLowerCase())) {
+          signHeading = $h3;
+          console.log(`Fanpage.it - Found H3 match: "${$h3.text().trim()}"`);
+          return false; // Break loop
+        }
+      });
+
+      // Strategy 2: Try H4 headings
+      if (signHeading.length === 0) {
+        $('h4').each((_, h4) => {
+          const $h4 = $(h4);
+          const h4Text = $h4.text().trim().toLowerCase();
+
+          if (h4Text === input.signSlugIt.toLowerCase() || 
+              h4Text === `oroscopo ${input.signSlugIt.toLowerCase()}` ||
+              h4Text.includes(input.signSlugIt.toLowerCase())) {
+            signHeading = $h4;
+            console.log(`Fanpage.it - Found H4 match: "${$h4.text().trim()}"`);
+            return false;
+          }
+        });
+      }
+
+      // Strategy 3: Try STRONG tags
+      if (signHeading.length === 0) {
+        $('strong, b').each((_, elem) => {
+          const $elem = $(elem);
+          const text = $elem.text().trim().toLowerCase();
+
+          // Must be a short text (likely a heading) and match sign name
+          if (text.length < 50 && 
+              (text === input.signSlugIt.toLowerCase() || 
+               text === `oroscopo ${input.signSlugIt.toLowerCase()}` ||
+               text.includes(input.signSlugIt.toLowerCase()))) {
+            signHeading = $elem;
+            console.log(`Fanpage.it - Found STRONG/B match: "${$elem.text().trim()}"`);
+            return false;
+          }
+        });
+      }
+
+      // If we found a heading, extract content
+      if (signHeading.length > 0) {
+        let currentElement = signHeading.parent();
+        let paragraphCount = 0;
+        let searchDepth = 0;
+        const maxDepth = 20;
+
+        // Start from the parent and look for siblings
+        while (currentElement.length > 0 && searchDepth < maxDepth) {
+          searchDepth++;
+          currentElement = currentElement.next();
+
+          if (currentElement.length === 0) break;
+
+          const tagName = currentElement.prop('tagName');
+
+          // Stop at next zodiac sign heading
+          if (tagName === 'H2' || tagName === 'H3' || tagName === 'H4') {
+            const headingText = currentElement.text().trim().toLowerCase();
+            if (zodiacSigns.some(sign => headingText.includes(sign) && !headingText.includes(input.signSlugIt.toLowerCase()))) {
+              console.log(`Fanpage.it - Stopping at next sign: ${headingText}`);
+              break;
+            }
+          }
+
+          // Check for strong/bold tags that might be next sign
+          const strongText = currentElement.find('strong, b').first().text().trim().toLowerCase();
+          if (strongText.length < 50 && zodiacSigns.some(sign => strongText.includes(sign) && !strongText.includes(input.signSlugIt.toLowerCase()))) {
+            console.log(`Fanpage.it - Stopping at next sign in STRONG: ${strongText}`);
+            break;
+          }
+
+          // Extract paragraph content
+          if (currentElement.is('p') || currentElement.find('p').length > 0) {
+            const paragraphs = currentElement.is('p') ? currentElement : currentElement.find('p');
+
+            paragraphs.each((_, p) => {
+              const text = $(p).text().trim();
+              const textLower = text.toLowerCase();
+
+              // Filter out noise
+              const isNoise = textLower.startsWith('leggi anche') ||
+                             textLower.startsWith('advertisement') ||
+                             textLower.startsWith('pubblicità') ||
+                             textLower.startsWith('scopri') ||
+                             textLower.startsWith('condividi') ||
+                             textLower.includes('cookie') ||
+                             text.length < 20;
+
+              if (!isNoise) {
+                extractedContent += text + '\n\n';
+                paragraphCount++;
+              }
+            });
+          }
+        }
+
+        if (extractedContent.trim().length > 50) {
+          console.log(`Fanpage.it - ✓ Extracted ${paragraphCount} paragraphs, ${extractedContent.length} chars`);
+          return {
+            success: true,
+            text: extractedContent.trim().substring(0, 3500),
+            url: url
+          };
+        }
+      }
+
+      // Fallback: Search body text for sign name
+      console.log(`Fanpage.it - Trying body text search fallback...`);
+
+      const bodyText = $('body').text();
+      const signPatterns = [
+        new RegExp(`\\b${input.signSlugIt}\\b[\\s\\S]{100,1500}`, 'gi'),
+        new RegExp(`Oroscopo\\s+${input.signSlugIt}[\\s\\S]{100,1500}`, 'gi'),
+      ];
+
+      for (const pattern of signPatterns) {
+        const matches = bodyText.match(pattern);
+        if (matches && matches[0]) {
+          let content = matches[0];
+
+          // Try to find where the next sign starts
+          for (const otherSign of zodiacSigns) {
+            if (otherSign.toLowerCase() === input.signSlugIt.toLowerCase()) continue;
+
+            const nextSignIndex = content.toLowerCase().lastIndexOf(otherSign);
+            if (nextSignIndex > 100) {
+              content = content.substring(0, nextSignIndex);
+            }
+          }
+
+          // Clean up
+          content = content
+            .replace(/\s+/g, ' ')
+            .replace(/leggi anche.{0,100}/gi, '')
+            .replace(/pubblicità.{0,50}/gi, '')
+            .trim();
+
+          if (content.length > 100) {
+            console.log(`Fanpage.it - Fallback extracted ${content.length} chars`);
+            return {
+              success: true,
+              text: content.substring(0, 3500),
+              url: url
+            };
+          }
+        }
+      }
+
+      return {
+        success: false,
+        error: `Could not extract weekly content for ${input.signSlugIt} from Fanpage.it page`
+      };
+    }
+    // FINE CODICE FANPAGE
 
     // Generic extraction for other sources
     let bestContent = '';

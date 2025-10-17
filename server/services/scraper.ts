@@ -65,6 +65,31 @@ export async function scrapeHoroscope(input: ScraperInput): Promise<ScraperOutpu
       await respectDomainRateLimit(input.domain);
 
       let currentResult: ScrapeResult;
+
+      // Special handling for Fanpage archive page
+      if (url.includes('fanpage.it') && url.includes('/stile-e-trend/story/oroscopo/')) {
+        console.log('Fanpage.it - This is the archive page, searching for article URL...');
+        const articleUrl = await findFanpageArticleUrl(url, input.dateISO);
+
+        if (articleUrl) {
+          console.log(`Fanpage.it - Found article URL from archive: ${articleUrl}`);
+          // Respect rate limiting before scraping the found article
+          await respectDomainRateLimit(input.domain);
+          currentResult = await scrapeHoroscopeText(articleUrl, input);
+
+          if (currentResult.success && currentResult.text) {
+            console.log(`Successfully scraped from archive-found URL: ${articleUrl}`);
+            scrapeResult = currentResult;
+            scrapeResult.actualUrl = articleUrl; // Use the found URL
+            usedUrl = articleUrl;
+            break;
+          }
+        } else {
+          console.log('Fanpage.it - Could not find article in archive, trying next URL...');
+          continue; // Salta questo URL e prova il prossimo
+        }
+      }
+      
       if (input.domain.includes('repubblica.it')) {
         currentResult = await scrapeRepubblicaHoroscopeText(url, input);
       } else {
@@ -120,7 +145,7 @@ function buildHoroscopeUrl(input: ScraperInput): string | string[] {
 
   // 🔥 Handle Gazzetta.it special case BEFORE generic URL building
   if (input.domain && input.domain.includes('gazzetta.it')) {
-    console.log(`🔥 GAZZETTA DETECTED in routes.ts! domain=${input.domain}`);
+    console.log(`🔥 GAZZETTA DETECTED! domain=${input.domain}`);
 
     const targetDate = new Date(input.dateISO);
     const day = targetDate.getDate();
@@ -137,23 +162,58 @@ function buildHoroscopeUrl(input: ScraperInput): string | string[] {
 
     const gazzettaSignSlug = signMap[input.signSlugIt] || input.signSlugIt.toLowerCase();
 
+    // Calculate previous date (publishing date)
     const prevDate = new Date(targetDate);
     prevDate.setDate(prevDate.getDate() - 1);
-    const prevDateFormatted = prevDate.toISOString().split('T')[0].split('-').reverse().join('-');
-    const currentDateFormatted = targetDate.toISOString().split('T')[0].split('-').reverse().join('-');
 
-    const baseSlug = `oroscopo-${weekday}-${day}-${monthName}-${year}`;
-    const slug1 = `${baseSlug}-previsioni-per-12-i-segni`;
-    const slug2 = `${baseSlug}-previsioni-per-tutti-i-segni`;
+    // Format publishing date as DD-MM-YYYY
+    const publishingDay = prevDate.getDate().toString().padStart(2, '0');
+    const publishingMonth = (prevDate.getMonth() + 1).toString().padStart(2, '0');
+    const publishingYear = prevDate.getFullYear();
+    const publishingDateFormatted = `${publishingDay}-${publishingMonth}-${publishingYear}`;
 
-    const url1 = `${input.baseUrl}oroscopo/storie/${prevDateFormatted}/${slug1}/${gazzettaSignSlug}.shtml`;
-    const url2 = `${input.baseUrl}oroscopo/storie/${prevDateFormatted}/${slug2}/${gazzettaSignSlug}.shtml`;
-    const url3 = `${input.baseUrl}oroscopo/storie/${currentDateFormatted}/${slug1}/${gazzettaSignSlug}.shtml`;
-    const url4 = `${input.baseUrl}oroscopo/storie/${currentDateFormatted}/${slug2}/${gazzettaSignSlug}.shtml`;
+    // Also try current date as publishing date (sometimes they publish same day)
+    const currentDay = targetDate.getDate().toString().padStart(2, '0');
+    const currentMonth = (targetDate.getMonth() + 1).toString().padStart(2, '0');
+    const currentYear = targetDate.getFullYear();
+    const currentDateFormatted = `${currentDay}-${currentMonth}-${currentYear}`;
 
-    console.log(`Gazzetta.it - Generated URLs:`, { url1, url2, url3, url4 });
+    // Format horoscope date part (weekday-DD-monthname-YYYY)
+    const horoscopeDatePart = `${weekday}-${day}-${monthName}-${year}`;
 
-    return [url1, url2, url3, url4];
+    // Create base slug with horoscope date
+    const baseSlug = `oroscopo-${horoscopeDatePart}`;
+
+    // Based on your example, the main pattern seems to be:
+    // previsioni-per-tutti-i-12-segni
+    const primarySlug = `${baseSlug}-previsioni-per-tutti-i-12-segni`;
+
+    // But let's also try a few other common variations
+    const slugVariations = [
+      primarySlug, // Main pattern from your example
+      `${baseSlug}-previsioni-per-12-segni`,
+      `${baseSlug}-previsioni-per-tutti-i-segni`
+    ];
+
+    // Generate URLs with publishing date variations and slug variations
+    const urls: string[] = [];
+
+    // First, try with yesterday as publishing date (most common)
+    for (const slug of slugVariations) {
+      urls.push(`${input.baseUrl}/storie/${publishingDateFormatted}/${slug}/${gazzettaSignSlug}.shtml`);
+    }
+
+    // Then try with today as publishing date (less common)
+    for (const slug of slugVariations) {
+      urls.push(`${input.baseUrl}/storie/${currentDateFormatted}/${slug}/${gazzettaSignSlug}.shtml`);
+    }
+
+    console.log(`Gazzetta.it - Target date: ${input.dateISO}`);
+    console.log(`Gazzetta.it - Publishing date (yesterday): ${publishingDateFormatted}`);
+    console.log(`Gazzetta.it - Horoscope date part: ${horoscopeDatePart}`);
+    console.log(`Gazzetta.it - Generated ${urls.length} URLs:`, urls);
+
+    return urls;
   }
 
   // Handle IO Donna special case - try date-specific URL first
@@ -182,6 +242,15 @@ function buildHoroscopeUrl(input: ScraperInput): string | string[] {
     url = url.replace('{month}', monthName);
     url = url.replace('{year}', year.toString());
 
+    // Special handling for Fanpage.it - return both direct URL and archive URL
+    if (input.domain.includes('fanpage.it')) {
+      const directUrl = url;
+      const archiveUrl = 'https://www.fanpage.it/stile-e-trend/story/oroscopo/';
+      console.log(`Fanpage.it - Generated direct URL: ${directUrl}`);
+      console.log(`Fanpage.it - Archive URL: ${archiveUrl}`);
+      return [directUrl, archiveUrl]; // Prova prima diretto, poi archivio
+    }
+    
     // Enhanced handling for Gazzetta.it - they use multiple URL patterns
     if (input.domain.includes('gazzetta.it')) {
       const prevDate = new Date(targetDate);
@@ -199,12 +268,12 @@ function buildHoroscopeUrl(input: ScraperInput): string | string[] {
 
       // Try all combinations: prev date and current date, with all 3 slug variations
       const urls = [
-        `${input.baseUrl}/oroscopo/storie/${prevDateFormatted}/${slug1}/${gazzettaSignSlug}.shtml`,
-        `${input.baseUrl}/oroscopo/storie/${prevDateFormatted}/${slug2}/${gazzettaSignSlug}.shtml`,
-        `${input.baseUrl}/oroscopo/storie/${prevDateFormatted}/${slug3}/${gazzettaSignSlug}.shtml`,
-        `${input.baseUrl}/oroscopo/storie/${currentDateFormatted}/${slug1}/${gazzettaSignSlug}.shtml`,
-        `${input.baseUrl}/oroscopo/storie/${currentDateFormatted}/${slug2}/${gazzettaSignSlug}.shtml`,
-        `${input.baseUrl}/oroscopo/storie/${currentDateFormatted}/${slug3}/${gazzettaSignSlug}.shtml`,
+        `${input.baseUrl}/storie/${prevDateFormatted}/${slug1}/${gazzettaSignSlug}.shtml`,
+        `${input.baseUrl}/storie/${prevDateFormatted}/${slug2}/${gazzettaSignSlug}.shtml`,
+        `${input.baseUrl}/storie/${prevDateFormatted}/${slug3}/${gazzettaSignSlug}.shtml`,
+        `${input.baseUrl}/storie/${currentDateFormatted}/${slug1}/${gazzettaSignSlug}.shtml`,
+        `${input.baseUrl}/storie/${currentDateFormatted}/${slug2}/${gazzettaSignSlug}.shtml`,
+        `${input.baseUrl}/storie/${currentDateFormatted}/${slug3}/${gazzettaSignSlug}.shtml`,
       ];
 
       return urls;
@@ -247,20 +316,65 @@ async function respectDomainRateLimit(domain: string): Promise<void> {
 
 async function fetchHtml(url: string, userAgent: string): Promise<string> {
   try {
+    const headers: Record<string, string> = {
+      'User-Agent': userAgent || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+      'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7',
+      'Accept-Encoding': 'gzip, deflate, br',
+      'DNT': '1',
+      'Connection': 'keep-alive',
+      'Upgrade-Insecure-Requests': '1',
+      'Cache-Control': 'max-age=0',
+    };
+
+    // Headers speciali per Fanpage.it
+    if (url.includes('fanpage.it')) {
+      console.log('Fanpage.it - Using enhanced headers');
+      headers['Referer'] = 'https://www.fanpage.it/stile-e-trend/story/oroscopo/';
+      headers['Origin'] = 'https://www.fanpage.it';
+      headers['Sec-Fetch-Dest'] = 'document';
+      headers['Sec-Fetch-Mode'] = 'navigate';
+      headers['Sec-Fetch-Site'] = 'same-origin';
+      headers['Sec-Fetch-User'] = '?1';
+      headers['Sec-Ch-Ua'] = '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"';
+      headers['Sec-Ch-Ua-Mobile'] = '?0';
+      headers['Sec-Ch-Ua-Platform'] = '"Windows"';
+
+      // Delay casuale per sembrare più umano (1-3 secondi)
+      const randomDelay = Math.floor(Math.random() * 2000) + 1000;
+      console.log(`Fanpage.it - Adding ${randomDelay}ms delay to appear human-like`);
+      await new Promise(resolve => setTimeout(resolve, randomDelay));
+    }
+
     const response = await axios.get(url, {
-      headers: {
-        'User-Agent': userAgent || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-        'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'DNT': '1',
-        'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1',
-        'Cache-Control': 'max-age=0',
-      },
-      timeout: 10000, // 10 second timeout
+      headers,
+      timeout: 15000,
       maxRedirects: 5,
+      validateStatus: (status) => status < 500, // Accetta anche 4xx per poter gestire meglio gli errori
     });
+
+    // Se otteniamo un 403 specificamente su Fanpage, proviamo con strategia alternativa
+    if (response.status === 403 && url.includes('fanpage.it')) {
+      console.log('Fanpage.it - Got 403, trying alternative user agent...');
+
+      // Prova con un user agent diverso (Safari su Mac)
+      headers['User-Agent'] = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15';
+
+      // Aspetta 3 secondi prima del retry
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      const retryResponse = await axios.get(url, {
+        headers,
+        timeout: 15000,
+        maxRedirects: 5,
+      });
+
+      return retryResponse.data;
+    }
+
+    if (response.status >= 400) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
 
     return response.data;
   } catch (error) {
@@ -783,6 +897,7 @@ async function scrapeGazzettaHoroscopeText(url: string, input: ScraperInput): Pr
   }
 }
 
+// LA FUNZIONE SKY TG24
 async function scrapeSkyTG24HoroscopeText(url: string, input: ScraperInput): Promise<ScrapeResult> {
   try {
     console.log('Sky TG24 - Starting specialized extraction for:', input.signSlugIt);
@@ -895,6 +1010,178 @@ async function scrapeSkyTG24HoroscopeText(url: string, input: ScraperInput): Pro
   }
 }
 
+
+async function scrapeFanpageHoroscopeText(url: string, input: ScraperInput): Promise<ScrapeResult> {
+  try {
+    console.log('Fanpage.it - Starting specialized extraction for:', input.signSlugIt);
+
+    const html = await fetchHtml(url, input.userAgent);
+    const $ = cheerio.load(html);
+
+    // Rimuovi elementi non necessari
+    $('script, style, nav, header, footer, iframe, noscript').remove();
+
+    const zodiacNameLower = input.signSlugIt.toLowerCase();
+    let bestContent = '';
+    let highestScore = 0;
+
+    // Pattern 1: Cerca div con classe article-body o simili
+    const contentSelectors = [
+      '.article-body',
+      '.entry-content',
+      '.post-content',
+      '[class*="article"][class*="content"]',
+      'article .content',
+      'main article'
+    ];
+
+    for (const selector of contentSelectors) {
+      const content = $(selector);
+      if (content.length > 0) {
+        // Cerca il contenuto specifico per il segno zodiacale
+        const paragraphs: string[] = [];
+
+        content.find('p').each((_, elem) => {
+          const text = $(elem).text().trim();
+          if (text.length > 20) {
+            paragraphs.push(text);
+          }
+        });
+
+        if (paragraphs.length > 0) {
+          const combinedText = paragraphs.join('\n\n');
+          const score = scoreHoroscopeContent(combinedText, zodiacNameLower, 'fanpage.it');
+
+          if (score > highestScore) {
+            highestScore = score;
+            bestContent = combinedText;
+          }
+        }
+      }
+    }
+
+    // Pattern 2: Se non troviamo con i selettori, cerca heading con il nome del segno
+    if (!bestContent || highestScore < 30) {
+      const headingPattern = new RegExp(`<h[2-4][^>]*>[^<]*${input.signSlugIt}[^<]*</h[2-4]>`, 'gi');
+      const htmlString = $.html();
+      const headingMatch = htmlString.match(headingPattern);
+
+      if (headingMatch) {
+        const headingIndex = htmlString.indexOf(headingMatch[0]);
+        if (headingIndex !== -1) {
+          let contentAfter = htmlString.substring(headingIndex + headingMatch[0].length);
+          const nextHeading = contentAfter.match(/<h[2-4][^>]*>/i);
+
+          if (nextHeading && nextHeading.index !== undefined) {
+            contentAfter = contentAfter.substring(0, nextHeading.index);
+          }
+
+          const $section = cheerio.load(contentAfter);
+          const sectionText = $section('p').map((_, elem) => $section(elem).text().trim()).get().join('\n\n');
+
+          if (sectionText.length > 50) {
+            const score = scoreHoroscopeContent(sectionText, zodiacNameLower, 'fanpage.it');
+            if (score > highestScore) {
+              bestContent = sectionText;
+              highestScore = score;
+            }
+          }
+        }
+      }
+    }
+
+    if (!bestContent || highestScore < 20) {
+      return {
+        success: false,
+        error: `No substantial horoscope content found for ${input.signSlugIt} on Fanpage.it`
+      };
+    }
+
+    console.log(`Fanpage.it - Successfully extracted content, score: ${highestScore}, length: ${bestContent.length}`);
+
+    return {
+      success: true,
+      text: bestContent.substring(0, 3500),
+      url,
+      actualUrl: url
+    };
+
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown Fanpage.it scraping error'
+    };
+  }
+}
+async function findFanpageArticleUrl(archiveUrl: string, targetDate: string): Promise<string | null> {
+  try {
+    console.log('Fanpage.it - Searching archive page for today\'s horoscope...');
+
+    const response = await axios.get(archiveUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': 'https://www.fanpage.it/',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'it-IT,it;q=0.9',
+      },
+      timeout: 15000
+    });
+
+    const html = response.data;
+    const dateObj = new Date(targetDate);
+    const day = dateObj.getDate();
+    const month = ITALIAN_MONTHS[dateObj.getMonth()];
+    const weekday = ITALIAN_WEEKDAYS[dateObj.getDay()];
+    const year = dateObj.getFullYear();
+
+    // Pattern: oroscopo-di-weekday-day-month-year
+    const datePattern = `oroscopo-di-${weekday}-${day}-${month}-${year}`;
+    console.log(`Fanpage.it - Looking for pattern: ${datePattern}`);
+
+    // Cerca link che contengono questo pattern
+    const urlPattern = new RegExp(`href=["']([^"']*${datePattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[^"']*)["']`, 'gi');
+    let match;
+
+    while ((match = urlPattern.exec(html)) !== null) {
+      let foundUrl = match[1];
+
+      // Se l'URL è relativo, rendilo assoluto
+      if (foundUrl.startsWith('/')) {
+        foundUrl = 'https://www.fanpage.it' + foundUrl;
+      }
+
+      // Verifica che sia un URL dell'oroscopo
+      if (foundUrl.includes('attualita') && foundUrl.includes('oroscopo')) {
+        console.log(`Fanpage.it - Found article URL: ${foundUrl}`);
+        return foundUrl;
+      }
+    }
+
+    // Prova anche con varianti senza apostrofi o con "l'oroscopo" invece di "loroscopo"
+    const alternativePattern = `href=["']([^"']*oroscopo[^"']*${weekday}[^"']*${day}[^"']*${month}[^"']*${year}[^"']*)["']`;
+    const altRegex = new RegExp(alternativePattern, 'gi');
+
+    while ((match = altRegex.exec(html)) !== null) {
+      let foundUrl = match[1];
+
+      if (foundUrl.startsWith('/')) {
+        foundUrl = 'https://www.fanpage.it' + foundUrl;
+      }
+
+      if (foundUrl.includes('attualita')) {
+        console.log(`Fanpage.it - Found article URL (alternative pattern): ${foundUrl}`);
+        return foundUrl;
+      }
+    }
+
+    console.log('Fanpage.it - No article found in archive page');
+    return null;
+  } catch (error) {
+    console.error('Fanpage.it - Error searching archive:', error);
+    return null;
+  }
+}
+
 async function scrapeHoroscopeText(url: string, input: ScraperInput): Promise<ScrapeResult> {
   try {
     console.log(`Starting scrape for ${input.signSlugIt} at URL: ${url}`);
@@ -923,7 +1210,12 @@ async function scrapeHoroscopeText(url: string, input: ScraperInput): Promise<Sc
     if (url.includes('skytg24.it') || url.includes('tg24.sky.it')) {
       return await scrapeSkyTG24HoroscopeText(url, input);
     }
-
+    
+    // Special handling for Fanpage.it
+    if (url.includes('fanpage.it')) {
+      return await scrapeFanpageHoroscopeText(url, input);
+    }
+    
     const html = await fetchHtml(url, input.userAgent);
 
     // Enhanced HTML cleaning
