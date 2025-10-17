@@ -517,6 +517,13 @@ async function scrapeOnlyOroscopoHoroscopeText(url: string, input: ScraperInput)
         .replace(/\s+/g, ' ')
         .trim();
 
+      // Stop extraction at "Parola del giorno"
+      const stopIndex = content.toLowerCase().indexOf('parola del giorno');
+      if (stopIndex !== -1) {
+        content = content.substring(0, stopIndex).trim();
+        console.log('OnlyOroscopo - Stopped extraction at "Parola del giorno"');
+      }
+
       if (content.length < 30 || content.length > 3000) continue;
 
       const currentScore = scoreHoroscopeContent(content, zodiacNameLower, input.domain);
