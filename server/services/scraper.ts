@@ -256,13 +256,13 @@ function buildHoroscopeUrl(input: ScraperInput): string | string[] {
       const baseSlug = `oroscopo-${weekday}-${day}-${monthName}-${year}`;
 
       // Possible slug variations
-      // All possible slug variations
+      // All possible slug variations (ordered by likelihood)
       const slugVariations = [
+        `${baseSlug}-le-previsioni-per-i-12-segni`,
         `${baseSlug}-previsioni-per-tutti-i-12-segni`,
         `${baseSlug}-previsioni-per-12-i-segni`,
         `${baseSlug}-previsioni-per-tutti-i-segni`,
-        `${baseSlug}-previsioni-per-12-i-segni-zodiaco`,
-        `${baseSlug}-le-previsioni-per-i-12-segni`
+        `${baseSlug}-previsioni-per-12-i-segni-zodiaco`
       ];
 
       // Generate URLs with both date variations (yesterday and today) for each slug
