@@ -766,108 +766,6 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
         }
       }
 
-      /**
-       * Fanpage-specific archive resolution
-       * Fanpage adds dynamic SEO suffixes to URLs (e.g., "-scorpione-e-pesci-intuitivi")
-       * We need to find the base URL pattern in the archive
-       */
-      async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<string> {
-        console.log(`Fanpage.it - Extracting weekly URLs from archive`);
-
-        const archiveUrl = 'https://www.fanpage.it/attualita/';
-        console.log(`Fanpage.it - Archive URL: ${archiveUrl}`);
-
-        await respectDomainRateLimit(input.domain);
-        const html = await fetchHtml(archiveUrl, input.userAgent);
-        const $ = cheerio.load(html);
-
-        const targetDate = new Date(input.weekStartDate);
-        const targetDateStr = targetDate.toISOString().split('T')[0];
-        const candidates: Array<{ url: string; startDate: Date; score: number }> = [];
-
-        // Find all links containing "oroscopo-della-settimana"
-        $('a[href*="oroscopo-della-settimana"]').each((_, elem) => {
-          const href = $(elem).attr('href');
-          if (!href) return;
-
-          console.log(`Fanpage.it - Checking link: ${href}`);
-
-          // Extract date from URL pattern: dal-DD-al-DD-MONTH-YYYY
-          // Example: /attualita/loroscopo-della-settimana-dal-20-al-26-ottobre-2025-scorpione-e-pesci.../
-          const dateMatch = href.match(/dal-(\d{1,2})-al-(\d{1,2})-(\w+)-(\d{4})/i);
-
-          if (dateMatch) {
-            const [_, startDay, endDay, monthName, year] = dateMatch;
-
-            const monthMap: Record<string, number> = {
-              'gennaio': 1, 'febbraio': 2, 'marzo': 3, 'aprile': 4,
-              'maggio': 5, 'giugno': 6, 'luglio': 7, 'agosto': 8,
-              'settembre': 9, 'ottobre': 10, 'novembre': 11, 'dicembre': 12
-            };
-
-            const monthNum = monthMap[monthName.toLowerCase()];
-
-            if (monthNum) {
-              const startDate = new Date(parseInt(year), monthNum - 1, parseInt(startDay));
-              const candidateDateStr = startDate.toISOString().split('T')[0];
-
-              console.log(`Fanpage.it - Parsed date: ${candidateDateStr} (target: ${targetDateStr})`);
-
-              let absoluteUrl = href;
-              if (href.startsWith('/')) {
-                absoluteUrl = 'https://www.fanpage.it' + href;
-              } else if (!href.startsWith('http')) {
-                absoluteUrl = 'https://www.fanpage.it/' + href;
-              }
-
-              // Calculate score based on date proximity
-              const daysDiff = Math.abs(Math.floor((startDate.getTime() - targetDate.getTime()) / (1000 * 60 * 60 * 24)));
-
-              let score = 100;
-              if (daysDiff === 0) {
-                score = 100; // Exact match
-              } else if (daysDiff <= 3) {
-                score = 90 - (daysDiff * 10); // Close match
-              } else if (daysDiff <= 7) {
-                score = 50 - (daysDiff * 5); // Within a week
-              } else {
-                score = 0; // Too far
-              }
-
-              if (score > 0) {
-                candidates.push({ url: absoluteUrl, startDate, score });
-                console.log(`Fanpage.it - Added candidate (${daysDiff} days diff, score: ${score}): ${absoluteUrl}`);
-              }
-            } else {
-              console.log(`Fanpage.it - Could not parse month: ${monthName}`);
-            }
-          } else {
-            console.log(`Fanpage.it - Date pattern not found in URL`);
-          }
-        });
-
-        console.log(`Fanpage.it - Total candidates found: ${candidates.length}`);
-
-        if (candidates.length === 0) {
-          throw new Error(`No Fanpage.it weekly horoscope URLs found in archive for week ${targetDateStr}`);
-        }
-
-        // Sort by score (best match first)
-        candidates.sort((a, b) => b.score - a.score);
-
-        // Log top candidates
-        console.log(`Fanpage.it - Top 3 candidates:`);
-        candidates.slice(0, 3).forEach((c, i) => {
-          console.log(`  ${i + 1}. ${c.url} (score: ${c.score}, date: ${c.startDate.toISOString().split('T')[0]})`);
-        });
-
-        // Return best match
-        const bestMatch = candidates[0];
-        console.log(`Fanpage.it - ✓ Selected best match: ${bestMatch.url}`);
-
-        return bestMatch.url;
-      }
-
       // GAZZETTA.IT SPECIFIC: Use archive strategy and append sign
       if (input.domain.includes('gazzetta.it') || input.baseUrl.includes('gazzetta.it')) {
         console.log(`Detected Gazzetta.it - using archive strategy`);
@@ -922,14 +820,14 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
       }
 
 
-      
+
       // Archive strategy - resolve from archive page    
       if (input.scrapeStrategy === 'archive') {
         console.log(`Using archive strategy for ${input.sourceName}`);
         return await resolveWeeklyUrlFromArchive(input);
       }
 
-      
+
 
       // MARIE CLAIRE SPECIFIC: Check if this is Marie Claire and resolve dynamically
       if (input.domain.includes('marieclaire.it') || input.baseUrl.includes('marieclaire.it')) {
@@ -1073,7 +971,7 @@ async function fetchHtml(url: string, userAgent: string): Promise<string> {
     };
 
     // Special headers for Fanpage.it
-    else if (url.includes('fanpage.it')) {
+    if (url.includes('fanpage.it')) {
       console.log('Fanpage.it - Using enhanced headers for weekly scraping');
       headers['Referer'] = 'https://www.fanpage.it/stile-e-trend/story/oroscopo/';
       headers['Origin'] = 'https://www.fanpage.it';
@@ -1461,16 +1359,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
           };
         }
       }
-
-      return {
-        success: false,
-        error: `Could not extract content for ${input.signSlugIt} from Repubblica weekly page`
-      };
-    }
-
-    // Special handling for Repubblica - single page with all signs
-    if (url.includes('repubblica.it')) {
-      // ... codice esistente Repubblica ...
 
       return {
         success: false,
