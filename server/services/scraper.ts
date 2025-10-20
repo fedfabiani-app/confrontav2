@@ -256,30 +256,27 @@ function buildHoroscopeUrl(input: ScraperInput): string | string[] {
       const baseSlug = `oroscopo-${weekday}-${day}-${monthName}-${year}`;
 
       // Possible slug variations
-      const slug1 = `${baseSlug}-previsioni-per-12-i-segni`;
-      const slug2 = `${baseSlug}-previsioni-per-tutti-i-segni`;
-      const slug3 = `${baseSlug}-previsioni-per-12-i-segni-zodiaco`;
-      const slug4 = `${baseSlug}-le-previsioni-per-i-12-segni`;
-
+      // All possible slug variations
       const slugVariations = [
         `${baseSlug}-previsioni-per-tutti-i-12-segni`,
-        slug1,
-        slug2,
-        slug3,
-        slug4
+        `${baseSlug}-previsioni-per-12-i-segni`,
+        `${baseSlug}-previsioni-per-tutti-i-segni`,
+        `${baseSlug}-previsioni-per-12-i-segni-zodiaco`,
+        `${baseSlug}-le-previsioni-per-i-12-segni`
       ];
 
-      // Generate URLs with publishing date variations and slug variations
-      const urls = [
-        `${input.baseUrl}/storie/${prevDateFormatted}/${slug1}/${gazzettaSignSlug}.shtml`,
-        `${input.baseUrl}/storie/${prevDateFormatted}/${slug2}/${gazzettaSignSlug}.shtml`,
-        `${input.baseUrl}/storie/${prevDateFormatted}/${slug3}/${gazzettaSignSlug}.shtml`,
-        `${input.baseUrl}/storie/${prevDateFormatted}/${slug4}/${gazzettaSignSlug}.shtml`,
-        `${input.baseUrl}/storie/${currentDateFormatted}/${slug1}/${gazzettaSignSlug}.shtml`,
-        `${input.baseUrl}/storie/${currentDateFormatted}/${slug2}/${gazzettaSignSlug}.shtml`,
-        `${input.baseUrl}/storie/${currentDateFormatted}/${slug3}/${gazzettaSignSlug}.shtml`,
-        `${input.baseUrl}/storie/${currentDateFormatted}/${slug4}/${gazzettaSignSlug}.shtml`,
-      ];
+      // Generate URLs with both date variations (yesterday and today) for each slug
+      const urls: string[] = [];
+      
+      // Try yesterday's date first (most common)
+      for (const slug of slugVariations) {
+        urls.push(`${input.baseUrl}/storie/${prevDateFormatted}/${slug}/${gazzettaSignSlug}.shtml`);
+      }
+      
+      // Then try today's date
+      for (const slug of slugVariations) {
+        urls.push(`${input.baseUrl}/storie/${currentDateFormatted}/${slug}/${gazzettaSignSlug}.shtml`);
+      }
 
       return urls;
     }
