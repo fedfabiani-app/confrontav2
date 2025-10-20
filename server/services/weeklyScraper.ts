@@ -369,12 +369,32 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
 
       console.log(`Gazzetta.it - Checking link: ${href}`);
 
-      // Parse dates from URL slug
-      // Example: oroscopo-settimanale-13-19-ottobre-2025
-      const datePattern = /oroscopo-settimanale-(\d{1,2})-(\d{1,2})-(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)-(\d{4})/i;
-      const match = href.match(datePattern);
+      // Parse dates from URL slug with multiple slug variations
+      // Possible patterns:
+      // - oroscopo-settimanale-DD-DD-month-YYYY-le-previsioni-per-i-12-segni
+      // - oroscopo-settimanale-DD-DD-month-YYYY-previsioni-per-tutti-i-12-segni
+      // - oroscopo-settimanale-DD-DD-month-YYYY-previsioni-per-12-i-segni
+      // - oroscopo-settimanale-DD-DD-month-YYYY-previsioni-per-tutti-i-segni
+      // - oroscopo-settimanale-DD-DD-month-YYYY-previsioni-per-12-i-segni-zodiaco
+      const slugVariations = [
+        /oroscopo-settimanale-(\d{1,2})-(\d{1,2})-(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)-(\d{4})-le-previsioni-per-i-12-segni/i,
+        /oroscopo-settimanale-(\d{1,2})-(\d{1,2})-(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)-(\d{4})-previsioni-per-tutti-i-12-segni/i,
+        /oroscopo-settimanale-(\d{1,2})-(\d{1,2})-(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)-(\d{4})-previsioni-per-12-i-segni/i,
+        /oroscopo-settimanale-(\d{1,2})-(\d{1,2})-(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)-(\d{4})-previsioni-per-tutti-i-segni/i,
+        /oroscopo-settimanale-(\d{1,2})-(\d{1,2})-(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)-(\d{4})-previsioni-per-12-i-segni-zodiaco/i,
+        /oroscopo-settimanale-(\d{1,2})-(\d{1,2})-(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)-(\d{4})/i
+      ];
 
       let dateRange: WeekDateRange | null = null;
+      let match: RegExpMatchArray | null = null;
+
+      // Try each slug variation pattern
+      for (const pattern of slugVariations) {
+        match = href.match(pattern);
+        if (match) {
+          break;
+        }
+      }
 
       if (match) {
         const startDay = parseInt(match[1]);
