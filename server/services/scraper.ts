@@ -143,7 +143,7 @@ function buildHoroscopeUrl(input: ScraperInput): string | string[] {
     return input.baseUrl + input.urlPattern;
   }
 
-  // 🔥 Handle Gazzetta.it special case BEFORE generic URL building
+  // Handle Gazzetta.it special case BEFORE generic URL building
   if (input.domain && input.domain.includes('gazzetta.it')) {
     console.log(`🔥 GAZZETTA DETECTED! domain=${input.domain}`);
 
@@ -186,7 +186,8 @@ function buildHoroscopeUrl(input: ScraperInput): string | string[] {
     const slugVariations = [
       primarySlug, // Main pattern from your example
       `${baseSlug}-previsioni-per-12-segni`,
-      `${baseSlug}-previsioni-per-tutti-i-segni`
+      `${baseSlug}-previsioni-per-tutti-i-segni`,
+      `${baseSlug}-le-previsioni-per-i-12-segni`,  
     ];
 
     // Generate URLs with publishing date variations and slug variations
@@ -258,11 +259,11 @@ function buildHoroscopeUrl(input: ScraperInput): string | string[] {
       // Possible slug variations
       // All possible slug variations (ordered by likelihood)
       const slugVariations = [
-        `${baseSlug}-le-previsioni-per-i-12-segni`,
-        `${baseSlug}-previsioni-per-tutti-i-12-segni`,
+                `${baseSlug}-previsioni-per-tutti-i-12-segni`,
         `${baseSlug}-previsioni-per-12-i-segni`,
         `${baseSlug}-previsioni-per-tutti-i-segni`,
-        `${baseSlug}-previsioni-per-12-i-segni-zodiaco`
+        `${baseSlug}-previsioni-per-12-i-segni-zodiaco`,
+        `${baseSlug}-le-previsioni-per-i-12-segni`,
       ];
 
       // Generate URLs with both date variations (yesterday and today) for each slug

@@ -1,0 +1,67 @@
+ // Handle Gazzetta.it special case BEFORE generic URL building
+  if (input.domain && input.domain.includes('gazzetta.it')) {
+    console.log(`🔥 GAZZETTA DETECTED! domain=${input.domain}`);
+
+    const targetDate = new Date(input.dateISO);
+    const day = targetDate.getDate();
+    const month = targetDate.getMonth();
+    const year = targetDate.getFullYear();
+    const weekday = ITALIAN_WEEKDAYS[targetDate.getDay()];
+    const monthName = ITALIAN_MONTHS[month];
+
+    const gazzettaSignSlug = signMap[input.signSlugIt] || input.signSlugIt.toLowerCase();
+
+    // Calculate previous date (publishing date)
+    const prevDate = new Date(targetDate);
+    prevDate.setDate(prevDate.getDate() - 1);
+
+    // Format publishing date as DD-MM-YYYY
+    const publishingDay = prevDate.getDate().toString().padStart(2, '0');
+    const publishingMonth = (prevDate.getMonth() + 1).toString().padStart(2, '0');
+    const publishingYear = prevDate.getFullYear();
+    const publishingDateFormatted = `${publishingDay}-${publishingMonth}-${publishingYear}`;
+
+    // Also try current date as publishing date (sometimes they publish same day)
+    const currentDay = targetDate.getDate().toString().padStart(2, '0');
+    const currentMonth = (targetDate.getMonth() + 1).toString().padStart(2, '0');
+    const currentYear = targetDate.getFullYear();
+    const currentDateFormatted = `${currentDay}-${currentMonth}-${currentYear}`;
+
+    // Format horoscope date part (weekday-DD-monthname-YYYY)
+    const horoscopeDatePart = `${weekday}-${day}-${monthName}-${year}`;
+
+    // Create base slug with horoscope date
+    const baseSlug = `oroscopo-${horoscopeDatePart}`;
+
+    // Based on your example, the main pattern seems to be:
+    // previsioni-per-tutti-i-12-segni
+    const primarySlug = `${baseSlug}-previsioni-per-tutti-i-12-segni`;
+
+    // But let's also try a few other common variations
+    const slugVariations = [
+      primarySlug, // Main pattern from your example
+      `${baseSlug}-previsioni-per-12-segni`,
+      `${baseSlug}-previsioni-per-tutti-i-segni`,
+      `${baseSlug}-le-previsioni-per-i-12-segni`,  
+    ];
+
+    // Generate URLs with publishing date variations and slug variations
+    const urls: string[] = [];
+
+    // First, try with yesterday as publishing date (most common)
+    for (const slug of slugVariations) {
+      urls.push(`${input.baseUrl}/storie/${publishingDateFormatted}/${slug}/${gazzettaSignSlug}.shtml`);
+    }
+
+    // Then try with today as publishing date (less common)
+    for (const slug of slugVariations) {
+      urls.push(`${input.baseUrl}/storie/${currentDateFormatted}/${slug}/${gazzettaSignSlug}.shtml`);
+    }
+
+    console.log(`Gazzetta.it - Target date: ${input.dateISO}`);
+    console.log(`Gazzetta.it - Publishing date (yesterday): ${publishingDateFormatted}`);
+    console.log(`Gazzetta.it - Horoscope date part: ${horoscopeDatePart}`);
+    console.log(`Gazzetta.it - Generated ${urls.length} URLs:`, urls);
+
+    return urls;
+  }
