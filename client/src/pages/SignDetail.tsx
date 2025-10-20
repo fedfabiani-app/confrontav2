@@ -193,7 +193,7 @@ function SignDetail({ sign }: SignDetailProps) {
 
   // Daily/Weekly view state
   const [viewType, setViewType] = useState<"daily" | "weekly">("daily");
-  
+
   // Initialize date from URL parameter or use today
   const getInitialDate = (): Date => {
     const params = new URLSearchParams(window.location.search);
@@ -206,7 +206,7 @@ function SignDetail({ sign }: SignDetailProps) {
     }
     return new Date();
   };
-  
+
   const [selectedDate, setSelectedDate] = useState<Date>(getInitialDate());
   const [calendarOpen, setCalendarOpen] = useState(false);
 
@@ -313,11 +313,11 @@ function SignDetail({ sign }: SignDetailProps) {
     if (date) {
       setSelectedDate(date);
       setCalendarOpen(false);
-      
+
       // Update URL with selected date
       const dateParam = date.toLocaleDateString('en-CA');
       navigate(`/sign/${sign}?date=${dateParam}`, { replace: true });
-      
+
       // Invalidate queries to fetch new data for selected date
       if (viewType === "daily") {
         queryClient.invalidateQueries({ queryKey: ["/api/horoscopes", today, sign] });
@@ -356,10 +356,10 @@ function SignDetail({ sign }: SignDetailProps) {
     enabled: viewType === "daily",
   });
 
-  // Collapse/expand functionality with localStorage persistence
+  // Collapse/expand functionality with sessionStorage persistence
   const [collapsedCards, setCollapsedCards] = useState<Record<number, boolean>>({});
 
-  // Load collapsed state from localStorage on mount
+  // Load collapsed state from sessionStorage on mount
   useEffect(() => {
     if (!horoscopes || horoscopes.length === 0) return;
 
@@ -367,7 +367,7 @@ function SignDetail({ sign }: SignDetailProps) {
       const savedState: Record<number, boolean> = {};
       horoscopes.forEach(horoscope => {
         const key = `signDetail_collapsed_${horoscope.source.id}`;
-        const saved = localStorage.getItem(key);
+        const saved = sessionStorage.getItem(key);
         if (saved !== null) {
           savedState[horoscope.source.id] = saved === 'true';
         }
@@ -378,11 +378,11 @@ function SignDetail({ sign }: SignDetailProps) {
     loadCollapsedState();
   }, [horoscopes]);
 
-  // Toggle collapse state and save to localStorage
+  // Toggle collapse state and save to sessionStorage
   const toggleCollapse = (sourceId: number) => {
     setCollapsedCards(prev => {
       const newState = !prev[sourceId];
-      localStorage.setItem(`signDetail_collapsed_${sourceId}`, newState.toString());
+      sessionStorage.setItem(`signDetail_collapsed_${sourceId}`, newState.toString());
       return { ...prev, [sourceId]: newState };
     });
   };
@@ -822,7 +822,7 @@ function SignDetail({ sign }: SignDetailProps) {
             {(() => {
             // First sort alphabetically, then reorder to pin favorites
             const currentHoroscopes = viewType === "daily" ? horoscopes : weeklyHoroscopes;
-            const sortedHoroscopes = [...currentHoroscopes].sort((a, b) => 
+            const sortedHoroscopes = [...currentHoroscopes].sort((a, b) =>
               a.source.name.localeCompare(b.source.name)
             );
             return reorderSources(sortedHoroscopes);
