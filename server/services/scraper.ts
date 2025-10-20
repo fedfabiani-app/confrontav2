@@ -261,19 +261,22 @@ function buildHoroscopeUrl(input: ScraperInput): string | string[] {
       const gazzettaSignSlug = signMap[input.signSlugIt] || input.signSlugIt.toLowerCase();
       const baseSlug = `oroscopo-${weekday}-${day}-${monthName}-${year}`;
 
-      // Three possible slug variations
+      // Possible slug variations
       const slug1 = `${baseSlug}-previsioni-per-12-i-segni`;
       const slug2 = `${baseSlug}-previsioni-per-tutti-i-segni`;
       const slug3 = `${baseSlug}-previsioni-per-12-i-segni-zodiaco`;
+      const slug4 = `${baseSlug}-le-previsioni-per-i-12-segni`;
 
-      // Try all combinations: prev date and current date, with all 3 slug variations
+      // Try all combinations: prev date and current date, with all 4 slug variations
       const urls = [
         `${input.baseUrl}/storie/${prevDateFormatted}/${slug1}/${gazzettaSignSlug}.shtml`,
         `${input.baseUrl}/storie/${prevDateFormatted}/${slug2}/${gazzettaSignSlug}.shtml`,
         `${input.baseUrl}/storie/${prevDateFormatted}/${slug3}/${gazzettaSignSlug}.shtml`,
+        `${input.baseUrl}/storie/${prevDateFormatted}/${slug4}/${gazzettaSignSlug}.shtml`,
         `${input.baseUrl}/storie/${currentDateFormatted}/${slug1}/${gazzettaSignSlug}.shtml`,
         `${input.baseUrl}/storie/${currentDateFormatted}/${slug2}/${gazzettaSignSlug}.shtml`,
         `${input.baseUrl}/storie/${currentDateFormatted}/${slug3}/${gazzettaSignSlug}.shtml`,
+        `${input.baseUrl}/storie/${currentDateFormatted}/${slug4}/${gazzettaSignSlug}.shtml`,
       ];
 
       return urls;
@@ -499,17 +502,16 @@ async function scrapeOnlyOroscopoHoroscopeText(url: string, input: ScraperInput)
       .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '')
       .replace(/<!--[\s\S]*?-->/g, '');
 
-    // Extract from elementor-widget-container
     let bestContent = '';
     let highestScore = 0;
     const zodiacNameLower = input.signSlugIt.toLowerCase();
 
+    // Strategy 1: Try the original elementor-widget-container approach
     const elementorWidgetContainerPattern = /<div[^>]*class="elementor-widget-container"[^>]*>([\s\S]*?)<\/div>/gi;
     let elementorMatch;
 
     while ((elementorMatch = elementorWidgetContainerPattern.exec(cleanHtml)) !== null) {
-      const match = elementorMatch;
-      let content = match[1]
+      let content = elementorMatch[1]
         .replace(/<h[1-6][^>]*>[\s\S]*?<\/h[1-6]>/gi, '')
         .replace(/<[^>]*>/g, ' ')
         .replace(/&nbsp;/g, ' ')
@@ -521,25 +523,102 @@ async function scrapeOnlyOroscopoHoroscopeText(url: string, input: ScraperInput)
       const stopIndex = content.toLowerCase().indexOf('parola del giorno');
       if (stopIndex !== -1) {
         content = content.substring(0, stopIndex).trim();
-        console.log('OnlyOroscopo - Stopped extraction at "Parola del giorno"');
       }
 
-      if (content.length < 30 || content.length > 3000) continue;
-
-      const currentScore = scoreHoroscopeContent(content, zodiacNameLower, input.domain);
-
-      if (currentScore > highestScore) {
-        highestScore = currentScore;
-        bestContent = content;
+      if (content.length >= 30) {
+        const currentScore = scoreHoroscopeContent(content, zodiacNameLower, input.domain);
+        if (currentScore > highestScore) {
+          highestScore = currentScore;
+          bestContent = content;
+        }
       }
     }
 
-    if (!bestContent || highestScore < 25) {
+    // Strategy 2: If elementor approach fails, try broader div search
+    if (!bestContent || highestScore < 15) {
+      console.log('OnlyOroscopo - Elementor approach failed, trying broader search...');
+
+      // Look for any div with substantial content
+      const allDivPattern = /<div[^>]*>([\s\S]*?)<\/div>/gi;
+      let divMatch;
+
+      while ((divMatch = allDivPattern.exec(cleanHtml)) !== null) {
+        let content = divMatch[1]
+          .replace(/<div[^>]*>[\s\S]*?<\/div>/gi, '') // Remove nested divs
+          .replace(/<[^>]*>/g, ' ')
+          .replace(/&nbsp;/g, ' ')
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'")
+          .replace(/\s+/g, ' ')
+          .trim();
+
+        // Stop at "Parola del giorno"
+        const stopIndex = content.toLowerCase().indexOf('parola del giorno');
+        if (stopIndex !== -1) {
+          content = content.substring(0, stopIndex).trim();
+        }
+
+        // Only consider substantial content
+        if (content.length >= 300 && content.length <= 3000) {
+          const currentScore = scoreHoroscopeContent(content, zodiacNameLower, input.domain);
+
+          if (currentScore > highestScore) {
+            highestScore = currentScore;
+            bestContent = content;
+          }
+        }
+      }
+    }
+
+    // Strategy 3: Try paragraph-based extraction
+    if (!bestContent || highestScore < 15) {
+      console.log('OnlyOroscopo - Div search failed, trying paragraph extraction...');
+
+      const paragraphPattern = /<p[^>]*>([\s\S]*?)<\/p>/gi;
+      const paragraphs: string[] = [];
+      let pMatch;
+
+      while ((pMatch = paragraphPattern.exec(cleanHtml)) !== null) {
+        let content = pMatch[1]
+          .replace(/<[^>]*>/g, ' ')
+          .replace(/&nbsp;/g, ' ')
+          .replace(/&amp;/g, '&')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+        if (content.length > 50) {
+          paragraphs.push(content);
+        }
+      }
+
+      if (paragraphs.length > 0) {
+        const combinedContent = paragraphs.join('\n\n');
+        const stopIndex = combinedContent.toLowerCase().indexOf('parola del giorno');
+        const finalContent = stopIndex !== -1 ? 
+          combinedContent.substring(0, stopIndex).trim() : 
+          combinedContent;
+
+        if (finalContent.length >= 100) {
+          const currentScore = scoreHoroscopeContent(finalContent, zodiacNameLower, input.domain);
+          if (currentScore > highestScore) {
+            bestContent = finalContent;
+            highestScore = currentScore;
+          }
+        }
+      }
+    }
+
+    if (!bestContent || highestScore < 10) {
       return {
         success: false,
-        error: `No substantial horoscope content found - best score: ${highestScore}`
+        error: `No substantial horoscope content found - best score: ${highestScore}, content length: ${bestContent.length}`
       };
     }
+
+    console.log(`OnlyOroscopo - Successfully extracted content with score ${highestScore}, length: ${bestContent.length}`);
 
     return {
       success: true,
