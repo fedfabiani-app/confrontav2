@@ -89,7 +89,7 @@ export async function scrapeHoroscope(input: ScraperInput): Promise<ScraperOutpu
           continue; // Salta questo URL e prova il prossimo
         }
       }
-      
+
       if (input.domain.includes('repubblica.it')) {
         currentResult = await scrapeRepubblicaHoroscopeText(url, input);
       } else {
@@ -153,12 +153,6 @@ function buildHoroscopeUrl(input: ScraperInput): string | string[] {
     const year = targetDate.getFullYear();
     const weekday = ITALIAN_WEEKDAYS[targetDate.getDay()];
     const monthName = ITALIAN_MONTHS[month];
-
-    const signMap: Record<string, string> = {
-      'Ariete': 'ariete', 'Toro': 'toro', 'Gemelli': 'gemelli', 'Cancro': 'cancro',
-      'Leone': 'leone', 'Vergine': 'vergine', 'Bilancia': 'bilancia', 'Scorpione': 'scorpione',
-      'Sagittario': 'sagittario', 'Capricorno': 'capricorno', 'Acquario': 'acquario', 'Pesci': 'pesci'
-    };
 
     const gazzettaSignSlug = signMap[input.signSlugIt] || input.signSlugIt.toLowerCase();
 
@@ -250,7 +244,7 @@ function buildHoroscopeUrl(input: ScraperInput): string | string[] {
       console.log(`Fanpage.it - Archive URL: ${archiveUrl}`);
       return [directUrl, archiveUrl]; // Prova prima diretto, poi archivio
     }
-    
+
     // Enhanced handling for Gazzetta.it - they use multiple URL patterns
     if (input.domain.includes('gazzetta.it')) {
       const prevDate = new Date(targetDate);
@@ -267,7 +261,15 @@ function buildHoroscopeUrl(input: ScraperInput): string | string[] {
       const slug3 = `${baseSlug}-previsioni-per-12-i-segni-zodiaco`;
       const slug4 = `${baseSlug}-le-previsioni-per-i-12-segni`;
 
-      // Try all combinations: prev date and current date, with all 4 slug variations
+      const slugVariations = [
+        `${baseSlug}-previsioni-per-tutti-i-12-segni`,
+        slug1,
+        slug2,
+        slug3,
+        slug4
+      ];
+
+      // Generate URLs with publishing date variations and slug variations
       const urls = [
         `${input.baseUrl}/storie/${prevDateFormatted}/${slug1}/${gazzettaSignSlug}.shtml`,
         `${input.baseUrl}/storie/${prevDateFormatted}/${slug2}/${gazzettaSignSlug}.shtml`,
@@ -597,8 +599,8 @@ async function scrapeOnlyOroscopoHoroscopeText(url: string, input: ScraperInput)
       if (paragraphs.length > 0) {
         const combinedContent = paragraphs.join('\n\n');
         const stopIndex = combinedContent.toLowerCase().indexOf('parola del giorno');
-        const finalContent = stopIndex !== -1 ? 
-          combinedContent.substring(0, stopIndex).trim() : 
+        const finalContent = stopIndex !== -1 ?
+          combinedContent.substring(0, stopIndex).trim() :
           combinedContent;
 
         if (finalContent.length >= 100) {
@@ -1296,12 +1298,12 @@ async function scrapeHoroscopeText(url: string, input: ScraperInput): Promise<Sc
     if (url.includes('skytg24.it') || url.includes('tg24.sky.it')) {
       return await scrapeSkyTG24HoroscopeText(url, input);
     }
-    
+
     // Special handling for Fanpage.it
     if (url.includes('fanpage.it')) {
       return await scrapeFanpageHoroscopeText(url, input);
     }
-    
+
     const html = await fetchHtml(url, input.userAgent);
 
     // Enhanced HTML cleaning
