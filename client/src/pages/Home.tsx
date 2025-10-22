@@ -347,7 +347,7 @@ export default function Home() {
             {Array.from({ length: 12 }, (_, i) => (
               <div
                 key={i}
-                className="bg-card border border-border rounded-lg p-6 animate-pulse"
+                className="bg-card border border-border rounded-lg p-4 animate-pulse"
               >
                 <div className="flex items-center space-x-3 mb-4">
                   <div className="w-10 h-10 bg-muted rounded-full"></div>

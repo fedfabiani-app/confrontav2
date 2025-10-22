@@ -490,142 +490,214 @@ async function scrapeOnlyOroscopoHoroscopeText(url: string, input: ScraperInput)
   try {
     console.log('OnlyOroscopo - Starting specialized scraping for:', input.signSlugIt);
 
-    const response = await fetchHtml(url, input.userAgent);
-    const html = response;
+    const html = await fetchHtml(url, input.userAgent);
+    const $ = cheerio.load(html);
 
-    // Clean HTML
-    let cleanHtml = html
-      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-      .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
-      .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '')
-      .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '')
-      .replace(/<!--[\s\S]*?-->/g, '');
+    let extractedText = '';
 
-    let bestContent = '';
-    let highestScore = 0;
-    const zodiacNameLower = input.signSlugIt.toLowerCase();
+    // STRATEGIA PRIMARIA: Widget con data-id="3087e79c" e drop-cap
+    // Questo è l'identificatore più affidabile per il testo dell'oroscopo
+    const primaryWidget = $('[data-id="3087e79c"].elementor-drop-cap-yes');
 
-    // Strategy 1: Try the original elementor-widget-container approach
-    const elementorWidgetContainerPattern = /<div[^>]*class="elementor-widget-container"[^>]*>([\s\S]*?)<\/div>/gi;
-    let elementorMatch;
+    if (primaryWidget.length > 0) {
+      console.log('OnlyOroscopo - Found primary widget with data-id="3087e79c"');
 
-    while ((elementorMatch = elementorWidgetContainerPattern.exec(cleanHtml)) !== null) {
-      let content = elementorMatch[1]
-        .replace(/<h[1-6][^>]*>[\s\S]*?<\/h[1-6]>/gi, '')
-        .replace(/<[^>]*>/g, ' ')
-        .replace(/&nbsp;/g, ' ')
-        .replace(/&amp;/g, '&')
-        .replace(/\s+/g, ' ')
-        .trim();
+      const widgetContainer = primaryWidget.find('.elementor-widget-container').first();
 
-      // Stop extraction at "Parola del giorno"
-      const stopIndex = content.toLowerCase().indexOf('parola del giorno');
-      if (stopIndex !== -1) {
-        content = content.substring(0, stopIndex).trim();
-      }
+      if (widgetContainer.length > 0) {
+        // Estrai il testo completo
+        let text = widgetContainer.text().trim();
 
-      if (content.length >= 30) {
-        const currentScore = scoreHoroscopeContent(content, zodiacNameLower, input.domain);
-        if (currentScore > highestScore) {
-          highestScore = currentScore;
-          bestContent = content;
-        }
-      }
-    }
+        // Normalizza spazi
+        text = text.replace(/\s+/g, ' ').trim();
 
-    // Strategy 2: If elementor approach fails, try broader div search
-    if (!bestContent || highestScore < 15) {
-      console.log('OnlyOroscopo - Elementor approach failed, trying broader search...');
-
-      // Look for any div with substantial content
-      const allDivPattern = /<div[^>]*>([\s\S]*?)<\/div>/gi;
-      let divMatch;
-
-      while ((divMatch = allDivPattern.exec(cleanHtml)) !== null) {
-        let content = divMatch[1]
-          .replace(/<div[^>]*>[\s\S]*?<\/div>/gi, '') // Remove nested divs
-          .replace(/<[^>]*>/g, ' ')
-          .replace(/&nbsp;/g, ' ')
-          .replace(/&amp;/g, '&')
-          .replace(/&lt;/g, '<')
-          .replace(/&gt;/g, '>')
-          .replace(/&quot;/g, '"')
-          .replace(/&#39;/g, "'")
-          .replace(/\s+/g, ' ')
-          .trim();
-
-        // Stop at "Parola del giorno"
-        const stopIndex = content.toLowerCase().indexOf('parola del giorno');
+        // Rimuovi tutto dopo "Parola del giorno"
+        const stopIndex = text.toLowerCase().indexOf('parola del giorno');
         if (stopIndex !== -1) {
-          content = content.substring(0, stopIndex).trim();
+          text = text.substring(0, stopIndex).trim();
+          console.log(`OnlyOroscopo - Trimmed at "Parola del giorno" (position ${stopIndex})`);
         }
 
-        // Only consider substantial content
-        if (content.length >= 300 && content.length <= 3000) {
-          const currentScore = scoreHoroscopeContent(content, zodiacNameLower, input.domain);
+        if (text.length >= 100) {
+          extractedText = text;
+          console.log(`OnlyOroscopo - Extracted ${extractedText.length} chars from primary widget`);
+        }
+      }
+    }
 
-          if (currentScore > highestScore) {
-            highestScore = currentScore;
-            bestContent = content;
+    // STRATEGIA SECONDARIA: Solo data-id (senza drop-cap check)
+    if (!extractedText || extractedText.length < 100) {
+      console.log('OnlyOroscopo - Trying secondary strategy with data-id only...');
+
+      const secondaryWidget = $('[data-id="3087e79c"]');
+      if (secondaryWidget.length > 0) {
+        const container = secondaryWidget.find('.elementor-widget-container').first();
+        if (container.length > 0) {
+          let text = container.text().trim().replace(/\s+/g, ' ');
+
+          const stopIndex = text.toLowerCase().indexOf('parola del giorno');
+          if (stopIndex !== -1) {
+            text = text.substring(0, stopIndex).trim();
+          }
+
+          if (text.length >= 100) {
+            extractedText = text;
+            console.log(`OnlyOroscopo - Extracted ${extractedText.length} chars from secondary widget`);
           }
         }
       }
     }
 
-    // Strategy 3: Try paragraph-based extraction
-    if (!bestContent || highestScore < 15) {
-      console.log('OnlyOroscopo - Div search failed, trying paragraph extraction...');
+    // STRATEGIA TERZIARIA: Cerca widget drop-cap in sezioni pulite
+    if (!extractedText || extractedText.length < 100) {
+      console.log('OnlyOroscopo - Trying tertiary strategy with drop-cap widgets...');
 
-      const paragraphPattern = /<p[^>]*>([\s\S]*?)<\/p>/gi;
-      const paragraphs: string[] = [];
-      let pMatch;
+      $('section.elementor-section').each((_, section) => {
+        const $section = $(section);
 
-      while ((pMatch = paragraphPattern.exec(cleanHtml)) !== null) {
-        let content = pMatch[1]
-          .replace(/<[^>]*>/g, ' ')
-          .replace(/&nbsp;/g, ' ')
-          .replace(/&amp;/g, '&')
-          .replace(/\s+/g, ' ')
-          .trim();
+        // Salta sezioni con elementi di navigazione
+        const hasRatings = $section.find('.elementor-star-rating').length > 0;
+        const hasButtons = $section.find('.elementor-button').length > 0;
+        const hasPosts = $section.find('.elementor-posts').length > 0;
+        const hasAffinityHeading = $section.find('.elementor-heading-title').text().toLowerCase().includes('affinità');
 
-        if (content.length > 50) {
-          paragraphs.push(content);
+        if (hasRatings || hasButtons || hasPosts || hasAffinityHeading) {
+          return true; // continue
         }
-      }
 
-      if (paragraphs.length > 0) {
-        const combinedContent = paragraphs.join('\n\n');
-        const stopIndex = combinedContent.toLowerCase().indexOf('parola del giorno');
-        const finalContent = stopIndex !== -1 ?
-          combinedContent.substring(0, stopIndex).trim() :
-          combinedContent;
+        // Cerca text-editor con drop-cap in questa sezione pulita
+        const textEditor = $section.find('.elementor-widget-text-editor.elementor-drop-cap-yes');
 
-        if (finalContent.length >= 100) {
-          const currentScore = scoreHoroscopeContent(finalContent, zodiacNameLower, input.domain);
-          if (currentScore > highestScore) {
-            bestContent = finalContent;
-            highestScore = currentScore;
+        if (textEditor.length > 0) {
+          const container = textEditor.find('.elementor-widget-container').first();
+          let text = container.text().trim().replace(/\s+/g, ' ');
+
+          const stopIndex = text.toLowerCase().indexOf('parola del giorno');
+          if (stopIndex !== -1) {
+            text = text.substring(0, stopIndex).trim();
+          }
+
+          // Verifica che non contenga testi di navigazione
+          const navigationPattern = /GIORNALIERO|SETTIMANALE|MENSILE|ANNUALE|Cambia Segno|Curiosità/i;
+
+          if (!navigationPattern.test(text) && text.length >= 100) {
+            extractedText = text;
+            console.log(`OnlyOroscopo - Extracted ${extractedText.length} chars from clean section`);
+            return false; // break
           }
         }
-      }
+      });
     }
 
-    if (!bestContent || highestScore < 10) {
+    // STRATEGIA QUATERNARIA: Cerca qualsiasi text-editor con contenuto sostanziale
+    if (!extractedText || extractedText.length < 100) {
+      console.log('OnlyOroscopo - Trying quaternary strategy with generic text-editors...');
+
+      $('.elementor-widget-text-editor').each((index, elem) => {
+        const $elem = $(elem);
+
+        // Salta widget in sezioni problematiche
+        const $parentSection = $elem.closest('section');
+
+        if ($parentSection.find('.elementor-star-rating').length > 0 ||
+            $parentSection.find('.elementor-button').length > 0 ||
+            $parentSection.find('.elementor-posts').length > 0) {
+          return true; // continue
+        }
+
+        const container = $elem.find('.elementor-widget-container').first();
+        let text = container.text().trim().replace(/\s+/g, ' ');
+
+        // Skip testi brevi o con parole chiave di navigazione
+        if (text.length < 100) return true;
+
+        const skipPatterns = [
+          /Cambia Segno/i,
+          /Curiosità sull'/i,
+          /Leggi Tutto/i,
+          /Tutto sul mio segno/i,
+          /^(SETTIMANALE|MENSILE|ANNUALE|GIORNALIERO)$/i,
+          /Affinità Giornaliere/i
+        ];
+
+        const shouldSkip = skipPatterns.some(pattern => pattern.test(text));
+        if (shouldSkip) return true;
+
+        // Rimuovi contenuto dopo "Parola del giorno"
+        const stopIndex = text.toLowerCase().indexOf('parola del giorno');
+        if (stopIndex !== -1) {
+          text = text.substring(0, stopIndex).trim();
+        }
+
+        // Verifica che contenga parole chiave tipiche dell'oroscopo
+        const horoscopeKeywords = [
+          'luna', 'giornata', 'energie', 'momento', 'relazioni',
+          'sentimenti', 'emozioni', 'profond', 'intens', 'armonia',
+          'equilibrio', 'cuore', 'mente', 'mattinata', 'pomeriggio',
+          'serata', 'lavoro', 'amore', 'nuova', 'nuovo'
+        ];
+
+        const hasMultipleKeywords = horoscopeKeywords.filter(keyword =>
+          text.toLowerCase().includes(keyword)
+        ).length >= 3;
+
+        if (text.length >= 150 && hasMultipleKeywords) {
+          extractedText = text;
+          console.log(`OnlyOroscopo - Extracted ${extractedText.length} chars from generic widget ${index}`);
+          return false; // break
+        }
+      });
+    }
+
+    // Validazione finale
+    if (!extractedText || extractedText.length < 100) {
+      console.log('OnlyOroscopo - FAILED - Debug information:');
+      console.log('All text-editor widgets found:');
+
+      $('.elementor-widget-text-editor').each((i, elem) => {
+        const text = $(elem).find('.elementor-widget-container').text().trim();
+        const dataId = $(elem).attr('data-id');
+        const hasDropCap = $(elem).hasClass('elementor-drop-cap-yes');
+
+        console.log(`  Widget ${i}:`);
+        console.log(`    - data-id: ${dataId || 'none'}`);
+        console.log(`    - drop-cap: ${hasDropCap}`);
+        console.log(`    - length: ${text.length}`);
+        console.log(`    - preview: "${text.substring(0, 80)}..."`);
+      });
+
       return {
         success: false,
-        error: `No substantial horoscope content found - best score: ${highestScore}, content length: ${bestContent.length}`
+        error: `No substantial horoscope content found for ${input.signSlugIt} on OnlyOroscopo`
       };
     }
 
-    console.log(`OnlyOroscopo - Successfully extracted content with score ${highestScore}, length: ${bestContent.length}`);
+    // Calcola score per validazione qualità
+    const score = scoreHoroscopeContent(extractedText, input.signSlugIt.toLowerCase(), 'onlyoroscopo.it');
+    console.log(`OnlyOroscopo - Content quality score: ${score}, length: ${extractedText.length}`);
+
+    // Pulizia finale del testo
+    extractedText = extractedText
+      .replace(/\u00a0/g, ' ')     // non-breaking space
+      .replace(/\u200b/g, '')       // zero-width space
+      .replace(/\u2028/g, ' ')      // line separator
+      .replace(/\u2029/g, ' ')      // paragraph separator
+      .replace(/\s{2,}/g, ' ')      // spazi multipli
+      .trim();
+
+    // Verifica finale: il testo deve contenere almeno 2 frasi complete
+    const sentenceCount = (extractedText.match(/[.!?]+/g) || []).length;
+    if (sentenceCount < 2) {
+      console.log(`OnlyOroscopo - Warning: Only ${sentenceCount} sentence(s) found, might be incomplete`);
+    }
 
     return {
       success: true,
-      text: bestContent.substring(0, 3500),
+      text: extractedText.substring(0, 3500),
       url,
       actualUrl: url
     };
+
   } catch (error) {
     return {
       success: false,
