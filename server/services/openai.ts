@@ -71,13 +71,17 @@ Regole di inclusione/esclusione:
 
 ANALISI RICHIESTA:
 
-1. SUPERQUOTE (frase efficace max 120 caratteri)
+1. SUPERQUOTE (frase efficace max 100 caratteri)
 Obiettivo: condensare il RIASSUNTO in una frase incisiva che catturi il messaggio chiave e il tono, senza violare il copyright e senza citare la fonte.
 
 Regole:
-- Massimo 120 caratteri; obiettivo 100-117.
-- Conta sempre i caratteri; fermati 3-8 caratteri prima del limite.
-- Frase completa e autonoma, chiusa con un punto.
+- MASSIMO ASSOLUTO: 100 caratteri (inclusi spazi e punteggiatura)
+- OBIETTIVO IDEALE: 90-100 caratteri
+- STRATEGIA: Scrivi la frase, CONTA i caratteri, se > 100 RISCRIVI più corta
+- PIANIFICA: Lascia sempre 5-10 caratteri di margine per il punto finale.
+- Frase completa e autonoma, chiusa con un punto. Deve avere soggetto, verbo e chiusura logica.
+- Se la frase termina con una preposizione, congiunzione o parola che lascia il senso sospeso (es. "per", "quando", "mentre", "che", "di"), riscrivila finché non risulta completa.
+- IMPORTANTE: La frase deve avere un senso compiuto in italiano, non può rimanere incompleta o troncata.
 - Vietati riferimenti a pianeti, transiti, aspetti o congiunzioni.
 - Non menzionare mai fonte, segno, data o luoghi specifici.
 - Usa solo quanto espresso nel RIASSUNTO; niente aggiunte esterne.
@@ -89,6 +93,13 @@ Criteri di qualità:
 - Chiarezza immediata, memorabilità, specificità.
 - Coerenza con l'area dominante (amore, lavoro, benessere).
 - Parafrasi originale del RIASSUNTO, senza copie letterali.
+
+VIETATO ASSOLUTAMENTE:
+ - Frasi interrotte ("Oggi è il momento per...")
+ - Preposizioni finali sospese ("...con", "per", "di", "a")
+ - Congiunzioni finali ("...e", "ma", "che", "quando")
+ - Ellissi o puntini di sospensione ("...")
+ - Frasi che richiedono continuazione per avere senso
 
 2. RIASSUNTO (ESATTAMENTE tra 250-530 caratteri):
    - Cattura l'essenza delle previsioni in modo dettagliato e specifico
@@ -450,7 +461,7 @@ ${input.extracted_text}`
               superquote: {
                 type: 'string',
                 maxLength: 80,
-                description: 'Frase efficace max 80 caratteri che cattura il messaggio chiave dal riassunto. Frase completa con punto finale, senza riferimenti a pianeti/transiti/fonte/segno/data.'
+                description: 'Frase efficace max 80 caratteri che cattura il messaggio chiave dal riassunto. Frase completa con punto finale, senza riferimenti a pianeti/transiti/fonte/segno/data. IMPORTANTE: La frase deve avere un senso compiuto in italiano, non può rimanere incompleta o troncata.'
               },
               summary: {
                 type: 'string',
@@ -541,14 +552,14 @@ ${input.extracted_text}`
       console.log(`[OpenAI] Warning: Summary too short (${summary.length} chars), using as-is`);
     }
 
-    // Process superquote - ensure it's within limits and ends properly
+    // Process superquote - ensure it's within 80 character limit (database constraint)
     let superquote = parsed.superquote || '';
     if (superquote.length > 80) {
       const words = superquote.split(' ');
       let truncated = '';
       for (const word of words) {
         const test = truncated + (truncated ? ' ' : '') + word;
-        if (test.length <= 77) {
+        if (test.length <= 75) { // Leave room for period (max 80 chars total)
           truncated = test;
         } else {
           break;
