@@ -531,11 +531,13 @@ export async function scrapeWeeklyHoroscope(input: WeeklyScraperInput): Promise<
 async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<string> {
   console.log(`Fanpage.it - Extracting weekly URLs from archive`);
 
+  // CORRECT archive URL
   const archiveUrl = 'https://www.fanpage.it/stile-e-trend/story/oroscopo/';
   console.log(`Fanpage.it - Archive URL: ${archiveUrl}`);
 
   await respectDomainRateLimit(input.domain);
 
+  // Enhanced headers for Fanpage
   const headers: Record<string, string> = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
@@ -554,6 +556,7 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
     'sec-ch-ua-platform': '"Windows"'
   };
 
+  // Random delay to appear human-like
   const randomDelay = Math.floor(Math.random() * 2000) + 1500;
   console.log(`Fanpage.it - Adding ${randomDelay}ms delay`);
   await new Promise(resolve => setTimeout(resolve, randomDelay));
@@ -606,18 +609,26 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
 
   console.log(`Fanpage.it - Looking for links in archive...`);
 
+  // Find all links containing "oroscopo-della-settimana"
   $('a').each((_, elem) => {
     const href = $(elem).attr('href');
     if (!href || !href.includes('oroscopo-della-settimana')) return;
 
     console.log(`Fanpage.it - Checking link: ${href}`);
 
+    // Parse date from URL: /attualita/loroscopo-della-settimana-dal-15-al-21-settembre-2025/
     const dateMatch = href.match(/dal-(\d{1,2})-al-(\d{1,2})-(\w+)-(\d{4})/i);
 
     if (dateMatch) {
       const [_, startDay, endDay, monthName, year] = dateMatch;
 
-      const monthNum = ITALIAN_MONTHS[monthName.toLowerCase()];
+      const monthMap: Record<string, number> = {
+        'gennaio': 1, 'febbraio': 2, 'marzo': 3, 'aprile': 4,
+        'maggio': 5, 'giugno': 6, 'luglio': 7, 'agosto': 8,
+        'settembre': 9, 'ottobre': 10, 'novembre': 11, 'dicembre': 12
+      };
+
+      const monthNum = monthMap[monthName.toLowerCase()];
 
       if (monthNum) {
         const startDate = new Date(parseInt(year), monthNum - 1, parseInt(startDay));
@@ -632,6 +643,7 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
           absoluteUrl = 'https://www.fanpage.it/' + href;
         }
 
+        // Calculate score based on date proximity
         const daysDiff = Math.abs(Math.floor((startDate.getTime() - targetDate.getTime()) / (1000 * 60 * 60 * 24)));
 
         let score = 100;
@@ -659,6 +671,7 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
     throw new Error(`No Fanpage.it weekly horoscope URLs found in archive for week ${targetDateStr}`);
   }
 
+  // Sort by score (highest first)
   candidates.sort((a, b) => b.score - a.score);
 
   const bestMatch = candidates[0];
@@ -669,288 +682,312 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
 
 // ==================== END FANPAGE.IT FUNCTIONS ====================
 
-// ==================== ELLE.COM/IT SPECIFIC FUNCTIONS ====================
+      async function buildWeeklyHoroscopeUrl(input: WeeklyScraperInput): Promise<string> {
+        // FANPAGE.IT SPECIFIC: Use archive resolution (URLs have dynamic suffixes)
+        const isFanpage = input.domain.toLowerCase().includes('fanpage') || 
+                          input.baseUrl.toLowerCase().includes('fanpage') ||
+                          input.sourceName.toLowerCase().includes('fanpage');
 
-/**
- * Elle.com/it specific archive resolution
- * Strategy: Find ANY weekly horoscope URL, then extract all sign URLs from its content
- */
-async function resolveElleUrlFromArchive(input: WeeklyScraperInput): Promise<string> {
-  console.log(`Elle.com/it - Extracting weekly URLs from archive`);
+        if (isFanpage) {
+          console.log(`Detected Fanpage.it (domain: ${input.domain}, source: ${input.sourceName}) - using archive resolution`);
+          try {
+            const url = await resolveFanpageUrlFromArchive(input);
+            console.log(`Fanpage.it - Archive resolution successful: ${url}`);
+            return url;
+          } catch (error) {
+            console.error(`Fanpage.it - Archive resolution failed:`, error);
+            throw new Error(`Cannot resolve Fanpage.it URL: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          }
+        }
 
-  const archiveUrl = 'https://www.elle.com/it/oroscopo/';
-  console.log(`Elle.com/it - Archive URL: ${archiveUrl}`);
+        // ELLE.COM/IT SPECIFIC: Use archive + cross-reference strategy
+        const isElle = input.domain.toLowerCase().includes('elle.com') || 
+                       input.baseUrl.toLowerCase().includes('elle.com') ||
+                       input.sourceName.toLowerCase().includes('elle');
 
-  await respectDomainRateLimit(input.domain);
+        if (isElle) {
+          console.log(`Detected Elle.com/it (domain: ${input.domain}, source: ${input.sourceName}) - using archive + cross-reference resolution`);
+          try {
+            const url = await resolveElleUrlFromArchive(input);
+            console.log(`Elle.com/it - Archive resolution successful: ${url}`);
+            return url;
+          } catch (error) {
+            console.error(`Elle.com/it - Archive resolution failed:`, error);
+            throw new Error(`Cannot resolve Elle.com/it URL: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          }
+        }
 
-  const headers: Record<string, string> = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-    'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7',
-    'Accept-Encoding': 'gzip, deflate, br',
-    'Connection': 'keep-alive',
-    'Upgrade-Insecure-Requests': '1',
-    'Sec-Fetch-Dest': 'document',
-    'Sec-Fetch-Mode': 'navigate',
-    'Sec-Fetch-Site': 'none',
-    'Sec-Fetch-User': '?1',
-    'Cache-Control': 'no-cache',
-    'Pragma': 'no-cache',
-    'Referer': 'https://www.elle.com/it/',
-    'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
-    'sec-ch-ua-mobile': '?0',
-    'sec-ch-ua-platform': '"Windows"',
-    'Cookie': ''
-  };
+      
+      // ==================== ELLE.COM/IT SPECIFIC FUNCTIONS ====================
 
-  const randomDelay = Math.floor(Math.random() * 2000) + 1500;
-  console.log(`Elle.com/it - Adding ${randomDelay}ms delay`);
-  await new Promise(resolve => setTimeout(resolve, randomDelay));
+      /**
+       * Elle.com/it specific archive resolution
+       * Strategy: Find ANY weekly horoscope URL, then extract all sign URLs from its content
+       */
+      async function resolveElleUrlFromArchive(input: WeeklyScraperInput): Promise<string> {
+        console.log(`Elle.com/it - Extracting weekly URLs from archive`);
 
-  let html: string;
-  try {
-    const response = await axios.get(archiveUrl, {
-      headers,
-      timeout: 25000,
-      maxRedirects: 5,
-      validateStatus: (status) => status < 500
-    });
+        const archiveUrl = 'https://www.elle.com/it/oroscopo/';
+        console.log(`Elle.com/it - Archive URL: ${archiveUrl}`);
 
-    console.log(`Elle.com/it - Archive response status: ${response.status}`);
+        await respectDomainRateLimit(input.domain);
 
-    if (response.status === 403 || response.status === 429) {
-      console.log(`Elle.com/it - Got ${response.status}, trying with Safari user agent...`);
-      await new Promise(resolve => setTimeout(resolve, 3000));
+        // Enhanced headers for Elle (paywall bypass)
+        const headers: Record<string, string> = {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+          'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'Connection': 'keep-alive',
+          'Upgrade-Insecure-Requests': '1',
+          'Sec-Fetch-Dest': 'document',
+          'Sec-Fetch-Mode': 'navigate',
+          'Sec-Fetch-Site': 'none',
+          'Sec-Fetch-User': '?1',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
+          'Referer': 'https://www.elle.com/it/',
+          'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+          'sec-ch-ua-mobile': '?0',
+          'sec-ch-ua-platform': '"Windows"',
+          // Clear cookies to bypass paywall
+          'Cookie': ''
+        };
 
-      const safariResponse = await axios.get(archiveUrl, {
-        headers: {
-          ...headers,
-          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15'
-        },
-        timeout: 25000,
-        maxRedirects: 5
-      });
+        // Random delay
+        const randomDelay = Math.floor(Math.random() * 2000) + 1500;
+        console.log(`Elle.com/it - Adding ${randomDelay}ms delay`);
+        await new Promise(resolve => setTimeout(resolve, randomDelay));
 
-      console.log(`Elle.com/it - Safari retry status: ${safariResponse.status}`);
+        let html: string;
+        try {
+          const response = await axios.get(archiveUrl, {
+            headers,
+            timeout: 25000,
+            maxRedirects: 5,
+            validateStatus: (status) => status < 500
+          });
 
-      if (safariResponse.status >= 400) {
-        throw new Error(`HTTP ${safariResponse.status}: Still blocked after retry`);
+          console.log(`Elle.com/it - Archive response status: ${response.status}`);
+
+          if (response.status === 403 || response.status === 429) {
+            console.log(`Elle.com/it - Got ${response.status}, trying with Safari user agent...`);
+            await new Promise(resolve => setTimeout(resolve, 3000));
+
+            const safariResponse = await axios.get(archiveUrl, {
+              headers: {
+                ...headers,
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15'
+              },
+              timeout: 25000,
+              maxRedirects: 5
+            });
+
+            console.log(`Elle.com/it - Safari retry status: ${safariResponse.status}`);
+
+            if (safariResponse.status >= 400) {
+              throw new Error(`HTTP ${safariResponse.status}: Still blocked after retry`);
+            }
+
+            html = safariResponse.data;
+          } else if (response.status >= 400) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          } else {
+            html = response.data;
+          }
+        } catch (error) {
+          console.error('Elle.com/it - Error fetching archive:', error);
+          throw new Error(`Cannot fetch Elle archive: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+
+        const $ = cheerio.load(html);
+        const targetDate = new Date(input.weekStartDate);
+
+        // Adjust to Thursday-based week (Elle weeks start on Thursday)
+        const dayOfWeek = targetDate.getDay();
+        const daysToThursday = (dayOfWeek >= 4) ? (dayOfWeek - 4) : (dayOfWeek + 3);
+        const thursdayDate = new Date(targetDate);
+        thursdayDate.setDate(thursdayDate.getDate() - daysToThursday);
+
+        const targetDateStr = thursdayDate.toISOString().split('T')[0];
+        console.log(`Elle.com/it - Target week starting (Thursday): ${targetDateStr}`);
+
+        const candidates: Array<{ url: string; startDate: Date; score: number }> = [];
+
+        console.log(`Elle.com/it - Looking for weekly horoscope links in archive...`);
+
+        // Find all horoscope links with weekly pattern
+        $('a').each((_, elem) => {
+          const href = $(elem).attr('href');
+          if (!href) return;
+
+          // Match pattern: /oroscopo/a{ID}/oroscopo-{sign}-{dates}-simon-and-the-stars/
+          if (!href.includes('/oroscopo/a') || !href.includes('simon-and-the-stars')) return;
+
+          console.log(`Elle.com/it - Checking link: ${href}`);
+
+          // Parse date from URL: oroscopo-{sign}-16-22-ottobre-2025-simon
+          // Or: oroscopo-{sign}-16-al-22-ottobre-2025-simon
+          const dateMatch = href.match(/oroscopo-\w+-(\d{1,2})(?:-al)?-(\d{1,2})-(\w+)-(\d{4})/i);
+
+          if (dateMatch) {
+            const [_, startDay, endDay, monthName, year] = dateMatch;
+
+            const monthMap: Record<string, number> = {
+              'gennaio': 1, 'febbraio': 2, 'marzo': 3, 'aprile': 4,
+              'maggio': 5, 'giugno': 6, 'luglio': 7, 'agosto': 8,
+              'settembre': 9, 'ottobre': 10, 'novembre': 11, 'dicembre': 12
+            };
+
+            const monthNum = monthMap[monthName.toLowerCase()];
+
+            if (monthNum) {
+              const startDate = new Date(parseInt(year), monthNum - 1, parseInt(startDay));
+
+              // Adjust to Thursday if not already
+              const startDayOfWeek = startDate.getDay();
+              const daysToThurs = (startDayOfWeek >= 4) ? (startDayOfWeek - 4) : (startDayOfWeek + 3);
+              const adjustedStartDate = new Date(startDate);
+              adjustedStartDate.setDate(adjustedStartDate.getDate() - daysToThurs);
+
+              const candidateDateStr = adjustedStartDate.toISOString().split('T')[0];
+
+              console.log(`Elle.com/it - Parsed date: ${candidateDateStr} (target: ${targetDateStr})`);
+
+              let absoluteUrl = href;
+              if (href.startsWith('/')) {
+                absoluteUrl = 'https://www.elle.com/it' + href;
+              } else if (!href.startsWith('http')) {
+                absoluteUrl = 'https://www.elle.com/it/' + href;
+              }
+
+              // Calculate score based on date proximity
+              const daysDiff = Math.abs(Math.floor((adjustedStartDate.getTime() - thursdayDate.getTime()) / (1000 * 60 * 60 * 24)));
+
+              let score = 100;
+              if (daysDiff === 0) {
+                score = 100;
+              } else if (daysDiff <= 3) {
+                score = 90 - (daysDiff * 10);
+              } else if (daysDiff <= 7) {
+                score = 50 - (daysDiff * 5);
+              } else {
+                score = 0;
+              }
+
+              if (score > 0) {
+                candidates.push({ url: absoluteUrl, startDate: adjustedStartDate, score });
+                console.log(`Elle.com/it - Added candidate (${daysDiff} days diff, score: ${score}): ${absoluteUrl}`);
+              }
+            }
+          }
+        });
+
+        console.log(`Elle.com/it - Total candidates found: ${candidates.length}`);
+
+        if (candidates.length === 0) {
+          throw new Error(`No Elle.com/it weekly horoscope URLs found in archive for week ${targetDateStr}`);
+        }
+
+        // Sort by score (highest first)
+        candidates.sort((a, b) => b.score - a.score);
+
+        const bestMatch = candidates[0];
+        console.log(`Elle.com/it - ✓ Found ANY weekly URL: ${bestMatch.url}`);
+
+        // Now extract all sign URLs from this page
+        console.log(`Elle.com/it - Fetching page to extract all sign URLs...`);
+
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Delay before second request
+
+        const signUrl = await extractElleSignUrlFromPage(bestMatch.url, input.signSlugIt, headers);
+
+        if (signUrl) {
+          console.log(`Elle.com/it - ✓ Found target sign URL: ${signUrl}`);
+          return signUrl;
+        }
+
+        // If extraction failed, try to construct URL from the pattern
+        console.log(`Elle.com/it - Could not extract from page, using best match: ${bestMatch.url}`);
+        return bestMatch.url;
       }
 
-      html = safariResponse.data;
-    } else if (response.status >= 400) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    } else {
-      html = response.data;
-    }
-  } catch (error) {
-    console.error('Elle.com/it - Error fetching archive:', error);
-    throw new Error(`Cannot fetch Elle archive: ${error instanceof Error ? error.message : 'Unknown error'}`);
-  }
+      /**
+       * Extract target sign URL from an Elle page (which contains links to all signs)
+       */
+      async function extractElleSignUrlFromPage(
+        pageUrl: string, 
+        targetSign: string, 
+        headers: Record<string, string>
+      ): Promise<string | null> {
+        try {
+          console.log(`Elle.com/it - Extracting sign URLs from: ${pageUrl}`);
 
-  const $ = cheerio.load(html);
-  const targetDate = new Date(input.weekStartDate);
+          const response = await axios.get(pageUrl, {
+            headers: {
+              ...headers,
+              'Referer': 'https://www.elle.com/it/oroscopo/',
+              // Rotate user agent to avoid paywall
+              'User-Agent': USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)]
+            },
+            timeout: 25000,
+            maxRedirects: 5
+          });
 
-  const dayOfWeek = targetDate.getDay();
-  const daysToThursday = (dayOfWeek >= 4) ? (dayOfWeek - 4) : (dayOfWeek + 3);
-  const thursdayDate = new Date(targetDate);
-  thursdayDate.setDate(thursdayDate.getDate() - daysToThursday);
+          if (response.status >= 400) {
+            console.warn(`Elle.com/it - Got ${response.status} when fetching page for sign extraction`);
+            return null;
+          }
 
-  const targetDateStr = thursdayDate.toISOString().split('T')[0];
-  console.log(`Elle.com/it - Target week starting (Thursday): ${targetDateStr}`);
+          const $ = cheerio.load(response.data);
 
-  const candidates: Array<{ url: string; startDate: Date; score: number }> = [];
+          // Look for links in the content that match other signs
+          const signMap: Record<string, string> = {
+            'Ariete': 'ariete', 'Toro': 'toro', 'Gemelli': 'gemelli', 'Cancro': 'cancro',
+            'Leone': 'leone', 'Vergine': 'vergine', 'Bilancia': 'bilancia', 'Scorpione': 'scorpione',
+            'Sagittario': 'sagittario', 'Capricorno': 'capricorno', 'Acquario': 'acquario', 'Pesci': 'pesci'
+          };
 
-  console.log(`Elle.com/it - Looking for weekly horoscope links in archive...`);
+          const targetSignSlug = signMap[targetSign] || targetSign.toLowerCase();
 
-  $('a').each((_, elem) => {
-    const href = $(elem).attr('href');
-    if (!href) return;
+          console.log(`Elle.com/it - Looking for links containing: "${targetSignSlug}"`);
 
-    if (!href.includes('/oroscopo/a') || !href.includes('simon-and-the-stars')) return;
+          // Find links in article body that point to other signs
+          let foundUrl: string | null = null;
 
-    console.log(`Elle.com/it - Checking link: ${href}`);
+          $('article a, .article-body a, .body-content a, main a, a').each((_, elem) => {
+            const href = $(elem).attr('href');
+            const linkText = $(elem).text().trim().toLowerCase();
 
-    const dateMatch = href.match(/oroscopo-\w+-(\d{1,2})(?:-al)?-(\d{1,2})-(\w+)-(\d{4})/i);
+            if (!href) return;
 
-    if (dateMatch) {
-      const [_, startDay, endDay, monthName, year] = dateMatch;
+            // Check if URL contains the target sign and is a weekly horoscope URL
+            if (href.includes('/oroscopo/a') && 
+                href.includes('simon-and-the-stars') &&
+                (href.includes(`oroscopo-${targetSignSlug}`) || linkText === targetSign.toLowerCase())) {
 
-      const monthNum = ITALIAN_MONTHS[monthName.toLowerCase()];
+              let absoluteUrl = href;
+              if (href.startsWith('/')) {
+                absoluteUrl = 'https://www.elle.com/it' + href;
+              } else if (!href.startsWith('http')) {
+                absoluteUrl = 'https://www.elle.com/it/' + href;
+              }
 
-      if (monthNum) {
-        const startDate = new Date(parseInt(year), monthNum - 1, parseInt(startDay));
+              console.log(`Elle.com/it - ✓ Found target sign link: ${absoluteUrl}`);
+              foundUrl = absoluteUrl;
+              return false; // Break loop
+            }
+          });
 
-        const startDayOfWeek = startDate.getDay();
-        const daysToThurs = (startDayOfWeek >= 4) ? (startDayOfWeek - 4) : (startDayOfWeek + 3);
-        const adjustedStartDate = new Date(startDate);
-        adjustedStartDate.setDate(adjustedStartDate.getDate() - daysToThurs);
+          return foundUrl;
 
-        const candidateDateStr = adjustedStartDate.toISOString().split('T')[0];
-
-        console.log(`Elle.com/it - Parsed date: ${candidateDateStr} (target: ${targetDateStr})`);
-
-        let absoluteUrl = href;
-        if (href.startsWith('/')) {
-          absoluteUrl = 'https://www.elle.com/it' + href;
-        } else if (!href.startsWith('http')) {
-          absoluteUrl = 'https://www.elle.com/it/' + href;
-        }
-
-        const daysDiff = Math.abs(Math.floor((adjustedStartDate.getTime() - thursdayDate.getTime()) / (1000 * 60 * 60 * 24)));
-
-        let score = 100;
-        if (daysDiff === 0) {
-          score = 100;
-        } else if (daysDiff <= 3) {
-          score = 90 - (daysDiff * 10);
-        } else if (daysDiff <= 7) {
-          score = 50 - (daysDiff * 5);
-        } else {
-          score = 0;
-        }
-
-        if (score > 0) {
-          candidates.push({ url: absoluteUrl, startDate: adjustedStartDate, score });
-          console.log(`Elle.com/it - Added candidate (${daysDiff} days diff, score: ${score}): ${absoluteUrl}`);
+        } catch (error) {
+          console.error('Elle.com/it - Error extracting sign URL from page:', error);
+          return null;
         }
       }
-    }
-  });
 
-  console.log(`Elle.com/it - Total candidates found: ${candidates.length}`);
-
-  if (candidates.length === 0) {
-    throw new Error(`No Elle.com/it weekly horoscope URLs found in archive for week ${targetDateStr}`);
-  }
-
-  candidates.sort((a, b) => b.score - a.score);
-
-  const bestMatch = candidates[0];
-  console.log(`Elle.com/it - ✓ Found ANY weekly URL: ${bestMatch.url}`);
-
-  console.log(`Elle.com/it - Fetching page to extract all sign URLs...`);
-
-  await new Promise(resolve => setTimeout(resolve, 2000));
-
-  const signUrl = await extractElleSignUrlFromPage(bestMatch.url, input.signSlugIt, headers);
-
-  if (signUrl) {
-    console.log(`Elle.com/it - ✓ Found target sign URL: ${signUrl}`);
-    return signUrl;
-  }
-
-  console.log(`Elle.com/it - Could not extract from page, using best match: ${bestMatch.url}`);
-  return bestMatch.url;
-}
-
-/**
- * Extract target sign URL from an Elle page (which contains links to all signs)
- */
-async function extractElleSignUrlFromPage(
-  pageUrl: string, 
-  targetSign: string, 
-  headers: Record<string, string>
-): Promise<string | null> {
-  try {
-    console.log(`Elle.com/it - Extracting sign URLs from: ${pageUrl}`);
-
-    const response = await axios.get(pageUrl, {
-      headers: {
-        ...headers,
-        'Referer': 'https://www.elle.com/it/oroscopo/',
-        'User-Agent': USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)]
-      },
-      timeout: 25000,
-      maxRedirects: 5
-    });
-
-    if (response.status >= 400) {
-      console.warn(`Elle.com/it - Got ${response.status} when fetching page for sign extraction`);
-      return null;
-    }
-
-    const $ = cheerio.load(response.data);
-
-    const signMap: Record<string, string> = {
-      'Ariete': 'ariete', 'Toro': 'toro', 'Gemelli': 'gemelli', 'Cancro': 'cancro',
-      'Leone': 'leone', 'Vergine': 'vergine', 'Bilancia': 'bilancia', 'Scorpione': 'scorpione',
-      'Sagittario': 'sagittario', 'Capricorno': 'capricorno', 'Acquario': 'acquario', 'Pesci': 'pesci'
-    };
-
-    const targetSignSlug = signMap[targetSign] || targetSign.toLowerCase();
-
-    console.log(`Elle.com/it - Looking for links containing: "${targetSignSlug}"`);
-
-    let foundUrl: string | null = null;
-
-    $('article a, .article-body a, .body-content a, main a, a').each((_, elem) => {
-      const href = $(elem).attr('href');
-      const linkText = $(elem).text().trim().toLowerCase();
-
-      if (!href) return;
-
-      if (href.includes('/oroscopo/a') && 
-          href.includes('simon-and-the-stars') &&
-          (href.includes(`oroscopo-${targetSignSlug}`) || linkText === targetSign.toLowerCase())) {
-
-        let absoluteUrl = href;
-        if (href.startsWith('/')) {
-          absoluteUrl = 'https://www.elle.com/it' + href;
-        } else if (!href.startsWith('http')) {
-          absoluteUrl = 'https://www.elle.com/it/' + href;
-        }
-
-        console.log(`Elle.com/it - ✓ Found target sign link: ${absoluteUrl}`);
-        foundUrl = absoluteUrl;
-        return false;
-      }
-    });
-
-    return foundUrl;
-
-  } catch (error) {
-    console.error('Elle.com/it - Error extracting sign URL from page:', error);
-    return null;
-  }
-}
-
-// ==================== END ELLE.COM/IT FUNCTIONS ====================
-
-async function buildWeeklyHoroscopeUrl(input: WeeklyScraperInput): Promise<string> {
-  // FANPAGE.IT SPECIFIC: Use archive resolution (URLs have dynamic suffixes)
-  const isFanpage = input.domain.toLowerCase().includes('fanpage') || 
-                    input.baseUrl.toLowerCase().includes('fanpage') ||
-                    input.sourceName.toLowerCase().includes('fanpage');
-
-  if (isFanpage) {
-    console.log(`Detected Fanpage.it (domain: ${input.domain}, source: ${input.sourceName}) - using archive resolution`);
-    try {
-      const url = await resolveFanpageUrlFromArchive(input);
-      console.log(`Fanpage.it - Archive resolution successful: ${url}`);
-      return url;
-    } catch (error) {
-      console.error(`Fanpage.it - Archive resolution failed:`, error);
-      throw new Error(`Cannot resolve Fanpage.it URL: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  // ELLE.COM/IT SPECIFIC: Use archive + cross-reference strategy
-  const isElle = input.domain.toLowerCase().includes('elle.com') || 
-                 input.baseUrl.toLowerCase().includes('elle.com') ||
-                 input.sourceName.toLowerCase().includes('elle');
-
-  if (isElle) {
-    console.log(`Detected Elle.com/it (domain: ${input.domain}, source: ${input.sourceName}) - using archive + cross-reference resolution`);
-    try {
-      const url = await resolveElleUrlFromArchive(input);
-      console.log(`Elle.com/it - Archive resolution successful: ${url}`);
-      return url;
-    } catch (error) {
-      console.error(`Elle.com/it - Archive resolution failed:`, error);
-      throw new Error(`Cannot resolve Elle.com/it URL: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }</old_str>
+      // ==================== END ELLE.COM/IT FUNCTIONS ====================
       
       // SORRISI.COM SPECIFIC: Try archive strategy first, with proper fallback
       if (input.domain.includes('sorrisi.com') || input.baseUrl.includes('sorrisi.com')) {
