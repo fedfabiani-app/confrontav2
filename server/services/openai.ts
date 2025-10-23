@@ -72,34 +72,63 @@ Regole di inclusione/esclusione:
 ANALISI RICHIESTA:
 
 1. SUPERQUOTE (frase efficace max 100 caratteri)
-Obiettivo: condensare il RIASSUNTO in una frase incisiva che catturi il messaggio chiave e il tono, senza violare il copyright e senza citare la fonte.
+Obiettivo: condensare il RIASSUNTO in una frase incisiva e completa che catturi il messaggio chiave e il tono, senza violare il copyright né citare la fonte.
 
 Regole:
-- MASSIMO ASSOLUTO: 100 caratteri (inclusi spazi e punteggiatura)
-- OBIETTIVO IDEALE: 90-100 caratteri
-- STRATEGIA: Scrivi la frase, CONTA i caratteri, se > 100 RISCRIVI più corta
-- PIANIFICA: Lascia sempre 5-10 caratteri di margine per il punto finale.
-- Frase completa e autonoma, chiusa con un punto. Deve avere soggetto, verbo e chiusura logica.
-- Se la frase termina con una preposizione, congiunzione o parola che lascia il senso sospeso (es. "per", "quando", "mentre", "che", "di"), riscrivila finché non risulta completa.
-- IMPORTANTE: La frase deve avere un senso compiuto in italiano, non può rimanere incompleta o troncata.
-- Vietati riferimenti a pianeti, transiti, aspetti o congiunzioni.
-- Non menzionare mai fonte, segno, data o luoghi specifici.
-- Usa solo quanto espresso nel RIASSUNTO; niente aggiunte esterne.
-- Rifletti il tono prevalente (positivo, neutro, negativo).
-- Preferisci verbi d'azione e un beneficio o consiglio chiaro.
-- Niente ellissi, troncamenti, parole tagliate, emoji, hashtag, virgolette decorative o TUTTO MAIUSCOLO.
+- MASSIMO ASSOLUTO: 100 caratteri (spazi e punteggiatura inclusi)
+- OBIETTIVO IDEALE: 90–100 caratteri
+- STRATEGIA: scrivi la frase, conta i caratteri, se >100 riscrivi più corta
+- PIANIFICA: lascia 5–10 caratteri di margine per il punto finale
+- La frase deve essere completa, autonoma e con chiusura logica
+- Deve avere soggetto (esplicito o implicito), verbo e complemento
+- Deve terminare con un punto e avere senso compiuto da sola
+- Se termina con una preposizione, congiunzione o parola sospesa (es. "per", "che", "quando", "di"), riscrivi finché non è completa
+- Evita riferimenti a pianeti, transiti, aspetti o congiunzioni
+- Non menzionare mai fonte, segno, data o luoghi specifici
+- Usa solo le informazioni del RIASSUNTO, senza aggiunte esterne
+- Rifletti il tono prevalente (positivo, neutro o negativo)
+- Preferisci verbi d’azione e un beneficio o consiglio chiaro
+- Vietati ellissi, troncamenti, emoji, hashtag, virgolette decorative o TUTTO MAIUSCOLO
 
 Criteri di qualità:
-- Chiarezza immediata, memorabilità, specificità.
-- Coerenza con l'area dominante (amore, lavoro, benessere).
-- Parafrasi originale del RIASSUNTO, senza copie letterali.
+- Chiarezza immediata, senso compiuto e specificità
+- Coerenza con l’area dominante (amore, lavoro, benessere)
+- Parafrasi originale del RIASSUNTO, senza copie letterali
+- Frase fluida, naturale e grammaticalmente corretta in italiano standard
+
+Tono oroscopico:
+- Linguaggio positivo, empatico e ispirazionale, ma non esagerato
+- Deve suggerire movimento, crescita o introspezione
+- Può includere lievi sfumature poetiche o metaforiche, ma sempre chiare
+- Evita toni fatalistici, tecnici o moralistici
+- Parla direttamente alla persona, con naturalezza e calore (“Oggi puoi…”, “Ti aspetta…”)
+- Mantieni equilibrio tra realismo e incoraggiamento
 
 VIETATO ASSOLUTAMENTE:
- - Frasi interrotte ("Oggi è il momento per...")
- - Preposizioni finali sospese ("...con", "per", "di", "a")
- - Congiunzioni finali ("...e", "ma", "che", "quando")
- - Ellissi o puntini di sospensione ("...")
- - Frasi che richiedono continuazione per avere senso
+- Frasi interrotte (“Oggi è il momento per...”)
+- Preposizioni finali sospese (“...con”, “...per”, “...di”, “...a”)
+- Congiunzioni finali (“...e”, “...ma”, “...che”, “...quando”)
+- Ellissi o puntini di sospensione (“...”)
+- Frasi che richiedono continuazione per avere senso
+
+OBBLIGATORIO:
+- Soggetto esplicito o implicito chiaro
+- Verbo coniugato correttamente
+- Complemento che completa il senso
+- Punto finale (.)
+- Senso compiuto, leggibile da sola
+- Coerenza grammaticale e lessicale interna
+
+CONTROLLO AUTOMATICO:
+Dopo aver generato la frase, verifica che:
+1. Sia grammaticalmente corretta e scorrevole in italiano naturale
+2. Non contenga errori o parole deformate
+3. Abbia un senso logico unico e coerente
+4. Rispetti il tono oroscopico (positivo, empatico e fluido)
+Se una di queste condizioni non è rispettata, rigenera automaticamente una nuova versione finché tutte risultano soddisfatte.
+
+CONTROLLO DI BACKUP:
+Se dopo tre tentativi la frase non rispetta ancora le regole, genera una versione neutra e pienamente conforme, grammaticalmente corretta e con senso compiuto, mantenendo il tono oroscopico e il messaggio chiave del RIASSUNTO.
 
 2. RIASSUNTO (ESATTAMENTE tra 250-530 caratteri):
    - Cattura l'essenza delle previsioni in modo dettagliato e specifico
