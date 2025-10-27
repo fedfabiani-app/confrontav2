@@ -2,15 +2,39 @@ import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { WeeklyScraperInput, WeeklyScraperOutput, weeklyScraperOutputSchema } from '@shared/schema';
 
+// ==================== CONSTANTS ====================
+
+const ZODIAC_SIGNS = [
+  'ariete', 'toro', 'gemelli', 'cancro', 'leone', 'vergine',
+  'bilancia', 'scorpione', 'sagittario', 'capricorno', 'acquario', 'pesci'
+] as const;
+
+const SIGN_MAP: Record<string, string> = {
+  'Ariete': 'ariete',
+  'Toro': 'toro',
+  'Gemelli': 'gemelli',
+  'Cancro': 'cancro',
+  'Leone': 'leone',
+  'Vergine': 'vergine',
+  'Bilancia': 'bilancia',
+  'Scorpione': 'scorpione',
+  'Sagittario': 'sagittario',
+  'Capricorno': 'capricorno',
+  'Acquario': 'acquario',
+  'Pesci': 'pesci'
+} as const;
+
+const ITALIAN_MONTHS: Record<string, number> = {
+  'gennaio': 1, 'febbraio': 2, 'marzo': 3, 'aprile': 4, 'maggio': 5, 'giugno': 6,
+  'luglio': 7, 'agosto': 8, 'settembre': 9, 'ottobre': 10, 'novembre': 11, 'dicembre': 12
+} as const;
+
 const domainLastRequest = new Map<string, number>();
 const DOMAIN_DELAY_MS = 2000;
 
 const archiveUrlCache = new Map<string, string>();
 
-const ITALIAN_MONTHS: Record<string, number> = {
-  'gennaio': 1, 'febbraio': 2, 'marzo': 3, 'aprile': 4, 'maggio': 5, 'giugno': 6,
-  'luglio': 7, 'agosto': 8, 'settembre': 9, 'ottobre': 10, 'novembre': 11, 'dicembre': 12
-};
+// ==================== END CONSTANTS ====================
 
 interface ScrapeResult {
   success: boolean;
@@ -717,7 +741,7 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
           }
         }
 
-      
+
       // ==================== ELLE.COM/IT SPECIFIC FUNCTIONS ====================
 
       /**
@@ -843,14 +867,7 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
 
             if (monthNum) {
               const startDate = new Date(parseInt(year), monthNum - 1, parseInt(startDay));
-
-              // Adjust to Thursday if not already
-              const startDayOfWeek = startDate.getDay();
-              const daysToThurs = (startDayOfWeek >= 4) ? (startDayOfWeek - 4) : (startDayOfWeek + 3);
-              const adjustedStartDate = new Date(startDate);
-              adjustedStartDate.setDate(adjustedStartDate.getDate() - daysToThurs);
-
-              const candidateDateStr = adjustedStartDate.toISOString().split('T')[0];
+              const candidateDateStr = startDate.toISOString().split('T')[0];
 
               console.log(`Elle.com/it - Parsed date: ${candidateDateStr} (target: ${targetDateStr})`);
 
@@ -862,7 +879,7 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
               }
 
               // Calculate score based on date proximity
-              const daysDiff = Math.abs(Math.floor((adjustedStartDate.getTime() - thursdayDate.getTime()) / (1000 * 60 * 60 * 24)));
+              const daysDiff = Math.abs(Math.floor((startDate.getTime() - thursdayDate.getTime()) / (1000 * 60 * 60 * 24)));
 
               let score = 100;
               if (daysDiff === 0) {
@@ -876,7 +893,7 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
               }
 
               if (score > 0) {
-                candidates.push({ url: absoluteUrl, startDate: adjustedStartDate, score });
+                candidates.push({ url: absoluteUrl, startDate, score });
                 console.log(`Elle.com/it - Added candidate (${daysDiff} days diff, score: ${score}): ${absoluteUrl}`);
               }
             }
@@ -941,14 +958,7 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
 
           const $ = cheerio.load(response.data);
 
-          // Look for links in the content that match other signs
-          const signMap: Record<string, string> = {
-            'Ariete': 'ariete', 'Toro': 'toro', 'Gemelli': 'gemelli', 'Cancro': 'cancro',
-            'Leone': 'leone', 'Vergine': 'vergine', 'Bilancia': 'bilancia', 'Scorpione': 'scorpione',
-            'Sagittario': 'sagittario', 'Capricorno': 'capricorno', 'Acquario': 'acquario', 'Pesci': 'pesci'
-          };
-
-          const targetSignSlug = signMap[targetSign] || targetSign.toLowerCase();
+                 const targetSignSlug = SIGN_MAP[targetSign] || targetSign.toLowerCase();
 
           console.log(`Elle.com/it - Looking for links containing: "${targetSignSlug}"`);
 
@@ -988,7 +998,7 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
       }
 
       // ==================== END ELLE.COM/IT FUNCTIONS ====================
-      
+
       // SORRISI.COM SPECIFIC: Try archive strategy first, with proper fallback
       if (input.domain.includes('sorrisi.com') || input.baseUrl.includes('sorrisi.com')) {
         console.log(`Detected Sorrisi.com - trying archive strategy first`);
@@ -1023,14 +1033,7 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
           const baseArticleUrl = await resolveWeeklyUrlFromArchive(input);
           console.log(`Gazzetta.it - Archive resolution: ${baseArticleUrl}`);
 
-          // Map sign to URL slug
-          const signMap: Record<string, string> = {
-            'Ariete': 'ariete', 'Toro': 'toro', 'Gemelli': 'gemelli', 'Cancro': 'cancro',
-            'Leone': 'leone', 'Vergine': 'vergine', 'Bilancia': 'bilancia', 'Scorpione': 'scorpione',
-            'Sagittario': 'sagittario', 'Capricorno': 'capricorno', 'Acquario': 'acquario', 'Pesci': 'pesci'
-          };
-
-          const signSlug = signMap[input.signSlugIt] || input.signSlugIt.toLowerCase();
+                  const signSlug = SIGN_MAP[input.signSlugIt] || input.signSlugIt.toLowerCase();
 
           // Check if URL already has a sign in it
           const signInUrlMatch = baseArticleUrl.match(/\/(ariete|toro|gemelli|cancro|leone|vergine|bilancia|scorpione|sagittario|capricorno|acquario|pesci)\.shtml$/i);
@@ -1077,46 +1080,89 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
         return await resolveWeeklyUrlFromArchive(input);
       }
 
+      let url = input.baseUrl + input.urlPattern;
+      const signSlug = SIGN_MAP[input.signSlugIt] || input.signSlugIt.toLowerCase();
 
+      // Determine start/end month names from the week range (handles cross-month weeks)
+      const weekStart = new Date(input.weekStartDate);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
 
-      // MARIE CLAIRE SPECIFIC: Check if this is Marie Claire and resolve dynamically
-      if (input.domain.includes('marieclaire.it') || input.baseUrl.includes('marieclaire.it')) {
-        console.log(`Detected Marie Claire - checking if URL needs resolution`);
-
-        // If baseUrl already contains a full article URL pattern, use it
-        if (input.baseUrl.match(/\/a\d+\/oroscopo-settimana/)) {
-          console.log(`Using pre-resolved Marie Claire URL: ${input.baseUrl}`);
-          return input.baseUrl;
-        }
-
-        // Otherwise, resolve it from the archive page
-        console.log(`Resolving Marie Claire URL from archive...`);
-        return await resolveWeeklyUrlFromArchive(input);
-      }
-
-      // Pattern strategy - build URL from pattern
-      const signMap: Record<string, string> = {
-        'Ariete': 'ariete', 'Toro': 'toro', 'Gemelli': 'gemelli', 'Cancro': 'cancro',
-        'Leone': 'leone', 'Vergine': 'vergine', 'Bilancia': 'bilancia', 'Scorpione': 'scorpione',
-        'Sagittario': 'sagittario', 'Capricorno': 'capricorno', 'Acquario': 'acquario', 'Pesci': 'pesci'
+      const MONTH_INDEX_TO_NAME: Record<number, string> = {
+        0: 'gennaio', 1: 'febbraio', 2: 'marzo', 3: 'aprile', 4: 'maggio', 5: 'giugno',
+        6: 'luglio', 7: 'agosto', 8: 'settembre', 9: 'ottobre', 10: 'novembre', 11: 'dicembre'
       };
 
-      let url = input.baseUrl + input.urlPattern;
-      const signSlug = signMap[input.signSlugIt] || input.signSlugIt.toLowerCase();
+      const startMonthName = MONTH_INDEX_TO_NAME[weekStart.getMonth()];
+      const endMonthName = MONTH_INDEX_TO_NAME[weekEnd.getMonth()];
+      const crossMonth = weekStart.getMonth() !== weekEnd.getMonth();
 
-      // Replace all placeholders
-      url = url.replace(/{week_start_day}/g, input.startDay);
-      url = url.replace(/{week_end_day}/g, input.endDay);
-      url = url.replace(/{week_end_month}/g, input.month);
-      url = url.replace(/{month_name}/g, input.month);
-      url = url.replace(/{start_day}/g, input.startDay);
-      url = url.replace(/{end_day}/g, input.endDay);
+      // If pattern is compact and week crosses months, expand it to include both month names
+      // e.g. "/previsioni-settimana-{start_day}-{end_day}-{month}/" ->
+      //      "/previsioni-settimana-{start_day}-{start_month}-{end_day}-{end_month}/"
+      // Also handle forms with "-al-" like "dal-{start_day}-al-{end_day}-{month}"
+      // This avoids generating "27-02-novembre" instead of "27-ottobre-2-novembre".
+      let pattern = input.urlPattern;
+      if (crossMonth) {
+        // Common explicit patterns
+        pattern = pattern.replace(/\{start_day\}[-_\s]*al[-_\s]*\{end_day\}[-_\s]*-\{month\}/g,
+                                  '{start_day}-{start_month}-al-{end_day}-{end_month}');
+        pattern = pattern.replace(/\{start_day\}[-_\s]*-\s*\{end_day\}[-_\s]*-\{month\}/g,
+                                  '{start_day}-{start_month}-{end_day}-{end_month}');
+        pattern = pattern.replace(/\{start_day\}[-_\s]*\{end_day\}[-_\s]*-\{month\}/g,
+                                  '{start_day}-{start_month}-{end_day}-{end_month}');
+
+        // Generic fallback: if pattern contains the compact tokens but hasn't been expanded,
+        // insert {start_month} before the separator between start and end.
+        if (pattern.includes('{start_day}') && pattern.includes('{end_day}') && pattern.includes('{month}')
+            && !pattern.includes('{start_month}') && !pattern.includes('{end_month}')) {
+          pattern = pattern.replace(/\{start_day\}([-\s_]*?(?:al)?[-_\s]*)\{end_day\}([-\s_]*)\{month\}/,
+                                    '{start_day}-{start_month}$1{end_day}-{end_month}');
+        }
+      }
+
+      url = input.baseUrl + pattern;
+
+      // For placeholders that represent the "end" month of the week, prefer endMonth when the week crosses months.
+      // Otherwise keep the start month.
+      const monthForEnd = crossMonth ? endMonthName : startMonthName;
+      const monthForStart = startMonthName;
+
+      // Prepare day formats: unpadded (e.g. "2") and zero-padded (e.g. "02")
+      const startDayNumber = String(parseInt(input.startDay, 10));
+      const endDayNumber = String(parseInt(input.endDay, 10));
+      const startDayPadded = startDayNumber.padStart(2, '0');
+      const endDayPadded = endDayNumber.padStart(2, '0');
+
+      // Replace all placeholders - do longer/more specific placeholders first to avoid collisions
+      url = url.replace(/{start_month}/g, startMonthName);
+      url = url.replace(/{end_month}/g, endMonthName);
+      url = url.replace(/{week_end_month}/g, monthForEnd);
+      url = url.replace(/{month_name}/g, crossMonth ? `${startMonthName}-${endMonthName}` : startMonthName);
+
+      // Use unpadded day numbers by default (many sites use "2" not "02")
+      url = url.replace(/{week_start_day}/g, startDayNumber);
+      url = url.replace(/{week_end_day}/g, endDayNumber);
+      // {start_day} / {end_day} -> unpadded by default for compatibility with sites like alFemminile
+      url = url.replace(/{start_day}/g, startDayNumber);
+      url = url.replace(/{end_day}/g, endDayNumber);
       url = url.replace(/{yyyy}/g, input.year);
       url = url.replace(/{year}/g, input.year);
       url = url.replace(/{sign}/g, signSlug);
-      url = url.replace(/{month}/g, input.month);
-      url = url.replace(/{mm}/g, input.month);
-      url = url.replace(/{dd}/g, input.startDay);
+
+      // {start_month}/{end_month}/{month}/{mm} fallbacks
+      url = url.replace(/{month}/g, crossMonth ? `${startMonthName}-${endMonthName}` : startMonthName);
+      url = url.replace(/{mm}/g, crossMonth ? endMonthName : startMonthName);
+
+      // Common day placeholders:
+      // - {start_day}/{end_day} -> unpadded (2 not 02)
+      // - {dd} -> zero-padded start day (legacy)
+      // - {dd_end} / {dd_start} -> explicit padded variants (supported if present)
+      url = url.replace(/{dd_start}/g, startDayPadded);
+      url = url.replace(/{dd_end}/g, endDayPadded);
+      url = url.replace(/{dd}/g, startDayPadded);
+      url = url.replace(/{d_start}/g, startDayNumber);
+      url = url.replace(/{d_end}/g, endDayNumber);
 
       // Validate URL - ensure no placeholders remain
       if (url.includes('{') || url.includes('}')) {
@@ -1316,13 +1362,7 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
       console.log(`Marie Claire - Extracting content for ${input.signSlugIt} from URL: ${url}`);
       console.log(`Marie Claire - Page structure analysis:`);
 
-      const signMap: Record<string, string> = {
-        'Ariete': 'ariete', 'Toro': 'toro', 'Gemelli': 'gemelli', 'Cancro': 'cancro',
-        'Leone': 'leone', 'Vergine': 'vergine', 'Bilancia': 'bilancia', 'Scorpione': 'scorpione',
-        'Sagittario': 'sagittario', 'Capricorno': 'capricorno', 'Acquario': 'acquario', 'Pesci': 'pesci'
-      };
-
-      const signId = signMap[input.signSlugIt] || input.signSlugIt.toLowerCase();
+           const signId = SIGN_MAP[input.signSlugIt] || input.signSlugIt.toLowerCase();
       const zodiacSigns = ['ariete', 'toro', 'gemelli', 'cancro', 'leone', 'vergine',
                            'bilancia', 'scorpione', 'sagittario', 'capricorno', 'acquario', 'pesci'];
 
@@ -1536,6 +1576,7 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
           signHeading = $(h2);
           console.log(`Repubblica - Found exact H2 match for ${input.signSlugIt}: "${h2Text}"`);
           return false; // Break the loop
+
         }
       });
 
@@ -1729,6 +1770,7 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
                              textLower.startsWith('scopri') ||
                              textLower.startsWith('condividi') ||
                              textLower.includes('cookie') ||
+                             textLower.match(/^\[.*\]$/) ||
                              text.length < 20;
 
               if (!isNoise) {
@@ -2040,7 +2082,7 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
         url: url
       };
     }
-    
+
         // Generic extraction for other sources
     let bestContent = '';
     let highestScore = 0;

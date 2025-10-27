@@ -276,6 +276,12 @@ function buildHoroscopeUrl(input: ScraperInput): string | string[] {
     return buildFanpageUrls(input);
   }
 
+  // ========== SPECIAL HANDLING: Quotidiano.net ==========
+  if (input.domain.includes('quotidiano.net')) {
+    // Return the base archive URL - we'll find the actual URL later
+    return input.baseUrl; // This should be: https://www.quotidiano.net/oroscopo
+  }
+
   // ========== SPECIAL HANDLING: Alfemminile.com ==========
   if (input.domain.includes('alfemminile.com') && input.urlPattern.includes('{weekday}')) {
     const targetDate = new Date(input.dateISO);
@@ -388,6 +394,70 @@ async function retryWithAlternativeUserAgent(url: string): Promise<string> {
   return response.data;
 }
 
+async function retryFanpageWithEnhancedRetries(url: string): Promise<string> {
+  const safariUA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15';
+  const firefoxUA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:120.0) Gecko/20100101 Firefox/120.0';
+  const edgeUA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Edg/120.0.0.0';
+
+  const userAgents = [safariUA, firefoxUA, edgeUA];
+  const referers = [
+    'https://www.fanpage.it/stile-e-trend/story/oroscopo/',
+    'https://www.fanpage.it/',
+    'https://www.google.com/'
+  ];
+  const encodings = ['gzip, deflate, br', 'gzip, deflate'];
+
+  // Try combinations with small delays; log each attempt
+  for (const ua of userAgents) {
+    for (const enc of encodings) {
+      for (const ref of referers) {
+        console.log(`Fanpage.it - retrying with UA="${ua.split(' ')[0]}", Accept-Encoding="${enc}", Referer="${ref}"`);
+        // Build headers from buildHeaders but override Accept-Encoding/Referer/User-Agent
+        const base = buildHeaders(url, ua);
+        const headers = {
+          ...base,
+          'Accept-Encoding': enc,
+          'Referer': ref,
+          'User-Agent': ua
+        };
+
+        // brief backoff between tries
+        await new Promise(res => setTimeout(res, 2000));
+
+        try {
+          const response = await axios.get(url, {
+            headers,
+            timeout: 15000,
+            maxRedirects: 5,
+            validateStatus: (s) => s < 500
+          });
+
+          if (response.status === 200) {
+            console.log('Fanpage.it - Retry successful with alternate headers/UA');
+            return response.data;
+          }
+
+          // if not 403 but some other 4xx, surface that
+          if (response.status !== 403 && response.status >= 400) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+        } catch (err) {
+          // continue trying other combos on 403 or network errors; bubble up non-axios unexpected errors
+          if (axios.isAxiosError(err)) {
+            console.log(`Fanpage.it - retry attempt failed: ${err.message}`);
+            // continue trying
+            continue;
+          } else {
+            throw err;
+          }
+        }
+      }
+    }
+  }
+
+  throw new Error('Fanpage.it - All enhanced retries exhausted (403)');
+}
+
 async function respectDomainRateLimit(domain: string): Promise<void> {
   const lastRequest = domainLastRequest.get(domain) || 0;
   const now = Date.now();
@@ -419,9 +489,9 @@ async function fetchHtml(url: string, userAgent: string): Promise<string> {
       validateStatus: (status) => status < 500, // Accept 4xx to handle them gracefully
     });
 
-    // Special handling for 403 on Fanpage.it
+    // Special handling for 403 on Fanpage.it — enhanced multi-UA/headers retry
     if (response.status === 403 && url.includes('fanpage.it')) {
-      return await retryWithAlternativeUserAgent(url);
+      return await retryFanpageWithEnhancedRetries(url);
     }
 
     // Handle other 4xx errors
@@ -1225,7 +1295,7 @@ async function scrapeOggiHoroscopeText(url: string, input: ScraperInput): Promis
 
     // Find all H4 tags (potential horoscope headers)
     const h4GenericRegex = /<h4[^>]*>(?:Oroscopo\s+di\s+)?[^<]*<\/h4>/gi;
-    const h4Matches = cleanHtml.matchAll(h4GenericRegex);
+    const h4Matches = Array.from(cleanHtml.matchAll(h4GenericRegex));
 
     for (const matchH4 of h4Matches) {
       if (matchH4.index === undefined) continue;
@@ -1487,14 +1557,270 @@ async function scrapeFanpageHoroscopeText(url: string, input: ScraperInput): Pro
     };
   }
 }
+
+// Helper: normalize strings for robust matching (remove accents, punctuation, collapse spaces)
+function normalizeForMatching(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')      // remove diacritics
+    .replace(/[^a-z0-9\s]/g, ' ')         // remove punctuation
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+async function scrapeQuotidianoHoroscopeText(url: string, input: ScraperInput): Promise<ScrapeResult> {
+  try {
+    console.log('Quotidiano.net - Starting specialized extraction for:', input.signSlugIt);
+
+    const html = await fetchHtml(url, input.userAgent);
+    const $ = cheerio.load(html);
+
+    // Remove noisy elements
+    $('script, style, nav, header, footer, iframe, noscript, .ads, .cookie-banner').remove();
+
+    const zodiacNameLower = input.signSlugIt.toLowerCase();
+    const signNorm = normalizeForMatching(input.signSlugIt);
+    let extractedText = '';
+
+    const GENERIC_HEADING_RE = /\b(per tutti i|tutti i segni|12 segni|per 12 segni|previsioni per tutti|oroscopo per tutti)\b/i;
+    const GENERIC_PARAGRAPH_RE = /\b(tutti i segni|per tutti i segni|previsioni per tutti i segni|oroscopo per tutti)\b/i;
+
+    // Strategy A: Find H2/H3/H4 heading that contains the sign (skip headings that are generic intros)
+    let anchorHeading: cheerio.Element | null = null;
+    $('h2, h3, h4').each((_, h) => {
+      const hText = $(h).text() || '';
+      const hNorm = normalizeForMatching(hText);
+
+      if (hNorm.includes(signNorm)) {
+        // Skip if heading appears generic
+        if (GENERIC_HEADING_RE.test(hText)) return;
+        anchorHeading = h;
+        return false; // break
+      }
+    });
+
+    if (anchorHeading) {
+      console.log(`Quotidiano.net - Found heading anchor: "${$(anchorHeading).text().trim()}"`);
+      const paragraphs: string[] = [];
+
+      // Collect siblings after heading until next heading of same level or H2/H3/H4
+      $(anchorHeading).nextAll().each((_, sib) => {
+        const tag = ((sib as any).tagName || '').toLowerCase();
+
+        if (/^h[2-4]$/.test(tag)) {
+          return false; // stop iteration
+        }
+
+        const $sib = $(sib);
+
+        if (tag === 'p') {
+          const txt = cleanExtractedText($sib.text());
+          if (txt.length > 20 && !GENERIC_PARAGRAPH_RE.test(txt)) paragraphs.push(txt);
+        } else {
+          // collect <p> descendants
+          $sib.find('p').each((_, p) => {
+            const txt = cleanExtractedText($(p).text());
+            if (txt.length > 20 && !GENERIC_PARAGRAPH_RE.test(txt)) paragraphs.push(txt);
+          });
+        }
+      });
+
+      if (paragraphs.length > 0) {
+        extractedText = paragraphs.join('\n\n');
+      }
+    }
+
+    // Strategy B: If no heading found, look for a .webp image whose filename or alt contains the sign
+    if (!extractedText) {
+      const img = $('img').filter((_, el) => {
+        const src = ($(el).attr('src') || '').toLowerCase();
+        const alt = ($(el).attr('alt') || '').toLowerCase();
+        return (src.endsWith('.webp') || src.includes('.webp')) && (normalizeForMatching(src).includes(signNorm) || normalizeForMatching(alt).includes(signNorm));
+      }).first();
+
+      if (img && img.length > 0) {
+        console.log('Quotidiano.net - Found .webp image anchor for sign');
+        // prefer nearest ancestor article/section/div
+        let anchor = img.closest('article, section, .article, .entry, .post').first();
+        if (!anchor || anchor.length === 0) anchor = img.parent();
+
+        const paragraphs: string[] = [];
+        let seenImage = false;
+
+        anchor.contents().toArray().forEach(node => {
+          if (!seenImage) {
+            if (node === img[0]) {
+              seenImage = true;
+            }
+            return;
+          }
+
+          const nodeTag = ((node as any).tagName || '').toLowerCase();
+          const $node = $(node);
+
+          if (nodeTag === 'h2' || nodeTag === 'h3' || nodeTag === 'h4') {
+            return;
+          }
+
+          if (nodeTag === 'p') {
+            const txt = cleanExtractedText($node.text());
+            if (txt.length > 20 && !GENERIC_PARAGRAPH_RE.test(txt)) paragraphs.push(txt);
+          } else {
+            $node.find('p').each((_, p) => {
+              const txt = cleanExtractedText($(p).text());
+              if (txt.length > 20 && !GENERIC_PARAGRAPH_RE.test(txt)) paragraphs.push(txt);
+            });
+          }
+        });
+
+        if (paragraphs.length > 0) {
+          extractedText = paragraphs.join('\n\n');
+        }
+      }
+    }
+
+    // Strategy C: Fallback — collect main article paragraphs but strip initial generic intro
+    if (!extractedText) {
+      const contentSelectors = [
+        '.article-body',
+        '.entry-content',
+        '.post-content',
+        'article .content',
+        '.story-content',
+        '[class*="article"][class*="content"]'
+      ];
+
+      for (const selector of contentSelectors) {
+        const content = $(selector);
+        if (content.length === 0) continue;
+
+        const paragraphs: string[] = [];
+        content.find('p').each((_, p) => {
+          const txt = cleanExtractedText($(p).text());
+          if (txt.length > 20) paragraphs.push(txt);
+        });
+
+        if (paragraphs.length === 0) continue;
+
+        // Remove generic intro paragraphs that mention "tutti i segni" or are very short and generic
+        while (paragraphs.length > 0 && (GENERIC_PARAGRAPH_RE.test(paragraphs[0]) || paragraphs[0].length < 60 && /tutti/i.test(paragraphs[0]))) {
+          console.log('Quotidiano.net - Dropping generic intro paragraph');
+          paragraphs.shift();
+        }
+
+        // If still more than one paragraph, try to find the first paragraph that mentions the sign and start from there
+        const idx = paragraphs.findIndex(p => normalizeForMatching(p).includes(signNorm));
+        let finalParas = paragraphs;
+        if (idx >= 0) {
+          finalParas = paragraphs.slice(idx);
+        }
+
+        const combined = finalParas.join('\n\n');
+
+        if (combined.length > 50 && scoreHoroscopeContent(combined, zodiacNameLower, 'quotidiano.net') > 20) {
+          extractedText = combined;
+          break;
+        }
+      }
+    }
+
+    if (!extractedText || extractedText.length < 50) {
+      return {
+        success: false,
+        error: `No substantial horoscope content found for ${input.signSlugIt} on Quotidiano.net`
+      };
+    }
+
+    const finalScore = scoreHoroscopeContent(extractedText, zodiacNameLower, 'quotidiano.net');
+    console.log(`Quotidiano.net - Successfully extracted content, score: ${finalScore}, length: ${extractedText.length}`);
+
+    return {
+      success: true,
+      text: extractedText.substring(0, 3500),
+      url,
+      actualUrl: url
+    };
+
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown Quotidiano.net scraping error'
+    };
+  }
+}
+
 async function findFanpageArticleUrl(archiveUrl: string, targetDate: string): Promise<string | null> {
   try {
-    console.log('Fanpage.it - Searching archive page for today\'s horoscope...');
+    console.log('Fanpage.it - Searching archive page for today\'s horoscope (using fetchHtml)...');
+
+    // Use fetchHtml so we benefit from Fanpage special headers, delays and retry logic
+    const html = await fetchHtml(archiveUrl, '');
+
+    const dateObj = new Date(targetDate);
+    const day = dateObj.getDate();
+    const month = ITALIAN_MONTHS[dateObj.getMonth()];
+    const weekday = ITALIAN_WEEKDAYS[dateObj.getDay()];
+    const year = dateObj.getFullYear();
+
+    // Pattern: oroscopo-di-weekday-day-month-year (primary)
+    const datePattern = `oroscopo-di-${weekday}-${day}-${month}-${year}`;
+    console.log(`Fanpage.it - Looking for pattern: ${datePattern}`);
+
+    // Helper to safely build regex from dynamic string
+    const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    const candidates = new Set<string>();
+    const urlPattern = new RegExp(`href=["']([^"']*${esc(datePattern)}[^"']*)["']`, 'gi');
+    let m: RegExpExecArray | null;
+
+    while ((m = urlPattern.exec(html)) !== null) {
+      let foundUrl = m[1];
+      if (foundUrl.startsWith('/')) foundUrl = 'https://www.fanpage.it' + foundUrl;
+      candidates.add(foundUrl);
+    }
+
+    // Alternative looser pattern (weekday + day + month + year near "oroscopo")
+    const altPattern = new RegExp(`href=["']([^"']*oroscopo[^"']*${esc(weekday)}[^"']*${esc(String(day))}[^"']*${esc(month)}[^"']*${esc(String(year))}[^"']*)["']`, 'gi');
+    while ((m = altPattern.exec(html)) !== null) {
+      let foundUrl = m[1];
+      if (foundUrl.startsWith('/')) foundUrl = 'https://www.fanpage.it' + foundUrl;
+      candidates.add(foundUrl);
+    }
+
+    // Prioritize article URLs containing 'attualita' or obvious oroscopo slugs
+    for (const candidate of Array.from(candidates)) {
+      if (/\/attualita\/|\/story\/|oroscopo/i.test(candidate)) {
+        console.log(`Fanpage.it - Found article URL: ${candidate}`);
+        return candidate;
+      }
+    }
+
+    // Fallback: return first candidate if any
+    const first = Array.from(candidates)[0];
+    if (first) {
+      console.log(`Fanpage.it - Found article URL (fallback): ${first}`);
+      return first;
+    }
+
+    console.log('Fanpage.it - No article found in archive page');
+    return null;
+  } catch (error) {
+    console.error('Fanpage.it - Error searching archive:', error);
+    return null;
+  }
+}
+
+/**
+ * Finds the actual article URL from quotidiano.net's horoscope archive page
+ */
+async function findQuotidianoArticleUrl(archiveUrl: string, targetDate: string): Promise<string | null> {
+  try {
+    console.log('Quotidiano.net - Searching archive page for today\'s horoscope...');
 
     const response = await axios.get(archiveUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Referer': 'https://www.fanpage.it/',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'it-IT,it;q=0.9',
       },
@@ -1504,54 +1830,35 @@ async function findFanpageArticleUrl(archiveUrl: string, targetDate: string): Pr
     const html = response.data;
     const dateObj = new Date(targetDate);
     const day = dateObj.getDate();
-    const month = ITALIAN_MONTHS[dateObj.getMonth()];
     const weekday = ITALIAN_WEEKDAYS[dateObj.getDay()];
-    const year = dateObj.getFullYear();
 
-    // Pattern: oroscopo-di-weekday-day-month-year
-    const datePattern = `oroscopo-di-${weekday}-${day}-${month}-${year}`;
-    console.log(`Fanpage.it - Looking for pattern: ${datePattern}`);
+    // Pattern: oroscopo-di-oggi-weekday-day-RANDOMHASH
+    const datePattern = `oroscopo-di-oggi-${weekday}-${day}`;
+    console.log(`Quotidiano.net - Looking for pattern: ${datePattern}`);
 
-    // Cerca link che contengono questo pattern
+    // Search for links containing this pattern
     const urlPattern = new RegExp(`href=["']([^"']*${datePattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[^"']*)["']`, 'gi');
     let match;
 
     while ((match = urlPattern.exec(html)) !== null) {
       let foundUrl = match[1];
 
-      // Se l'URL è relativo, rendilo assoluto
+      // Make relative URLs absolute
       if (foundUrl.startsWith('/')) {
-        foundUrl = 'https://www.fanpage.it' + foundUrl;
+        foundUrl = 'https://www.quotidiano.net' + foundUrl;
       }
 
-      // Verifica che sia un URL dell'oroscopo
-      if (foundUrl.includes('attualita') && foundUrl.includes('oroscopo')) {
-        console.log(`Fanpage.it - Found article URL: ${foundUrl}`);
+      // Verify it's a horoscope URL
+      if (foundUrl.includes('/oroscopo/')) {
+        console.log(`Quotidiano.net - Found article URL: ${foundUrl}`);
         return foundUrl;
       }
     }
 
-    // Prova anche con varianti senza apostrofi o con "l'oroscopo" invece di "loroscopo"
-    const alternativePattern = `href=["']([^"']*oroscopo[^"']*${weekday}[^"']*${day}[^"']*${month}[^"']*${year}[^"']*)["']`;
-    const altRegex = new RegExp(alternativePattern, 'gi');
-
-    while ((match = altRegex.exec(html)) !== null) {
-      let foundUrl = match[1];
-
-      if (foundUrl.startsWith('/')) {
-        foundUrl = 'https://www.fanpage.it' + foundUrl;
-      }
-
-      if (foundUrl.includes('attualita')) {
-        console.log(`Fanpage.it - Found article URL (alternative pattern): ${foundUrl}`);
-        return foundUrl;
-      }
-    }
-
-    console.log('Fanpage.it - No article found in archive page');
+    console.log('Quotidiano.net - No article found in archive page');
     return null;
   } catch (error) {
-    console.error('Fanpage.it - Error searching archive:', error);
+    console.error('Quotidiano.net - Error searching archive:', error);
     return null;
   }
 }
@@ -1570,11 +1877,38 @@ async function scrapeHoroscopeText(url: string, input: ScraperInput): Promise<Sc
       return await scrapeOnlyOroscopoHoroscopeText(url, input);
     }
 
+    // Special handling for Quotidiano.net
+    if (url.includes('quotidiano.net/oroscopo') && !url.match(/oroscopo-di-oggi-\w+-\d+-[a-f0-9]+$/i)) {
+      console.log('Quotidiano.net - This is the archive page, searching for article URL...');
+      const articleUrl = await findQuotidianoArticleUrl(url, input.dateISO);
+
+      if (articleUrl) {
+        console.log(`Quotidiano.net - Found article URL from archive: ${articleUrl}`);
+        // Respect rate limiting before scraping the found article
+        await respectDomainRateLimit(input.domain);
+
+        const result = await scrapeQuotidianoHoroscopeText(articleUrl, input);
+
+        if (result.success && result.text) {
+          console.log(`Successfully scraped from archive-found URL: ${articleUrl}`);
+          return {
+            ...result,
+            actualUrl: articleUrl
+          };
+        }
+      } else {
+        return {
+          success: false,
+          error: 'Could not find today\'s horoscope article on Quotidiano.net archive'
+        };
+      }
+    }
+
     // Special handling for Oggi.it
     if (url.includes('oggi.it')) {
       return await scrapeOggiHoroscopeText(url, input);
     }
-    
+
     // Special handling for Gazzetta.it
     if (url.includes('gazzetta.it')) {
       return await scrapeGazzettaHoroscopeText(url, input);
@@ -1613,7 +1947,8 @@ async function scrapeHoroscopeText(url: string, input: ScraperInput): Promise<Sc
     let extractedText = '';
 
     // Source-specific extraction strategies
-   
+
+
     // Generic extraction as fallback
     const $ = cheerio.load(cleanHtml);
     const selectors = [
