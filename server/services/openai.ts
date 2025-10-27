@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import { OpenAIInput, OpenAIOutput, openaiOutputSchema } from "@shared/schema";
 
-// Using gpt-4o-mini for cost-effective and high-quality text analysis
+// Using gpt-4.1-nano for fastest and most cost-effective text analysis
 const openai = new OpenAI({ 
   apiKey: process.env.OPENAI_API_KEY
 });
@@ -53,7 +53,7 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
     }
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-4.1-nano",
       messages: [
         {
           role: 'system',
