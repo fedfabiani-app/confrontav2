@@ -41,6 +41,8 @@ Preferred communication style: Simple, everyday language.
   - **Shared Parameters**: Both types share start_time, end_time, interval_minutes, max_retries, and skip_already_processed settings
   - **Config Access**: Use `getDailyScraperConfig()` or `getWeeklyScraperConfig()` convenience functions
   - **Database Update**: Use `updateDatabaseConfig(scraperType, updates)` to modify configuration
+  - **Auto-Seeding**: `ensureScraperConfigExists()` automatically creates missing config rows on first access
+  - **Update Safety**: `updateDatabaseConfig()` filters undefined values to prevent column clobbering
   - **Default Values**: Daily defaults to enabled, weekly defaults to disabled on initial setup
 
 ### Data Processing Pipeline
