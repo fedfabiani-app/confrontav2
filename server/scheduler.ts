@@ -40,7 +40,8 @@ export async function initializeScheduledTasks() {
       
       // Step 3: Create test execution record
       console.log('[INTEGRATION TEST] Step 3: Creating test execution record...');
-      const targetDate = getItalyToday();
+      const targetDateStr = getItalyToday();
+      const targetDate = new Date(targetDateStr + 'T00:00:00.000Z');
       const execution = await prisma.scraperExecution.create({
         data: {
           status: 'completed',
@@ -54,7 +55,7 @@ export async function initializeScheduledTasks() {
         }
       });
       console.log(`  - Created execution record: ID ${execution.id}`);
-      console.log(`  - Target date: ${targetDate}`);
+      console.log(`  - Target date: ${targetDateStr}`);
       console.log(`  - Status: ${execution.status}`);
       
       console.log('[INTEGRATION TEST] ✓ All steps completed successfully!');
