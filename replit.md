@@ -22,6 +22,9 @@ Preferred communication style: Simple, everyday language.
 - **Runtime**: Node.js with Express.js framework for RESTful API
 - **Database**: Drizzle ORM configured for PostgreSQL (though currently uses Prisma client)
 - **Job Processing**: Custom job queue system using p-queue for orchestrating scraping and AI processing tasks
+  - **Scrape Queue**: Concurrency 3, interval 2000ms, processes up to 3 scraping jobs per 2 seconds
+  - **NLP Queue**: Concurrency 1, interval 3000ms, processes one OpenAI call at a time to avoid rate limits
+  - **Sequential Sign Processing**: Refresh endpoints process signs one at a time with 5-second delays between signs
 - **Worker Architecture**: Two dedicated worker modules:
   - Scraper worker for HTML parsing and content extraction
   - OpenAI worker for AI-powered content analysis and processing
