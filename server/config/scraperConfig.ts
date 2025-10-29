@@ -5,8 +5,11 @@ export interface EnvConfig {
   timezone: string;
 }
 
+export type ScraperType = 'daily' | 'weekly';
+
 export interface DatabaseConfig {
   id: number;
+  scraperType: ScraperType;
   enabled: boolean;
   startTime: string;
   endTime: string;
@@ -23,8 +26,21 @@ const DEFAULT_ENV_CONFIG: EnvConfig = {
   timezone: 'Europe/Rome',
 };
 
-const DEFAULT_DATABASE_CONFIG: DatabaseConfig = {
+const DEFAULT_DAILY_CONFIG: DatabaseConfig = {
   id: 1,
+  scraperType: 'daily',
+  enabled: false,
+  startTime: '05:30:00',
+  endTime: '08:00:00',
+  intervalMinutes: 20,
+  maxRetriesPerSource: 3,
+  autoRetryDelayMinutes: 10,
+  skipAlreadyProcessed: true,
+};
+
+const DEFAULT_WEEKLY_CONFIG: DatabaseConfig = {
+  id: 2,
+  scraperType: 'weekly',
   enabled: false,
   startTime: '05:30:00',
   endTime: '08:00:00',
@@ -41,10 +57,10 @@ export function getEnvConfig(): EnvConfig {
   };
 }
 
-export async function getDatabaseConfig(): Promise<DatabaseConfig | null> {
+export async function getDatabaseConfig(scraperType: ScraperType): Promise<DatabaseConfig | null> {
   try {
     const config = await prisma.scraperConfig.findUnique({
-      where: { id: 1 },
+      where: { scraper_type: scraperType },
     });
 
     if (!config) {
@@ -53,6 +69,7 @@ export async function getDatabaseConfig(): Promise<DatabaseConfig | null> {
 
     return {
       id: config.id,
+      scraperType: config.scraper_type as ScraperType,
       enabled: config.enabled,
       startTime: config.start_time,
       endTime: config.end_time,
@@ -62,23 +79,23 @@ export async function getDatabaseConfig(): Promise<DatabaseConfig | null> {
       skipAlreadyProcessed: config.skip_already_processed,
     };
   } catch (error) {
-    console.error('[ScraperConfig] Error reading database config:', error);
+    console.error(`[ScraperConfig] Error reading ${scraperType} config:`, error);
     return null;
   }
 }
 
-export async function getScraperConfig(): Promise<ScraperConfig> {
+export async function getScraperConfig(scraperType: ScraperType): Promise<ScraperConfig> {
   const envConfig = getEnvConfig();
   
   let dbConfig: DatabaseConfig;
-  const dbConfigFromDb = await getDatabaseConfig();
+  const dbConfigFromDb = await getDatabaseConfig(scraperType);
   
   if (dbConfigFromDb) {
     dbConfig = dbConfigFromDb;
-    console.log('[ScraperConfig] Using database configuration');
+    console.log(`[ScraperConfig] Using ${scraperType} configuration from database`);
   } else {
-    dbConfig = DEFAULT_DATABASE_CONFIG;
-    console.log('[ScraperConfig] Database config not available, using defaults');
+    dbConfig = scraperType === 'daily' ? DEFAULT_DAILY_CONFIG : DEFAULT_WEEKLY_CONFIG;
+    console.log(`[ScraperConfig] ${scraperType} config not in database, using defaults`);
   }
 
   return {
@@ -87,10 +104,22 @@ export async function getScraperConfig(): Promise<ScraperConfig> {
   };
 }
 
-export async function updateDatabaseConfig(updates: Partial<Omit<DatabaseConfig, 'id'>>): Promise<DatabaseConfig> {
+// Convenience functions
+export async function getDailyScraperConfig(): Promise<ScraperConfig> {
+  return getScraperConfig('daily');
+}
+
+export async function getWeeklyScraperConfig(): Promise<ScraperConfig> {
+  return getScraperConfig('weekly');
+}
+
+export async function updateDatabaseConfig(
+  scraperType: ScraperType,
+  updates: Partial<Omit<DatabaseConfig, 'id' | 'scraperType'>>
+): Promise<DatabaseConfig> {
   try {
     const updated = await prisma.scraperConfig.update({
-      where: { id: 1 },
+      where: { scraper_type: scraperType },
       data: {
         enabled: updates.enabled,
         start_time: updates.startTime,
@@ -104,6 +133,7 @@ export async function updateDatabaseConfig(updates: Partial<Omit<DatabaseConfig,
 
     return {
       id: updated.id,
+      scraperType: updated.scraper_type as ScraperType,
       enabled: updated.enabled,
       startTime: updated.start_time,
       endTime: updated.end_time,
@@ -113,8 +143,8 @@ export async function updateDatabaseConfig(updates: Partial<Omit<DatabaseConfig,
       skipAlreadyProcessed: updated.skip_already_processed,
     };
   } catch (error) {
-    console.error('[ScraperConfig] Error updating database config:', error);
-    throw new Error('Failed to update scraper configuration');
+    console.error(`[ScraperConfig] Error updating ${scraperType} config:`, error);
+    throw new Error(`Failed to update ${scraperType} scraper configuration`);
   }
 }
 
