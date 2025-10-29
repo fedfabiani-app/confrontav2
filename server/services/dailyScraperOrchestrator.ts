@@ -111,12 +111,12 @@ async function updateExecutionRecord(
       status,
       completed_at: new Date(),
       total_jobs_enqueued: stats.enqueued,
-      successful_jobs: 0,
-      failed_jobs: 0,
+      successful_jobs: stats.enqueued - stats.failed,
+      failed_jobs: stats.failed,
     },
   });
   
-  console.log(`[Orchestrator] Updated execution ${executionId}: status=${status}, enqueued=${stats.enqueued}`);
+  console.log(`[Orchestrator] Updated execution ${executionId}: status=${status}, enqueued=${stats.enqueued}, failed=${stats.failed}`);
 }
 
 async function createSourceStatusRecord(
@@ -147,8 +147,12 @@ async function createSourceStatusRecord(
         error_message: errorMessage,
       },
       update: {
+        execution_id: executionId,
         status,
         error_message: errorMessage,
+        attempt_count: {
+          increment: 1,
+        },
       },
     });
   } catch (error) {
