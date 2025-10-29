@@ -226,7 +226,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const errors: string[] = [];
 
       // Process signs sequentially to avoid overwhelming OpenAI rate limits
-      // Start background processing, don't wait for completion
+      // Start background processing with automatic retry fallback
       (async () => {
         for (let i = 0; i < zodiacSigns.length; i++) {
           const sign = zodiacSigns[i];
@@ -251,6 +251,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
         console.log(`[Refresh] All signs enqueued. Total jobs: ${jobIds.length}, Errors: ${errors.length}`);
+        
+        // Automatic fallback retry mechanism
+        // Wait for all jobs to complete (estimated: ~20 jobs/min with OpenAI rate limiting)
+        const expectedJobCount = sources.length * zodiacSigns.length;
+        const estimatedMinutes = Math.ceil(expectedJobCount / 20) + 2; // Add 2 min buffer
+        const waitTimeMs = estimatedMinutes * 60 * 1000;
+        
+        console.log(`[Auto-Retry] Waiting ${estimatedMinutes} minutes for initial scraping to complete before checking for failures...`);
+        await new Promise(resolve => setTimeout(resolve, waitTimeMs));
+        
+        // Check for missing/failed sources
+        console.log(`[Auto-Retry] Checking for failed sources...`);
+        const [allActiveSources, allZodiacSigns] = await Promise.all([
+          prisma.source.findMany({ where: { is_active: true } }),
+          prisma.zodiacSign.findMany(),
+        ]);
+        
+        const missingSources: Array<{ source: any; sign: any }> = [];
+        
+        for (const sign of allZodiacSigns) {
+          for (const source of allActiveSources) {
+            const entry = await prisma.horoscopeData.findFirst({
+              where: {
+                source_id: source.id,
+                zodiac_sign_id: sign.id,
+                date: new Date(targetDate),
+              }
+            });
+            
+            // Retry if missing OR if summary is empty (failed scrape)
+            if (!entry || entry.summary === '') {
+              missingSources.push({ source, sign });
+            }
+          }
+        }
+        
+        if (missingSources.length > 0) {
+          console.log(`[Auto-Retry] Found ${missingSources.length} missing sources. Starting automatic retry...`);
+          
+          // Group by sign for sequential processing
+          const missingBySign = missingSources.reduce((acc, { source, sign }) => {
+            if (!acc[sign.id]) {
+              acc[sign.id] = { sign, sources: [] };
+            }
+            acc[sign.id].sources.push(source);
+            return acc;
+          }, {} as Record<number, { sign: any; sources: any[] }>);
+          
+          // Retry failed sources sequentially
+          const signIds = Object.keys(missingBySign).map(Number);
+          for (let i = 0; i < signIds.length; i++) {
+            const signId = signIds[i];
+            const { sign, sources: failedSources } = missingBySign[signId];
+            
+            console.log(`[Auto-Retry] Retrying sign ${i + 1}/${signIds.length}: ${sign.name_italian} (${failedSources.length} sources)`);
+            
+            for (const source of failedSources) {
+              try {
+                await enqueueScrapeJob(createScraperInput(source, sign, targetDate));
+                console.log(`[Auto-Retry] Re-enqueued ${source.name} - ${sign.name_italian}`);
+              } catch (error) {
+                console.error(`[Auto-Retry] Failed to re-enqueue ${source.name} - ${sign.name_italian}:`, error);
+              }
+            }
+            
+            // Wait 5 seconds before next sign
+            if (i < signIds.length - 1) {
+              await new Promise(resolve => setTimeout(resolve, 5000));
+            }
+          }
+          
+          console.log(`[Auto-Retry] Automatic retry completed`);
+        } else {
+          console.log(`[Auto-Retry] No failed sources found. All scraping completed successfully!`);
+        }
       })();
 
       res.json({
@@ -424,7 +499,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const errors: string[] = [];
 
       // Process signs sequentially to avoid overwhelming OpenAI rate limits
-      // Start background processing, don't wait for completion
+      // Start background processing with automatic retry fallback
       (async () => {
         for (let i = 0; i < zodiacSigns.length; i++) {
           const sign = zodiacSigns[i];
@@ -449,6 +524,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
         console.log(`[Weekly Refresh] All signs enqueued. Total jobs: ${jobIds.length}, Errors: ${errors.length}`);
+        
+        // Automatic fallback retry mechanism
+        const expectedJobCount = sources.length * zodiacSigns.length;
+        const estimatedMinutes = Math.ceil(expectedJobCount / 20) + 2; // Add 2 min buffer
+        const waitTimeMs = estimatedMinutes * 60 * 1000;
+        
+        console.log(`[Auto-Retry Weekly] Waiting ${estimatedMinutes} minutes for initial scraping to complete before checking for failures...`);
+        await new Promise(resolve => setTimeout(resolve, waitTimeMs));
+        
+        // Check for missing/failed sources
+        console.log(`[Auto-Retry Weekly] Checking for failed sources...`);
+        const [allActiveSources, allZodiacSigns] = await Promise.all([
+          prisma.weeklySource.findMany({ where: { is_active: true } }),
+          prisma.zodiacSign.findMany(),
+        ]);
+        
+        const missingSources: Array<{ source: any; sign: any }> = [];
+        
+        for (const sign of allZodiacSigns) {
+          for (const source of allActiveSources) {
+            const entry = await prisma.weeklyHoroscopeData.findFirst({
+              where: {
+                source_id: source.id,
+                zodiac_sign_id: sign.id,
+                week_start_date: new Date(targetWeekStart),
+              }
+            });
+            
+            // Retry if missing OR if summary is empty (failed scrape)
+            if (!entry || entry.summary === '') {
+              missingSources.push({ source, sign });
+            }
+          }
+        }
+        
+        if (missingSources.length > 0) {
+          console.log(`[Auto-Retry Weekly] Found ${missingSources.length} missing sources. Starting automatic retry...`);
+          
+          // Group by sign for sequential processing
+          const missingBySign = missingSources.reduce((acc, { source, sign }) => {
+            if (!acc[sign.id]) {
+              acc[sign.id] = { sign, sources: [] };
+            }
+            acc[sign.id].sources.push(source);
+            return acc;
+          }, {} as Record<number, { sign: any; sources: any[] }>);
+          
+          // Retry failed sources sequentially
+          const signIds = Object.keys(missingBySign).map(Number);
+          for (let i = 0; i < signIds.length; i++) {
+            const signId = signIds[i];
+            const { sign, sources: failedSources } = missingBySign[signId];
+            
+            console.log(`[Auto-Retry Weekly] Retrying sign ${i + 1}/${signIds.length}: ${sign.name_italian} (${failedSources.length} sources)`);
+            
+            for (const source of failedSources) {
+              try {
+                await enqueueWeeklyScrapeJob(createWeeklyScraperInput(source, sign, targetWeekStart));
+                console.log(`[Auto-Retry Weekly] Re-enqueued ${source.name} - ${sign.name_italian}`);
+              } catch (error) {
+                console.error(`[Auto-Retry Weekly] Failed to re-enqueue ${source.name} - ${sign.name_italian}:`, error);
+              }
+            }
+            
+            // Wait 5 seconds before next sign
+            if (i < signIds.length - 1) {
+              await new Promise(resolve => setTimeout(resolve, 5000));
+            }
+          }
+          
+          console.log(`[Auto-Retry Weekly] Automatic retry completed`);
+        } else {
+          console.log(`[Auto-Retry Weekly] No failed sources found. All scraping completed successfully!`);
+        }
       })();
 
       res.json({
