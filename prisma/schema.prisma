@@ -138,7 +138,7 @@ model CleanupTracker {
   id             Int      @id @default(autoincrement())
   last_cleanup_at DateTime @default(now())
   created_at     DateTime @default(now())
-  updated_at     DateTime @updatedAt
+  updated_at     DateTime @default(now()) @updatedAt
 
   @@map("cleanup_tracker")
 }
