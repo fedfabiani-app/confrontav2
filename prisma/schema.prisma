@@ -190,7 +190,8 @@ model ScraperSourceStatus {
 }
 
 model ScraperConfig {
-  id                       Int      @id @default(1)
+  id                       Int      @id @default(autoincrement())
+  scraper_type             String   @unique @default("daily") // 'daily' or 'weekly'
   enabled                  Boolean  @default(false)
   start_time               String   @default("05:30:00") // TIME format HH:MM:SS
   end_time                 String   @default("08:00:00")
