@@ -87,6 +87,7 @@ Regole:
 - Rifletti il tono prevalente (positivo, neutro o negativo).
 - Preferisci verbi d’azione e un beneficio o consiglio chiaro.
 - Vietati ellissi, frasi troncate, emoji, hashtag, virgolette decorative o TUTTO MAIUSCOLO.
+- Scrivi sempre i nomi dei segni con l’iniziale maiuscola (es. “Ariete”, “Sagittario”).
 
 Criteri di qualità:
 - Chiarezza immediata e senso compiuto.
@@ -108,7 +109,9 @@ Dopo aver scritto la frase, verifica che:
 2. Non termini con preposizioni o congiunzioni.
 3. Abbia tono oroscopico naturale e positivo.
 4. Rispetti il limite di 100 caratteri.
-Se non rispetta queste condizioni, riscrivi una sola volta in forma più breve e completa.
+5. Contenga sempre le maiuscole corrette per i segni zodiacali.
+
+Se non rispetta queste condizioni, riscrivi una sola volta in forma più breve e completa, assicurando sempre una chiusura logica e naturale.
 
 2. RIASSUNTO (ESATTAMENTE tra 250-530 caratteri):
    - Cattura l'essenza delle previsioni in modo dettagliato e specifico

@@ -4,10 +4,7 @@ import { WeeklyScraperInput, WeeklyScraperOutput, weeklyScraperOutputSchema } fr
 
 // ==================== CONSTANTS ====================
 
-const ZODIAC_SIGNS = [
-  'ariete', 'toro', 'gemelli', 'cancro', 'leone', 'vergine',
-  'bilancia', 'scorpione', 'sagittario', 'capricorno', 'acquario', 'pesci'
-] as const;
+// ZODIAC_SIGNS removed (previously unused) to avoid unused-symbol warnings
 
 const SIGN_MAP: Record<string, string> = {
   'Ariete': 'ariete',
@@ -36,6 +33,36 @@ const archiveUrlCache = new Map<string, string>();
 
 // ==================== END CONSTANTS ====================
 
+// Shared zodiac slugs (use where multiple functions need the list)
+const ZODIAC_SLUGS = [
+  'ariete','toro','gemelli','cancro','leone','vergine',
+  'bilancia','scorpione','sagittario','capricorno','acquario','pesci'
+];
+
+/**
+ * Normalize a possibly-relative href into an absolute https URL.
+ * baseUrl: the page/base to resolve relative URLs against (e.g. input.baseUrl or site root)
+ * hostOverride: optional host to force when href is relative (e.g. 'https://www.fanpage.it')
+ */
+function normalizeToAbsoluteUrl(href: string, baseUrl: string, hostOverride?: string): string {
+  if (!href) return href;
+  // If already absolute, normalize http->https and return
+  if (href.startsWith('http')) {
+    return href.startsWith('http://') ? href.replace('http://', 'https://') : href;
+  }
+
+  // Prefer a host override when provided
+  const base = hostOverride || baseUrl || '';
+  try {
+    return new URL(href, base).toString();
+  } catch {
+    // Fallback: simple join
+    const cleanBase = (base || '').replace(/\/$/, '');
+    if (href.startsWith('/')) return cleanBase + href;
+    return cleanBase + '/' + href.replace(/^\//, '');
+  }
+}
+
 interface ScrapeResult {
   success: boolean;
   text?: string;
@@ -48,6 +75,23 @@ interface WeekDateRange {
   endDate: Date;
 }
 
+function getIsoWeekYear(d: Date): { year: number; week: number } {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dayNum = date.getUTCDay() || 7; // Monday=1 .. Sunday=7
+  date.setUTCDate(date.getUTCDate() + 4 - dayNum); // Thursday in current week
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  return { year: date.getUTCFullYear(), week: weekNo };
+}
+
+function getWeekBoundaries(date: Date): { start: Date; end: Date } {
+  const start = new Date(date);
+  start.setDate(date.getDate() - date.getDay() + 1); // Monday
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6); // Sunday
+  return { start, end };
+}
+
 function parseItalianWeekRange(text: string, currentYear: number): WeekDateRange | null {
   const lowerText = text.toLowerCase();
 
@@ -58,15 +102,18 @@ function parseItalianWeekRange(text: string, currentYear: number): WeekDateRange
   // - "dal11-al-17-ottobre" (dal + number, no separator)
   // - "dall11-al-17-ottobre" (dall + number, no separator)
   // - "dall11al17ottobre" (completely concatenated)
+  // - "dal 2 all'8 agosto" / "dal-2-all8-agosto" (variant with all / all')
+  const AL_VARIANTS = '(?:al|all(?:\\\'|)?)';
+
   const patterns = [
     // Pattern 1: Most flexible - handles dal/dall with any combination of separators
     // Matches: dal11, dall11, dal-11, dall-11, dal 11, dall 11
-    /dall?(?:[-\s])?(\d{1,2})(?:[-\s])*al(?:[-\s])*(\d{1,2})(?:[-\s])*(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:(?:[-\s])*\d{4})?/i,
+    new RegExp(`dall?(?:[-\\s])?(\\d{1,2})(?:[-\\s])*${AL_VARIANTS}(?:[-\\s])*(\\d{1,2})(?:[-\\s])*(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:(?:[-\\s])*\\d{4})?`, 'i'),
 
-    // Pattern 2: Two months format "dal/dall + day + month + al + day + month"
-    /dall?(?:[-\s])?(\d{1,2})(?:[-\s])*(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:[-\s])*al(?:[-\s])*(\d{1,2})(?:[-\s])*(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:(?:[-\s])*\d{4})?/i,
+    // Pattern 2: Two months format "dal/dall + day + month + al/all + day + month"
+    new RegExp(`dall?(?:[-\\s])?(\\d{1,2})(?:[-\\s])*(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:[-\\s])*${AL_VARIANTS}(?:[-\\s])*(\\d{1,2})(?:[-\\s])*(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:(?:[-\\s])*\\d{4})?`, 'i'),
 
-    // Pattern 3: Simple "number - number - month" format
+    // Pattern 3: Simple "number - number - month" format (also handles hyphen/space)
     /(\d{1,2})[-\s]+(\d{1,2})[-\s]+(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:[-\s]*\d{4})?/i,
   ];
 
@@ -74,8 +121,8 @@ function parseItalianWeekRange(text: string, currentYear: number): WeekDateRange
     const match = lowerText.match(pattern);
     if (match) {
       if (match.length === 4) {
-        const startDay = parseInt(match[1]);
-        const endDay = parseInt(match[2]);
+  const startDay = parseInt(match[1], 10);
+  const endDay = parseInt(match[2], 10);
         const monthName = match[3].toLowerCase();
         const month = ITALIAN_MONTHS[monthName];
 
@@ -90,9 +137,9 @@ function parseItalianWeekRange(text: string, currentYear: number): WeekDateRange
           return { startDate, endDate };
         }
       } else if (match.length === 5) {
-        const startDay = parseInt(match[1]);
+  const startDay = parseInt(match[1], 10);
         const startMonthName = match[2].toLowerCase();
-        const endDay = parseInt(match[3]);
+  const endDay = parseInt(match[3], 10);
         const endMonthName = match[4].toLowerCase();
 
         const startMonth = ITALIAN_MONTHS[startMonthName];
@@ -116,11 +163,14 @@ function parseItalianWeekRange(text: string, currentYear: number): WeekDateRange
 }
 
 async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<string> {
-  const cacheKey = `${input.sourceId}-${input.weekStartDate}`;
+  // Get ISO week for cache key
+  const targetDate = new Date(input.weekStartDate);
+  const { year, week } = getIsoWeekYear(targetDate);
+  const cacheKey = `${input.sourceId}-${year}-W${week}`;
 
   const cached = archiveUrlCache.get(cacheKey);
   if (cached) {
-    console.log(`Using cached archive URL for ${input.sourceName}`);
+    console.log(`Using cached archive URL for ${input.sourceName} (week ${year}-W${week})`);
     return cached;
   }
 
@@ -147,8 +197,8 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
   const html = await fetchHtml(archiveUrl, input.userAgent);
   const $ = cheerio.load(html);
 
-  const targetDate = new Date(input.weekStartDate);
-  const currentYear = targetDate.getFullYear();
+  const archiveTargetDate = new Date(input.weekStartDate);
+  const currentYear = archiveTargetDate.getFullYear();
 
   const candidates: { url: string; dateRange: WeekDateRange; score: number }[] = [];
 
@@ -171,9 +221,9 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
       const urlDateMatch = href.match(/\/(\d{4})\/(\d{1,2})\/(\d{1,2})\//);
 
       if (urlDateMatch) {
-        const urlYear = parseInt(urlDateMatch[1]);
-        const urlMonth = parseInt(urlDateMatch[2]);
-        const urlDay = parseInt(urlDateMatch[3]);
+        const urlYear = parseInt(urlDateMatch[1], 10);
+        const urlMonth = parseInt(urlDateMatch[2], 10);
+        const urlDay = parseInt(urlDateMatch[3], 10);
         const urlDate = new Date(urlYear, urlMonth - 1, urlDay);
 
         const dayOfWeek = urlDate.getDay();
@@ -243,14 +293,7 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
           score += 5;
         }
 
-        let absoluteUrl = href;
-        if (href.startsWith('/')) {
-          absoluteUrl = 'https://www.sorrisi.com' + href;
-        } else if (!href.startsWith('http')) {
-          absoluteUrl = 'https://www.sorrisi.com/' + href;
-        } else if (href.startsWith('http://')) {
-          absoluteUrl = href.replace('http://', 'https://');
-        }
+        const absoluteUrl = normalizeToAbsoluteUrl(href, 'https://www.sorrisi.com');
 
         candidates.push({ url: absoluteUrl, dateRange, score });
         console.log(`Found Sorrisi.com URL (score: ${score}): ${absoluteUrl} => ${dateRange.startDate.toISOString().split('T')[0]}`);
@@ -311,10 +354,10 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
       }
 
       if (match) {
-        const startDay = parseInt(match[1]);
-        const endDay = parseInt(match[2]);
-        const monthName = match[3].toLowerCase();
-        const year = parseInt(match[4]);
+  const startDay = parseInt(match[1], 10);
+  const endDay = parseInt(match[2], 10);
+  const monthName = match[3].toLowerCase();
+  const year = parseInt(match[4], 10);
         const month = ITALIAN_MONTHS[monthName];
 
         if (month) {
@@ -350,14 +393,7 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
         }
 
         // Ensure absolute URL
-        let absoluteUrl = href;
-        if (href.startsWith('/')) {
-          absoluteUrl = 'https://www.gazzetta.it' + href;
-        } else if (!href.startsWith('http')) {
-          absoluteUrl = 'https://www.gazzetta.it/' + href;
-        } else if (href.startsWith('http://')) {
-          absoluteUrl = href.replace('http://', 'https://');
-        }
+        const absoluteUrl = normalizeToAbsoluteUrl(href, 'https://www.gazzetta.it');
 
         candidates.push({ url: absoluteUrl, dateRange, score });
         console.log(`Found Gazzetta.it URL (score: ${score}): ${absoluteUrl} => ${dateRange.startDate.toISOString().split('T')[0]}`);
@@ -393,10 +429,10 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
       let dateRange: WeekDateRange | null = null;
 
       if (match) {
-        const startDay = parseInt(match[1]);
-        const endDay = parseInt(match[2]);
-        const monthName = match[3].toLowerCase();
-        const year = match[4] ? parseInt(match[4]) : currentYear;
+  const startDay = parseInt(match[1], 10);
+  const endDay = parseInt(match[2], 10);
+  const monthName = match[3].toLowerCase();
+  const year = match[4] ? parseInt(match[4], 10) : currentYear;
         const month = ITALIAN_MONTHS[monthName];
 
         if (month) {
@@ -420,18 +456,11 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
       if (dateRange) {
         const articleMatch = href.match(/\/a(\d+)\//);
         if (articleMatch) {
-          const articleId = parseInt(articleMatch[1]);
+          const articleId = parseInt(articleMatch[1], 10);
           score += Math.min(articleId / 1000000, 50);
         }
 
-        let absoluteUrl = href;
-        if (href.startsWith('/')) {
-          absoluteUrl = 'https://www.marieclaire.it' + href;
-        } else if (!href.startsWith('http')) {
-          absoluteUrl = 'https://www.marieclaire.it/' + href;
-        } else if (href.startsWith('http://')) {
-          absoluteUrl = href.replace('http://', 'https://');
-        }
+        const absoluteUrl = normalizeToAbsoluteUrl(href, 'https://www.marieclaire.it');
 
         candidates.push({ url: absoluteUrl, dateRange, score });
         console.log(`Found Marie Claire URL (score: ${score}): ${absoluteUrl} => ${dateRange.startDate.toISOString().split('T')[0]}`);
@@ -461,48 +490,57 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
 
   console.log(`Found ${candidates.length} candidate URLs in archive`);
 
-  const targetDateStr = targetDate.toISOString().split('T')[0];
+  const targetWeek = getWeekBoundaries(targetDate);
+  console.log(`Target week: ${targetWeek.start.toISOString().split('T')[0]} to ${targetWeek.end.toISOString().split('T')[0]}`);
 
-  // First try: exact date match
+  // First try: exact week match
   for (const candidate of candidates) {
-    const candidateDateStr = candidate.dateRange.startDate.toISOString().split('T')[0];
-    console.log(`Candidate: ${candidate.url} => ${candidateDateStr} (target: ${targetDateStr}, score: ${candidate.score})`);
+    const candidateWeek = getWeekBoundaries(candidate.dateRange.startDate);
 
-    if (candidateDateStr === targetDateStr) {
-      console.log(`✓ Matched archive URL (exact match): ${candidate.url}`);
+    console.log(`Candidate: ${candidate.url}`);
+    console.log(`Week: ${candidateWeek.start.toISOString().split('T')[0]} to ${candidateWeek.end.toISOString().split('T')[0]}`);
+
+    if (candidateWeek.start.getTime() === targetWeek.start.getTime()) {
+      console.log(`✓ Found exact week match: ${candidate.url}`);
       archiveUrlCache.set(cacheKey, candidate.url);
       return candidate.url;
     }
   }
 
-  // Second try: date within range
-  for (const candidate of candidates) {
-    const startDate = candidate.dateRange.startDate;
-    const endDate = candidate.dateRange.endDate;
+  // Second try: future dates within 7 days
+  const futureMatches = candidates
+    .map(c => {
+      const diffDays = Math.floor((c.dateRange.startDate.getTime() - targetDate.getTime()) / (1000 * 60 * 60 * 24));
+      return { ...c, diffDays };
+    })
+    .filter(c => c.diffDays >= 0 && c.diffDays <= 7)
+    .sort((a, b) => a.diffDays - b.diffDays);
 
-    if (targetDate >= startDate && targetDate <= endDate) {
-      console.log(`✓ Matched archive URL (within range): ${candidate.url}`);
-      archiveUrlCache.set(cacheKey, candidate.url);
-      return candidate.url;
-    }
+  if (futureMatches.length > 0) {
+    const bestMatch = futureMatches[0];
+    console.log(`✓ Found future match (${bestMatch.diffDays} days ahead): ${bestMatch.url}`);
+    archiveUrlCache.set(cacheKey, bestMatch.url);
+    return bestMatch.url;
   }
 
-  // Third try: closest date (within 3 days)
-  const closestCandidate = candidates
-    .map(c => ({
-      ...c,
-      daysDiff: Math.abs(Math.floor((c.dateRange.startDate.getTime() - targetDate.getTime()) / (1000 * 60 * 60 * 24)))
-    }))
-    .filter(c => c.daysDiff <= 3)
-    .sort((a, b) => a.daysDiff - b.daysDiff || b.score - a.score)[0];
+  // Third try: closest match within reasonable range (-3 to +7 days)
+  const allMatches = candidates
+    .map(c => {
+      const diffDays = Math.floor((c.dateRange.startDate.getTime() - targetDate.getTime()) / (1000 * 60 * 60 * 24));
+      return { ...c, diffDays };
+    })
+    .filter(c => c.diffDays >= -3 && c.diffDays <= 7)
+    .sort((a, b) => Math.abs(a.diffDays) - Math.abs(b.diffDays));
 
-  if (closestCandidate) {
-    console.log(`✓ Using closest match (${closestCandidate.daysDiff} days diff): ${closestCandidate.url}`);
-    archiveUrlCache.set(cacheKey, closestCandidate.url);
-    return closestCandidate.url;
+  if (allMatches.length > 0) {
+    const bestMatch = allMatches[0];
+    console.log(`✓ Using closest match (${bestMatch.diffDays} days diff): ${bestMatch.url}`);
+    archiveUrlCache.set(cacheKey, bestMatch.url);
+    return bestMatch.url;
   }
 
-  throw new Error(`No matching weekly horoscope found in archive for week starting ${input.weekStartDate}. Found ${candidates.length} candidates but none matched ${targetDateStr}`);
+  const targetStr = targetWeek.start.toISOString().split('T')[0];
+  throw new Error(`No matching weekly horoscope found in archive for week starting ${targetStr}. Found ${candidates.length} candidates but none matched the target week`);
 }
 
 const COMPREHENSIVE_HOROSCOPE_KEYWORDS = [
@@ -644,28 +682,20 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
     const dateMatch = href.match(/dal-(\d{1,2})-al-(\d{1,2})-(\w+)-(\d{4})/i);
 
     if (dateMatch) {
-      const [_, startDay, endDay, monthName, year] = dateMatch;
+      // Only the startDay/month/year are required here; avoid capturing unused endDay
+      const startDay = dateMatch[1];
+      const monthName = dateMatch[3];
+      const year = dateMatch[4];
 
-      const monthMap: Record<string, number> = {
-        'gennaio': 1, 'febbraio': 2, 'marzo': 3, 'aprile': 4,
-        'maggio': 5, 'giugno': 6, 'luglio': 7, 'agosto': 8,
-        'settembre': 9, 'ottobre': 10, 'novembre': 11, 'dicembre': 12
-      };
-
-      const monthNum = monthMap[monthName.toLowerCase()];
+      const monthNum = ITALIAN_MONTHS[monthName.toLowerCase()];
 
       if (monthNum) {
-        const startDate = new Date(parseInt(year), monthNum - 1, parseInt(startDay));
+        const startDate = new Date(parseInt(year, 10), monthNum - 1, parseInt(startDay, 10));
         const candidateDateStr = startDate.toISOString().split('T')[0];
 
         console.log(`Fanpage.it - Parsed date: ${candidateDateStr} (target: ${targetDateStr})`);
 
-        let absoluteUrl = href;
-        if (href.startsWith('/')) {
-          absoluteUrl = 'https://www.fanpage.it' + href;
-        } else if (!href.startsWith('http')) {
-          absoluteUrl = 'https://www.fanpage.it/' + href;
-        }
+        const absoluteUrl = normalizeToAbsoluteUrl(href, 'https://www.fanpage.it');
 
         // Calculate score based on date proximity
         const daysDiff = Math.abs(Math.floor((startDate.getTime() - targetDate.getTime()) / (1000 * 60 * 60 * 24)));
@@ -855,28 +885,20 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
           const dateMatch = href.match(/oroscopo-\w+-(\d{1,2})(?:-al)?-(\d{1,2})-(\w+)-(\d{4})/i);
 
           if (dateMatch) {
-            const [_, startDay, endDay, monthName, year] = dateMatch;
+            // Only startDay/month/year needed; avoid capturing unused endDay
+            const startDay = dateMatch[1];
+            const monthName = dateMatch[3];
+            const year = dateMatch[4];
 
-            const monthMap: Record<string, number> = {
-              'gennaio': 1, 'febbraio': 2, 'marzo': 3, 'aprile': 4,
-              'maggio': 5, 'giugno': 6, 'luglio': 7, 'agosto': 8,
-              'settembre': 9, 'ottobre': 10, 'novembre': 11, 'dicembre': 12
-            };
-
-            const monthNum = monthMap[monthName.toLowerCase()];
+            const monthNum = ITALIAN_MONTHS[monthName.toLowerCase()];
 
             if (monthNum) {
-              const startDate = new Date(parseInt(year), monthNum - 1, parseInt(startDay));
+              const startDate = new Date(parseInt(year, 10), monthNum - 1, parseInt(startDay, 10));
               const candidateDateStr = startDate.toISOString().split('T')[0];
 
               console.log(`Elle.com/it - Parsed date: ${candidateDateStr} (target: ${targetDateStr})`);
 
-              let absoluteUrl = href;
-              if (href.startsWith('/')) {
-                absoluteUrl = 'https://www.elle.com/it' + href;
-              } else if (!href.startsWith('http')) {
-                absoluteUrl = 'https://www.elle.com/it/' + href;
-              }
+              const absoluteUrl = normalizeToAbsoluteUrl(href, 'https://www.elle.com');
 
               // Calculate score based on date proximity
               const daysDiff = Math.abs(Math.floor((startDate.getTime() - thursdayDate.getTime()) / (1000 * 60 * 60 * 24)));
@@ -976,12 +998,7 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
                 href.includes('simon-and-the-stars') &&
                 (href.includes(`oroscopo-${targetSignSlug}`) || linkText === targetSign.toLowerCase())) {
 
-              let absoluteUrl = href;
-              if (href.startsWith('/')) {
-                absoluteUrl = 'https://www.elle.com/it' + href;
-              } else if (!href.startsWith('http')) {
-                absoluteUrl = 'https://www.elle.com/it/' + href;
-              }
+              const absoluteUrl = normalizeToAbsoluteUrl(href, 'https://www.elle.com');
 
               console.log(`Elle.com/it - ✓ Found target sign link: ${absoluteUrl}`);
               foundUrl = absoluteUrl;
@@ -1016,7 +1033,7 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
           const month = input.month;
 
           // Handle "dall" vs "dal" - use "dall" for days with vowel sounds (1=uno, 8=otto, 11=undici)
-          const dayNum = parseInt(startDay);
+          const dayNum = parseInt(startDay, 10);
           const usesDall = dayNum === 1 || dayNum === 8 || dayNum === 11;
           const prefix = usesDall ? 'dall' : 'dal';
 
@@ -1125,8 +1142,8 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
 
       // For placeholders that represent the "end" month of the week, prefer endMonth when the week crosses months.
       // Otherwise keep the start month.
-      const monthForEnd = crossMonth ? endMonthName : startMonthName;
-      const monthForStart = startMonthName;
+  const monthForEnd = crossMonth ? endMonthName : startMonthName;
+  // monthForStart removed (unused)
 
       // Prepare day formats: unpadded (e.g. "2") and zero-padded (e.g. "02")
       const startDayNumber = String(parseInt(input.startDay, 10));
@@ -1363,8 +1380,7 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
       console.log(`Marie Claire - Page structure analysis:`);
 
            const signId = SIGN_MAP[input.signSlugIt] || input.signSlugIt.toLowerCase();
-      const zodiacSigns = ['ariete', 'toro', 'gemelli', 'cancro', 'leone', 'vergine',
-                           'bilancia', 'scorpione', 'sagittario', 'capricorno', 'acquario', 'pesci'];
+  const zodiacSigns = ZODIAC_SLUGS;
 
       // Log all H2 elements for debugging
       console.log(`Marie Claire - Found ${$('h2').length} H2 elements on page`);
@@ -1564,8 +1580,7 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
     if (url.includes('repubblica.it')) {
       console.log(`Repubblica - Extracting content for ${input.signSlugIt} from URL: ${url}`);
 
-      const zodiacSigns = ['ariete', 'toro', 'gemelli', 'cancro', 'leone', 'vergine',
-                           'bilancia', 'scorpione', 'sagittario', 'capricorno', 'acquario', 'pesci'];
+  const zodiacSigns = ZODIAC_SLUGS;
 
       // Find the H2 heading that exactly matches the sign name
       let signHeading = $();
@@ -1662,8 +1677,7 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
     if (url.includes('fanpage.it')) {
       console.log(`Fanpage.it - Extracting weekly content for ${input.signSlugIt} from URL: ${url}`);
 
-      const zodiacSigns = ['ariete', 'toro', 'gemelli', 'cancro', 'leone', 'vergine',
-                           'bilancia', 'scorpione', 'sagittario', 'capricorno', 'acquario', 'pesci'];
+  const zodiacSigns = ZODIAC_SLUGS;
 
       // Log structure
       console.log(`Fanpage.it - Found ${$('h2').length} H2 elements`);
