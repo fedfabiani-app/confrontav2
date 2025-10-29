@@ -1,0 +1,55 @@
+Let's build the week utilities following your recommendations.
+
+LOCATION & NAMING:
+Create: server/utils/weekUtils.ts (as you suggested)
+
+CORE FUNCTIONS YOU RECOMMENDED:
+1. getMondayOfWeek(date: Date): Date
+   - Get the Monday for any given date
+   - Handle timezone properly (Europe/Rome)
+
+2. getCurrentWeekStart(): Date
+   - Get this week's Monday in CET
+   - This will be the primary "week_start" for database queries
+
+3. getWeekRange(monday: Date): { start: Date, end: Date }
+   - Given a Monday, return the full week range (Monday-Sunday)
+   - Both dates should be Date objects
+
+4. formatWeekForDisplay(monday: Date): string
+   - Convert Monday date to human-readable format
+   - Example: "Week of Jan 13-19, 2025" or "21-27 ottobre"
+   - Use format that works for Italian users
+
+5. isSameWeek(date1: Date, date2: Date): boolean
+   - Check if two dates fall in the same week
+   - Useful for comparing execution dates
+
+ADDITIONAL FUNCTIONS I NEED:
+Based on our hybrid strategy, I also need:
+
+6. getSourceGroup(sourceSlug: string): 'all' | 'elle_only' | 'saturday_group'
+   - Classify sources by their scraping schedule
+   - elle.com → 'elle_only'
+   - d.repubblica.it, iodonna.it, sorrisi.com → 'saturday_group'
+   - Everything else → 'all'
+   - This maps to your source_group field in executions table
+
+7. shouldSourceBeScrapedToday(sourceSlug: string): boolean
+   - Check if today is the right day to scrape this source
+   - Monday: all sources return true
+   - Thursday: only elle.com returns true
+   - Saturday: only saturday_group sources return true
+   - Used by Thursday/Saturday schedulers to filter sources
+
+TECHNICAL REQUIREMENTS:
+- Use date-fns (we already have it installed)
+- All timezone handling in Europe/Rome (CET/CEST)
+- Export all functions
+- Include TypeScript types
+- Add comments explaining the logic
+
+EXTENSIBILITY:
+Make it easy to add more exception sources later (maybe another Thursday source in the future, or a Sunday source, etc.)
+
+Build this file for me with all 7 functions.
