@@ -13,9 +13,9 @@ export const scrapeQueue = new PQueue({
 });
 
 export const nlpQueue = new PQueue({
-  concurrency: 2, // Max 2 concurrent OpenAI calls
-  interval: 1000, // 1 second interval between batches  
-  intervalCap: 2, // Max 2 jobs per interval
+  concurrency: 1, // Process one OpenAI call at a time to avoid rate limits
+  interval: 3000, // 3 second interval between calls
+  intervalCap: 1, // Max 1 job per interval
 });
 
 // Job status tracking
