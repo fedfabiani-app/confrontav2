@@ -100,38 +100,39 @@ export async function getWeeklyCoverage(weekStart: Date): Promise<WeeklyCoverage
 
 /**
  * Get execution history with optional filtering
+ * SECURITY: Uses Prisma query builder to prevent SQL injection
  */
 export async function getExecutionHistory(
   limit: number = 10,
   sourceGroup?: string
 ): Promise<ExecutionHistoryResult[]> {
-  const results = await prisma.$queryRaw<any[]>`
-    SELECT 
-      id,
-      source_group as "sourceGroup",
-      status,
-      trigger_type as "triggerType",
-      started_at as "startedAt",
-      completed_at as "completedAt",
-      EXTRACT(EPOCH FROM (completed_at - started_at))/60 as "durationMinutes",
-      target_week as "targetWeek"
-    FROM weekly_scraper_execution
-    WHERE 
-      ${sourceGroup ? prisma.raw(`source_group = '${sourceGroup}'`) : prisma.raw('TRUE')}
-    ORDER BY started_at DESC
-    LIMIT ${limit}
-  `;
+  // Validate sourceGroup if provided (whitelist approach)
+  if (sourceGroup && !['all', 'elle_only', 'saturday_group'].includes(sourceGroup)) {
+    throw new Error(`Invalid source group: ${sourceGroup}`);
+  }
 
-  return results.map(row => ({
-    id: row.id,
-    sourceGroup: row.sourceGroup,
-    status: row.status,
-    triggerType: row.triggerType,
-    startedAt: row.startedAt,
-    completedAt: row.completedAt,
-    durationMinutes: row.durationMinutes ? parseFloat(row.durationMinutes) : null,
-    targetWeek: row.targetWeek,
-  }));
+  const executions = await prisma.weeklyScraperExecution.findMany({
+    where: sourceGroup ? { source_group: sourceGroup } : {},
+    orderBy: { started_at: 'desc' },
+    take: limit,
+  });
+
+  return executions.map(exec => {
+    const durationMinutes = exec.completed_at && exec.started_at
+      ? (exec.completed_at.getTime() - exec.started_at.getTime()) / (1000 * 60)
+      : null;
+
+    return {
+      id: exec.id,
+      sourceGroup: exec.source_group,
+      status: exec.status,
+      triggerType: exec.trigger_type,
+      startedAt: exec.started_at,
+      completedAt: exec.completed_at,
+      durationMinutes,
+      targetWeek: exec.target_week,
+    };
+  });
 }
 
 /**

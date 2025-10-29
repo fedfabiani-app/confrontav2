@@ -5,7 +5,7 @@ import prisma from "./services/database";
 import { enqueueScrapeJob, enqueueWeeklyScrapeJob, getAllJobStatuses, getJobStatus } from "./jobs";
 import { ScraperInput, WeeklyScraperInput } from "@shared/schema";
 import { ZODIAC_SIGNS_IT_EN, ITALIAN_WEEKDAYS, ITALIAN_MONTHS } from "@shared/constants";
-import { getMondayOfWeek, formatWeekUrlParams, getCurrentWeekStart, isMonday } from "./utils/weekUtils";
+import { getMondayOfWeek, formatWeekUrlParams, getCurrentWeekStart } from "./utils/weekUtils";
 import { runWeeklyScraperCycle, type SourceGroup } from "./services/weeklyScraperOrchestrator";
 import {
   getWeeklyCoverage,
@@ -520,7 +520,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         weekStart = new Date(targetWeek);
         
         // Verify it's a Monday
-        if (!isMonday(weekStart)) {
+        if (weekStart.getDay() !== 1) {
           return res.status(400).json({ 
             error: 'Target week must be a Monday',
             providedDate: targetWeek,
@@ -610,7 +610,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let weekStart: Date;
       if (targetWeek) {
         weekStart = new Date(targetWeek);
-        if (!isMonday(weekStart)) {
+        if (weekStart.getDay() !== 1) {
           return res.status(400).json({ error: 'Target week must be a Monday' });
         }
       } else {
@@ -665,7 +665,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let weekStart: Date;
       if (targetWeek) {
         weekStart = new Date(targetWeek);
-        if (!isMonday(weekStart)) {
+        if (weekStart.getDay() !== 1) {
           return res.status(400).json({ error: 'Target week must be a Monday' });
         }
       } else {
@@ -1292,8 +1292,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/weekly-scraper/executions", async (req, res) => {
     try {
       const { limit, sourceGroup } = req.query;
+      
+      // Validate limit parameter
       const limitNum = limit ? parseInt(limit as string) : 10;
+      if (isNaN(limitNum) || limitNum < 1 || limitNum > 100) {
+        return res.status(400).json({ error: 'Invalid limit parameter (must be 1-100)' });
+      }
+      
+      // Validate sourceGroup parameter (whitelist)
+      const validGroups: SourceGroup[] = ['all', 'elle_only', 'saturday_group'];
       const groupFilter = sourceGroup as SourceGroup | undefined;
+      if (groupFilter && !validGroups.includes(groupFilter)) {
+        return res.status(400).json({ 
+          error: 'Invalid sourceGroup parameter',
+          validValues: validGroups
+        });
+      }
       
       const executions = await getExecutionHistory(limitNum, groupFilter);
       
