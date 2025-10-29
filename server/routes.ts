@@ -602,6 +602,190 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // POST /api/retry-failed/all - Retry only failed daily horoscope sources
+  app.post("/api/retry-failed/all", async (req, res) => {
+    try {
+      const { date } = req.query;
+      const targetDate = date as string || new Date().toISOString().split('T')[0];
+
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(targetDate)) {
+        return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
+      }
+
+      // Find all failed entries (where summary is empty)
+      const failedEntries = await prisma.horoscopeData.findMany({
+        where: {
+          date: new Date(targetDate),
+          summary: ''
+        },
+        include: {
+          source: true,
+          zodiac_sign: true,
+        }
+      });
+
+      if (failedEntries.length === 0) {
+        return res.json({
+          message: 'No failed sources found',
+          failedCount: 0,
+          date: targetDate,
+        });
+      }
+
+      console.log(`[Retry Failed] Found ${failedEntries.length} failed entries for ${targetDate}`);
+
+      const jobIds: string[] = [];
+      const errors: string[] = [];
+
+      type FailedEntry = typeof failedEntries[0];
+      
+      // Group by sign for sequential processing
+      const entriesBySign = failedEntries.reduce((acc, entry) => {
+        const signId = entry.zodiac_sign_id;
+        if (!acc[signId]) {
+          acc[signId] = [];
+        }
+        acc[signId].push(entry);
+        return acc;
+      }, {} as Record<number, FailedEntry[]>);
+
+      // Process signs sequentially in background
+      (async () => {
+        const signIds = Object.keys(entriesBySign).map(Number);
+        for (let i = 0; i < signIds.length; i++) {
+          const signId = signIds[i];
+          const entries = entriesBySign[signId];
+          const signName = entries[0].zodiac_sign.name_italian;
+          
+          console.log(`[Retry Failed] Processing sign ${i + 1}/${signIds.length}: ${signName} (${entries.length} failed sources)`);
+          
+          // Enqueue all failed sources for this sign
+          for (const entry of entries) {
+            try {
+              const jobId = await enqueueScrapeJob(createScraperInput(entry.source, entry.zodiac_sign, targetDate));
+              jobIds.push(jobId);
+            } catch (error) {
+              const errorMsg = `Failed to enqueue retry for ${entry.source.name} - ${signName}`;
+              errors.push(errorMsg);
+              console.error(errorMsg, error);
+            }
+          }
+          
+          // Wait 5 seconds before processing the next sign (except after the last one)
+          if (i < signIds.length - 1) {
+            console.log(`[Retry Failed] Waiting 5 seconds before processing next sign...`);
+            await new Promise(resolve => setTimeout(resolve, 5000));
+          }
+        }
+        console.log(`[Retry Failed] All failed sources enqueued. Total jobs: ${jobIds.length}, Errors: ${errors.length}`);
+      })();
+
+      res.json({
+        message: 'Retry started for failed sources (processing signs sequentially)',
+        failedCount: failedEntries.length,
+        affectedSigns: Object.keys(entriesBySign).length,
+        date: targetDate,
+        note: 'Only sources with blank/null summaries will be re-scraped',
+      });
+    } catch (error) {
+      console.error('Error starting retry for failed sources:', error);
+      res.status(500).json({ error: 'Failed to start retry' });
+    }
+  });
+
+  // POST /api/retry-failed-weekly/all - Retry only failed weekly horoscope sources
+  app.post("/api/retry-failed-weekly/all", async (req, res) => {
+    try {
+      const { weekStartDate } = req.query;
+      const targetWeekStart = weekStartDate as string || getMondayOfWeek(new Date()).toISOString().split('T')[0];
+
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(targetWeekStart)) {
+        return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
+      }
+
+      // Find all failed entries (where summary is empty)
+      const failedEntries = await prisma.weeklyHoroscopeData.findMany({
+        where: {
+          week_start_date: new Date(targetWeekStart),
+          summary: ''
+        },
+        include: {
+          weekly_source: true,
+          zodiac_sign: true,
+        }
+      });
+
+      if (failedEntries.length === 0) {
+        return res.json({
+          message: 'No failed weekly sources found',
+          failedCount: 0,
+          weekStartDate: targetWeekStart,
+        });
+      }
+
+      console.log(`[Retry Failed Weekly] Found ${failedEntries.length} failed entries for week starting ${targetWeekStart}`);
+
+      const jobIds: string[] = [];
+      const errors: string[] = [];
+
+      type FailedWeeklyEntry = typeof failedEntries[0];
+      
+      // Group by sign for sequential processing
+      const entriesBySign = failedEntries.reduce((acc, entry) => {
+        const signId = entry.zodiac_sign_id;
+        if (!acc[signId]) {
+          acc[signId] = [];
+        }
+        acc[signId].push(entry);
+        return acc;
+      }, {} as Record<number, FailedWeeklyEntry[]>);
+
+      // Process signs sequentially in background
+      (async () => {
+        const signIds = Object.keys(entriesBySign).map(Number);
+        for (let i = 0; i < signIds.length; i++) {
+          const signId = signIds[i];
+          const entries = entriesBySign[signId];
+          const signName = entries[0].zodiac_sign.name_italian;
+          
+          console.log(`[Retry Failed Weekly] Processing sign ${i + 1}/${signIds.length}: ${signName} (${entries.length} failed sources)`);
+          
+          // Enqueue all failed sources for this sign
+          for (const entry of entries) {
+            try {
+              const jobId = await enqueueWeeklyScrapeJob(createWeeklyScraperInput(entry.weekly_source, entry.zodiac_sign, targetWeekStart));
+              jobIds.push(jobId);
+            } catch (error) {
+              const errorMsg = `Failed to enqueue retry for ${entry.weekly_source.name} - ${signName}`;
+              errors.push(errorMsg);
+              console.error(errorMsg, error);
+            }
+          }
+          
+          // Wait 5 seconds before processing the next sign (except after the last one)
+          if (i < signIds.length - 1) {
+            console.log(`[Retry Failed Weekly] Waiting 5 seconds before processing next sign...`);
+            await new Promise(resolve => setTimeout(resolve, 5000));
+          }
+        }
+        console.log(`[Retry Failed Weekly] All failed sources enqueued. Total jobs: ${jobIds.length}, Errors: ${errors.length}`);
+      })();
+
+      res.json({
+        message: 'Retry started for failed weekly sources (processing signs sequentially)',
+        failedCount: failedEntries.length,
+        affectedSigns: Object.keys(entriesBySign).length,
+        weekStartDate: targetWeekStart,
+        note: 'Only sources with blank/null summaries will be re-scraped',
+      });
+    } catch (error) {
+      console.error('Error starting retry for failed weekly sources:', error);
+      res.status(500).json({ error: 'Failed to start retry' });
+    }
+  });
+
   // GET /health
   app.get("/health", (req, res) => {
     res.json({ 
@@ -851,13 +1035,16 @@ function buildHoroscopeUrl(input: ScraperInput): string | string[] {
       const prevDateFormatted = prevDate.toISOString().split('T')[0].split('-').reverse().join('-');
       const currentDateFormatted = targetDate.toISOString().split('T')[0].split('-').reverse().join('-');
       
+      const baseUrlWithSlash = input.baseUrl.endsWith('/') ? input.baseUrl : input.baseUrl + '/';
+      const slug1 = 'oroscopo-di-oggi';
+      const slug3 = 'oroscopo-del-giorno';
+      
       const gazzettaSignSlug = signMap[input.signSlugIt] || input.signSlugIt.toLowerCase();
       const url1 = `${baseUrlWithSlash}oroscopo/storie/${prevDateFormatted}/${slug3}/${gazzettaSignSlug}.shtml`;
       const url2 = `${baseUrlWithSlash}oroscopo/storie/${prevDateFormatted}/${slug1}/${gazzettaSignSlug}.shtml`;
       const url3 = `${baseUrlWithSlash}oroscopo/storie/${currentDateFormatted}/${slug3}/${gazzettaSignSlug}.shtml`;
       const url4 = `${baseUrlWithSlash}oroscopo/storie/${currentDateFormatted}/${slug1}/${gazzettaSignSlug}.shtml`;
       
-          
       return [url1, url2, url3, url4];
     }
   }

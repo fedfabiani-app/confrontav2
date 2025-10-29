@@ -61,6 +61,11 @@ Preferred communication style: Simple, everyday language.
 ### API Design
 - **REST Endpoints**: Organized routes for zodiac signs, sources, horoscopes, and refresh operations
 - **Manual Refresh**: Dedicated endpoints for on-demand data updates (daily: `/api/refresh/sign/:sign`, weekly: `/api/refresh-weekly/sign/:sign`)
+- **Fallback Retry Mechanism**: Intelligent retry endpoints that automatically identify and re-scrape only failed sources
+  - **Daily Retry**: POST `/api/retry-failed/all` queries database for entries with empty summaries and re-scrapes only those
+  - **Weekly Retry**: POST `/api/retry-failed-weekly/all` performs same fallback logic for weekly horoscopes
+  - **Sequential Processing**: Retry endpoints process signs one at a time with 5-second delays, same as refresh endpoints
+  - **Smart Detection**: Automatically identifies failed sources by checking for empty summary fields in database
 - **Aggregation**: Real-time calculation of average ratings and majority tone analysis for both daily and weekly horoscopes
 - **Input Validation**: Zod schema validation for type safety and data integrity
 - **Week-based Queries**: Weekly endpoints use `weekStartDate` parameter (Monday-based) for fetching weekly horoscope data
