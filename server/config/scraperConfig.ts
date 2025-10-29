@@ -29,7 +29,7 @@ const DEFAULT_ENV_CONFIG: EnvConfig = {
 const DEFAULT_DAILY_CONFIG: DatabaseConfig = {
   id: 1,
   scraperType: 'daily',
-  enabled: false,
+  enabled: true,
   startTime: '05:30:00',
   endTime: '08:00:00',
   intervalMinutes: 20,
@@ -57,8 +57,38 @@ export function getEnvConfig(): EnvConfig {
   };
 }
 
+export async function ensureScraperConfigExists(scraperType: ScraperType): Promise<void> {
+  try {
+    const existing = await prisma.scraperConfig.findUnique({
+      where: { scraper_type: scraperType },
+    });
+
+    if (!existing) {
+      const defaults = scraperType === 'daily' ? DEFAULT_DAILY_CONFIG : DEFAULT_WEEKLY_CONFIG;
+      await prisma.scraperConfig.create({
+        data: {
+          scraper_type: scraperType,
+          enabled: defaults.enabled,
+          start_time: defaults.startTime,
+          end_time: defaults.endTime,
+          interval_minutes: defaults.intervalMinutes,
+          max_retries_per_source: defaults.maxRetriesPerSource,
+          auto_retry_delay_minutes: defaults.autoRetryDelayMinutes,
+          skip_already_processed: defaults.skipAlreadyProcessed,
+        },
+      });
+      console.log(`[ScraperConfig] Created missing ${scraperType} config row with defaults`);
+    }
+  } catch (error) {
+    console.error(`[ScraperConfig] Error ensuring ${scraperType} config exists:`, error);
+  }
+}
+
 export async function getDatabaseConfig(scraperType: ScraperType): Promise<DatabaseConfig | null> {
   try {
+    // Ensure row exists before querying
+    await ensureScraperConfigExists(scraperType);
+    
     const config = await prisma.scraperConfig.findUnique({
       where: { scraper_type: scraperType },
     });
@@ -118,17 +148,19 @@ export async function updateDatabaseConfig(
   updates: Partial<Omit<DatabaseConfig, 'id' | 'scraperType'>>
 ): Promise<DatabaseConfig> {
   try {
+    // Filter out undefined values to avoid clobbering columns
+    const data: any = {};
+    if (updates.enabled !== undefined) data.enabled = updates.enabled;
+    if (updates.startTime !== undefined) data.start_time = updates.startTime;
+    if (updates.endTime !== undefined) data.end_time = updates.endTime;
+    if (updates.intervalMinutes !== undefined) data.interval_minutes = updates.intervalMinutes;
+    if (updates.maxRetriesPerSource !== undefined) data.max_retries_per_source = updates.maxRetriesPerSource;
+    if (updates.autoRetryDelayMinutes !== undefined) data.auto_retry_delay_minutes = updates.autoRetryDelayMinutes;
+    if (updates.skipAlreadyProcessed !== undefined) data.skip_already_processed = updates.skipAlreadyProcessed;
+
     const updated = await prisma.scraperConfig.update({
       where: { scraper_type: scraperType },
-      data: {
-        enabled: updates.enabled,
-        start_time: updates.startTime,
-        end_time: updates.endTime,
-        interval_minutes: updates.intervalMinutes,
-        max_retries_per_source: updates.maxRetriesPerSource,
-        auto_retry_delay_minutes: updates.autoRetryDelayMinutes,
-        skip_already_processed: updates.skipAlreadyProcessed,
-      },
+      data,
     });
 
     return {

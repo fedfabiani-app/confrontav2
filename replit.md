@@ -35,6 +35,13 @@ Preferred communication style: Simple, everyday language.
   - **Manual Endpoint**: POST `/api/cleanup` secured with `X-Admin-Secret` header matching `ADMIN_SECRET` environment variable
   - **Security**: Unauthorized requests return 401 and are logged; default secret is "default-admin-secret-change-me" (MUST be changed in production)
   - **Stats Endpoint**: GET `/api/cleanup/stats` returns current horoscope and weekly horoscope counts for monitoring
+- **Configuration Management System**:
+  - **Multi-Row Configuration**: `scraper_config` table with separate rows for 'daily' and 'weekly' scraper types
+  - **Independent Control**: Each scraper type has its own `enabled` flag for independent start/stop control
+  - **Shared Parameters**: Both types share start_time, end_time, interval_minutes, max_retries, and skip_already_processed settings
+  - **Config Access**: Use `getDailyScraperConfig()` or `getWeeklyScraperConfig()` convenience functions
+  - **Database Update**: Use `updateDatabaseConfig(scraperType, updates)` to modify configuration
+  - **Default Values**: Daily defaults to enabled, weekly defaults to disabled on initial setup
 
 ### Data Processing Pipeline
 - **Web Scraping**: Axios and Cheerio for fetching and parsing HTML content from Italian horoscope sources
