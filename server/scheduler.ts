@@ -620,6 +620,89 @@ async function executeSaturdayWeeklyScraper() {
 }
 
 // ============================================================================
+// WEEKLY FALLBACK RETRY SYSTEM
+// ============================================================================
+
+async function executeWeeklyFallbackRetry() {
+  console.log('\n========== [WeeklyFallback] Retry Triggered ==========');
+  
+  try {
+    const weekStart = getCurrentWeekStart();
+    const now = new Date();
+    const italyTime = now.toLocaleString('it-IT', {
+      timeZone: 'Europe/Rome',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+    
+    console.log(`[WeeklyFallback] Current time (Italy): ${italyTime}`);
+    console.log(`[WeeklyFallback] Target week: ${weekStart.toISOString().split('T')[0]}`);
+    
+    // Guard 1: Check enabled flag
+    const config = await getScraperConfig();
+    if (!config.enabled) {
+      console.log('[WeeklyFallback] ⊘ Skipped - Scraping is disabled in configuration');
+      console.log('======================================================\n');
+      return;
+    }
+    console.log('[WeeklyFallback] ✓ Config check passed');
+    
+    // Guard 2: Check if fallback already ran this week
+    const existingFallback = await prisma.weeklyScraperExecution.findFirst({
+      where: {
+        target_week: weekStart,
+        trigger_type: 'fallback',
+      },
+    });
+    
+    if (existingFallback) {
+      console.log('[WeeklyFallback] ⊘ Skipped - Fallback already ran this week');
+      console.log('======================================================\n');
+      return;
+    }
+    console.log('[WeeklyFallback] ✓ No previous fallback execution this week');
+    
+    // Guard 3: Check for running execution
+    if (await hasRunningWeeklyExecution(weekStart)) {
+      console.log('[WeeklyFallback] ⊘ Skipped - Execution currently in progress');
+      console.log('======================================================\n');
+      return;
+    }
+    console.log('[WeeklyFallback] ✓ No running execution detected');
+    
+    // Get failed sources for this week
+    const failedSourceIds = await getFailedWeeklySources(weekStart, 'all');
+    
+    if (failedSourceIds.length === 0) {
+      console.log('[WeeklyFallback] ✓ No failures detected - Nothing to retry');
+      console.log('======================================================\n');
+      return;
+    }
+    
+    console.log(`[WeeklyFallback] → Found ${failedSourceIds.length} failed source(s): ${failedSourceIds.join(', ')}`);
+    console.log('[WeeklyFallback] → Starting retry orchestrator...');
+    
+    // Execute retry with specific sources
+    const result = await runWeeklyScraperCycle({ 
+      weekStart,
+      specificSources: failedSourceIds,
+      sourceGroup: 'all',
+      forceRescrape: true, // Force retry even if data exists
+      triggerType: 'fallback'
+    });
+    
+    console.log('[WeeklyFallback] ✓ Retry completed successfully');
+    console.log(`[WeeklyFallback] Results: ${result.stats.enqueued} enqueued, ${result.stats.skipped} skipped, ${result.stats.failed} failed`);
+    console.log('======================================================\n');
+    
+  } catch (error) {
+    console.error('[WeeklyFallback] ✗ Error:', error);
+    console.log('======================================================\n');
+  }
+}
+
+// ============================================================================
 // CRON INITIALIZATION
 // ============================================================================
 
@@ -667,6 +750,14 @@ export async function initializeScheduledTasks() {
   cron.schedule('0 12 * * 6', executeSaturdayWeeklyScraper, {
     timezone: 'Europe/Rome'
   });
+  
+  // ============================================================================
+  // WEEKLY FALLBACK RETRY
+  // Runs at 9:00 AM on Mondays (after main scraping window)
+  // ============================================================================
+  cron.schedule('0 9 * * 1', executeWeeklyFallbackRetry, {
+    timezone: 'Europe/Rome'
+  });
 
   // ============================================================================
   // CLEANUP SCHEDULER (Existing)
@@ -693,10 +784,11 @@ export async function initializeScheduledTasks() {
   console.log('\n========== [Scheduler] Initialization Complete ==========');
   console.log('Scheduled tasks:');
   console.log('  - Daily Scraper: Every 2 minutes (test mode)');
-  console.log(`  - Fallback Retry: ${String(TEST_CONFIG.FALLBACK_HOUR).padStart(2, '0')}:${String(TEST_CONFIG.FALLBACK_MINUTE).padStart(2, '0')} daily`);
+  console.log(`  - Daily Fallback: ${String(TEST_CONFIG.FALLBACK_HOUR).padStart(2, '0')}:${String(TEST_CONFIG.FALLBACK_MINUTE).padStart(2, '0')} daily`);
   console.log('  - Monday Weekly: Every 20 min on Mondays (5:30-8:00 AM)');
   console.log('  - Thursday Weekly: Thursdays at 12:00 PM (Elle.com update)');
   console.log('  - Saturday Weekly: Saturdays at 12:00 PM (3 sources update)');
+  console.log('  - Weekly Fallback: Mondays at 9:00 AM (retry failed sources)');
   console.log('  - Cleanup: Daily at 3 AM (31-day interval)');
   if (lastCleanup) {
     console.log(`[Scheduler] Last cleanup: ${lastCleanup.toISOString()}`);
