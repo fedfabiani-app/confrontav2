@@ -1,7 +1,7 @@
 import cron from 'node-cron';
 import { cleanupService } from './services/cleanup';
 import { cleanupTracker } from './services/cleanupTracker';
-import { getScraperConfig, isWithinTimeWindow, getItalyToday } from './config/scraperConfig';
+import { getDailyScraperConfig, getWeeklyScraperConfig, isWithinTimeWindow, getItalyToday } from './config/scraperConfig';
 import { prisma } from './services/database';
 import { runDailyScraperCycle } from './services/dailyScraperOrchestrator';
 import { 
@@ -252,13 +252,13 @@ async function executeDailyScraper() {
     console.log(`[DailyScraper] Target date: ${targetDate}`);
     
     // Guard 1: Check enabled flag
-    const config = await getScraperConfig();
+    const config = await getDailyScraperConfig();
     if (!config.enabled) {
-      console.log('[DailyScraper] ⊘ Skipped - Scraping is disabled in configuration');
+      console.log('[DailyScraper] ⊘ Skipped - Daily scraping is disabled in configuration');
       console.log('==================================================\n');
       return;
     }
-    console.log('[DailyScraper] ✓ Config check passed - Scraping enabled');
+    console.log('[DailyScraper] ✓ Daily config check passed - Scraping enabled');
     
     // Guard 2: Check time window
     if (!isWithinTestWindow()) {
@@ -323,13 +323,13 @@ async function executeFallbackRetry() {
     console.log(`[Fallback] Target date: ${targetDate}`);
     
     // Guard 1: Check enabled flag
-    const config = await getScraperConfig();
+    const config = await getDailyScraperConfig();
     if (!config.enabled) {
-      console.log('[Fallback] ⊘ Skipped - Scraping is disabled in configuration');
+      console.log('[Fallback] ⊘ Skipped - Daily scraping is disabled in configuration');
       console.log('================================================\n');
       return;
     }
-    console.log('[Fallback] ✓ Config check passed');
+    console.log('[Fallback] ✓ Daily config check passed');
     
     // Guard 2: Check if fallback already ran today
     if (await hasFallbackRunToday()) {
@@ -398,13 +398,13 @@ async function executeMondayWeeklyScraper() {
     console.log(`[MondayWeekly] Target week: ${weekStart.toISOString().split('T')[0]}`);
     
     // Guard 1: Check enabled flag
-    const config = await getScraperConfig();
+    const config = await getWeeklyScraperConfig();
     if (!config.enabled) {
       console.log('[MondayWeekly] ⊘ Skipped - Weekly scraping is disabled in configuration');
       console.log('====================================================\n');
       return;
     }
-    console.log('[MondayWeekly] ✓ Config check passed - Scraping enabled');
+    console.log('[MondayWeekly] ✓ Weekly config check passed - Scraping enabled');
     
     // Guard 2: Check time window (Monday 5:30-8:00 AM)
     if (!isWithinMondayWindow()) {
@@ -470,13 +470,13 @@ async function executeThursdayWeeklyScraper() {
     console.log(`[ThursdayWeekly] Target week: ${weekStart.toISOString().split('T')[0]}`);
     
     // Guard 1: Check enabled flag
-    const config = await getScraperConfig();
+    const config = await getWeeklyScraperConfig();
     if (!config.enabled) {
       console.log('[ThursdayWeekly] ⊘ Skipped - Weekly scraping is disabled in configuration');
       console.log('======================================================\n');
       return;
     }
-    console.log('[ThursdayWeekly] ✓ Config check passed');
+    console.log('[ThursdayWeekly] ✓ Weekly config check passed');
     
     // Guard 2: Sanity check - is it actually Thursday?
     const italyNow = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Rome' }));
@@ -553,13 +553,13 @@ async function executeSaturdayWeeklyScraper() {
     console.log(`[SaturdayWeekly] Target week: ${weekStart.toISOString().split('T')[0]}`);
     
     // Guard 1: Check enabled flag
-    const config = await getScraperConfig();
+    const config = await getWeeklyScraperConfig();
     if (!config.enabled) {
       console.log('[SaturdayWeekly] ⊘ Skipped - Weekly scraping is disabled in configuration');
       console.log('======================================================\n');
       return;
     }
-    console.log('[SaturdayWeekly] ✓ Config check passed');
+    console.log('[SaturdayWeekly] ✓ Weekly config check passed');
     
     // Guard 2: Sanity check - is it actually Saturday?
     const italyNow = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Rome' }));
@@ -640,13 +640,13 @@ async function executeWeeklyFallbackRetry() {
     console.log(`[WeeklyFallback] Target week: ${weekStart.toISOString().split('T')[0]}`);
     
     // Guard 1: Check enabled flag
-    const config = await getScraperConfig();
+    const config = await getWeeklyScraperConfig();
     if (!config.enabled) {
-      console.log('[WeeklyFallback] ⊘ Skipped - Scraping is disabled in configuration');
+      console.log('[WeeklyFallback] ⊘ Skipped - Weekly scraping is disabled in configuration');
       console.log('======================================================\n');
       return;
     }
-    console.log('[WeeklyFallback] ✓ Config check passed');
+    console.log('[WeeklyFallback] ✓ Weekly config check passed');
     
     // Guard 2: Check if fallback already ran this week
     const existingFallback = await prisma.weeklyScraperExecution.findFirst({
