@@ -132,12 +132,51 @@ function isWithinTestWindow(): boolean {
 
 /**
  * Check if there's a running weekly execution for the target week
+ * Also cleans up stale executions (running > 2 hours)
  */
 async function hasRunningWeeklyExecution(weekStart: Date): Promise<boolean> {
+  // First, clean up stale executions across all weeks
+  const staleThreshold = new Date(Date.now() - 2 * 60 * 60 * 1000);
+  
+  const staleExecutions = await prisma.weeklyScraperExecution.findMany({
+    where: {
+      status: 'running',
+      started_at: {
+        lt: staleThreshold,
+      },
+    },
+    select: {
+      id: true,
+      target_week: true,
+      source_group: true,
+      started_at: true,
+    },
+  });
+  
+  if (staleExecutions.length > 0) {
+    console.log(`[Weekly Helper] Found ${staleExecutions.length} stale execution(s), marking as timeout...`);
+    
+    for (const stale of staleExecutions) {
+      await prisma.weeklyScraperExecution.update({
+        where: { id: stale.id },
+        data: {
+          status: 'timeout',
+          completed_at: new Date(),
+        },
+      });
+      
+      console.log(`[Weekly Helper] Marked execution ${stale.id} as timeout (started ${stale.started_at.toISOString()})`);
+    }
+  }
+  
+  // Now check for actual running executions
   const running = await prisma.weeklyScraperExecution.findFirst({
     where: {
       target_week: weekStart,
       status: 'running',
+      started_at: {
+        gte: staleThreshold, // Only count recent runs
+      },
     },
   });
   
