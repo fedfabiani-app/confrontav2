@@ -1133,6 +1133,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // POST /api/test/daily-orchestrator - Test daily scraper orchestrator
+  app.post("/api/test/daily-orchestrator", async (req, res) => {
+    try {
+      const { runDailyScraperCycle } = await import('./services/dailyScraperOrchestrator');
+      
+      const { targetDate, forceRescrape, specificSources, dryRun } = req.body;
+      
+      // Default to today if no date provided
+      const dateToUse = targetDate || new Date().toISOString().split('T')[0];
+      
+      // Validate date format
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(dateToUse)) {
+        return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
+      }
+      
+      console.log('[Test] Running daily orchestrator with options:', {
+        targetDate: dateToUse,
+        forceRescrape: forceRescrape || false,
+        specificSources: specificSources || 'all',
+        dryRun: dryRun || false,
+      });
+      
+      const result = await runDailyScraperCycle({
+        targetDate: dateToUse,
+        forceRescrape: forceRescrape || false,
+        specificSources: specificSources || undefined,
+        dryRun: dryRun || false,
+      });
+      
+      res.json({
+        success: true,
+        ...result,
+      });
+    } catch (error) {
+      console.error('[Test] Daily orchestrator error:', error);
+      res.status(500).json({
+        error: 'Failed to run daily orchestrator',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
