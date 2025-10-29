@@ -30,6 +30,7 @@ model ZodiacSign {
 
   horoscope_data HoroscopeData[]
   weekly_horoscope_data WeeklyHoroscopeData[]
+  scraper_source_statuses ScraperSourceStatus[]
 
   @@map("zodiac_signs")
 }
@@ -47,6 +48,7 @@ model Source {
   updated_at       DateTime @updatedAt
 
   horoscope_data HoroscopeData[]
+  scraper_source_statuses ScraperSourceStatus[]
 
   @@map("sources")
 }
@@ -130,4 +132,72 @@ model UserPreferences {
   user User @relation(fields: [user_id], references: [id])
 
   @@map("user_preferences")
+}
+
+model CleanupTracker {
+  id             Int      @id @default(autoincrement())
+  last_cleanup_at DateTime @default(now())
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  @@map("cleanup_tracker")
+}
+
+model ScraperExecution {
+  id                  Int       @id @default(autoincrement())
+  started_at          DateTime  @default(now())
+  completed_at        DateTime?
+  status              String    // 'running', 'completed', 'failed', 'cancelled'
+  target_date         DateTime  @db.Date
+  total_jobs_enqueued Int       @default(0)
+  successful_jobs     Int       @default(0)
+  failed_jobs         Int       @default(0)
+  retry_cycle_count   Int       @default(0)
+  trigger_type        String    // 'scheduled', 'manual'
+  error_message       String?   @db.Text
+
+  source_statuses ScraperSourceStatus[]
+
+  @@index([target_date, started_at])
+  @@index([status, started_at])
+  @@map("scraper_executions")
+}
+
+model ScraperSourceStatus {
+  id               Int       @id @default(autoincrement())
+  execution_id     Int
+  source_id        Int
+  zodiac_sign_id   Int
+  target_date      DateTime  @db.Date
+  status           String    // 'pending', 'processing', 'success', 'failed', 'skipped'
+  attempt_count    Int       @default(0)
+  last_attempted_at DateTime?
+  completed_at     DateTime?
+  error_message    String?   @db.Text
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
+
+  execution   ScraperExecution @relation(fields: [execution_id], references: [id], onDelete: Cascade)
+  source      Source           @relation(fields: [source_id], references: [id], onDelete: Cascade)
+  zodiac_sign ZodiacSign       @relation(fields: [zodiac_sign_id], references: [id], onDelete: Cascade)
+
+  @@unique([source_id, zodiac_sign_id, target_date])
+  @@index([target_date, status])
+  @@index([execution_id, status])
+  @@map("scraper_source_status")
+}
+
+model ScraperConfig {
+  id                       Int      @id @default(1)
+  enabled                  Boolean  @default(false)
+  start_time               String   @default("05:30:00") // TIME format HH:MM:SS
+  end_time                 String   @default("08:00:00")
+  interval_minutes         Int      @default(20)
+  max_retries_per_source   Int      @default(3)
+  auto_retry_delay_minutes Int      @default(10)
+  skip_already_processed   Boolean  @default(true)
+  created_at               DateTime @default(now())
+  updated_at               DateTime @updatedAt
+
+  @@map("scraper_config")
 }

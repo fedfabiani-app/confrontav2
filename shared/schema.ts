@@ -247,6 +247,77 @@ export const openaiOutputSchema = z.object({
   tone: z.enum(['positive', 'neutral', 'negative']),
 });
 
+// Scraper Execution Schema
+export const scraperExecutionSchema = z.object({
+  id: z.number(),
+  started_at: z.date(),
+  completed_at: z.date().nullable(),
+  status: z.enum(['running', 'completed', 'failed', 'cancelled']),
+  target_date: z.string(), // DATE format YYYY-MM-DD
+  total_jobs_enqueued: z.number(),
+  successful_jobs: z.number(),
+  failed_jobs: z.number(),
+  retry_cycle_count: z.number(),
+  trigger_type: z.enum(['scheduled', 'manual']),
+  error_message: z.string().nullable(),
+});
+
+export const insertScraperExecutionSchema = z.object({
+  target_date: z.string(),
+  trigger_type: z.enum(['scheduled', 'manual']),
+  status: z.enum(['running', 'completed', 'failed', 'cancelled']).default('running'),
+});
+
+// Scraper Source Status Schema
+export const scraperSourceStatusSchema = z.object({
+  id: z.number(),
+  execution_id: z.number(),
+  source_id: z.number(),
+  zodiac_sign_id: z.number(),
+  target_date: z.string(), // DATE format YYYY-MM-DD
+  status: z.enum(['pending', 'processing', 'success', 'failed', 'skipped']),
+  attempt_count: z.number(),
+  last_attempted_at: z.date().nullable(),
+  completed_at: z.date().nullable(),
+  error_message: z.string().nullable(),
+  created_at: z.date(),
+  updated_at: z.date(),
+});
+
+export const insertScraperSourceStatusSchema = z.object({
+  execution_id: z.number(),
+  source_id: z.number(),
+  zodiac_sign_id: z.number(),
+  target_date: z.string(),
+  status: z.enum(['pending', 'processing', 'success', 'failed', 'skipped']).default('pending'),
+  attempt_count: z.number().default(0),
+  error_message: z.string().optional(),
+});
+
+// Scraper Config Schema
+export const scraperConfigSchema = z.object({
+  id: z.number(),
+  enabled: z.boolean(),
+  start_time: z.string(), // TIME format HH:MM:SS
+  end_time: z.string(),
+  interval_minutes: z.number(),
+  max_retries_per_source: z.number(),
+  auto_retry_delay_minutes: z.number(),
+  skip_already_processed: z.boolean(),
+  created_at: z.date(),
+  updated_at: z.date(),
+});
+
+export const updateScraperConfigSchema = z.object({
+  enabled: z.boolean().optional(),
+  start_time: z.string().optional(),
+  end_time: z.string().optional(),
+  interval_minutes: z.number().min(1).max(60).optional(),
+  max_retries_per_source: z.number().min(0).max(10).optional(),
+  auto_retry_delay_minutes: z.number().min(1).max(60).optional(),
+  skip_already_processed: z.boolean().optional(),
+});
+
 // Type exports
 export type ZodiacSign = z.infer<typeof zodiacSignSchema>;
 export type InsertZodiacSign = z.infer<typeof insertZodiacSignSchema>;
@@ -270,3 +341,9 @@ export type WeeklyScraperInput = z.infer<typeof weeklyScraperInputSchema>;
 export type WeeklyScraperOutput = z.infer<typeof weeklyScraperOutputSchema>;
 export type OpenAIInput = z.infer<typeof openaiInputSchema>;
 export type OpenAIOutput = z.infer<typeof openaiOutputSchema>;
+export type ScraperExecution = z.infer<typeof scraperExecutionSchema>;
+export type InsertScraperExecution = z.infer<typeof insertScraperExecutionSchema>;
+export type ScraperSourceStatus = z.infer<typeof scraperSourceStatusSchema>;
+export type InsertScraperSourceStatus = z.infer<typeof insertScraperSourceStatusSchema>;
+export type ScraperConfig = z.infer<typeof scraperConfigSchema>;
+export type UpdateScraperConfig = z.infer<typeof updateScraperConfigSchema>;
