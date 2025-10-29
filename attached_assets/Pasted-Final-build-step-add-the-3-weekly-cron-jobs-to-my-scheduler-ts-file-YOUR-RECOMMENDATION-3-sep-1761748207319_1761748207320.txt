@@ -1,0 +1,104 @@
+Final build step: add the 3 weekly cron jobs to my scheduler.ts file.
+
+YOUR RECOMMENDATION:
+3 separate cron jobs for clarity and simplicity. I agree with this approach.
+
+LOCATION:
+Update: server/scheduler.ts (add to existing file, don't break daily jobs)
+
+═══════════════════════════════════════════════════════════
+CRON JOB 1: MONDAY MAIN SCRAPE
+═══════════════════════════════════════════════════════════
+
+Schedule: '*/20 5-7 * * 1' (every 20 min, 5:30-8:00 AM, Mondays)
+Purpose: Scrape ALL sources for the new week
+
+Guards (your recommendations):
+1. Is weekly scraping enabled? (check config/env)
+2. Are we in the time window? (5:30-8:00 AM CET)
+3. Has Monday scrape completed for THIS week? (week-level check)
+4. Is a Monday execution currently running?
+
+Action if guards pass:
+Call: runWeeklyScraperCycle({
+  weekStart: getCurrentWeekStart(),
+  sourceGroup: 'all',
+  forceRescrape: false,  // Use skip logic
+  triggerType: 'scheduled'
+})
+
+═══════════════════════════════════════════════════════════
+CRON JOB 2: THURSDAY ELLE UPDATE
+═══════════════════════════════════════════════════════════
+
+Schedule: '0 12 * * 4' (12:00 PM on Thursdays)
+Purpose: Re-scrape elle.com with fresh data (replacement)
+
+Guards (your recommendations):
+1. Is weekly scraping enabled?
+2. Is it actually Thursday 12 PM? (sanity check)
+3. Has elle_only update run this week?
+4. Did Monday scrape complete? (prerequisite check)
+
+Action if guards pass:
+Call: runWeeklyScraperCycle({
+  weekStart: getCurrentWeekStart(),
+  specificSources: [elleSourceId],  // Only elle.com
+  sourceGroup: 'elle_only',
+  forceRescrape: true,  // CRITICAL - bypass skip to replace data
+  triggerType: 'scheduled'
+})
+
+Note: You'll need to query the database to get elle.com's source ID
+
+═══════════════════════════════════════════════════════════
+CRON JOB 3: SATURDAY 3-SOURCE UPDATE
+═══════════════════════════════════════════════════════════
+
+Schedule: '0 12 * * 6' (12:00 PM on Saturdays)
+Purpose: Re-scrape Saturday sources with fresh data (replacement)
+
+Guards (your recommendations):
+1. Is weekly scraping enabled?
+2. Is it actually Saturday 12 PM?
+3. Has saturday_group update run this week?
+4. Did Monday scrape complete?
+
+Action if guards pass:
+Call: runWeeklyScraperCycle({
+  weekStart: getCurrentWeekStart(),
+  specificSources: [saturdaySourceIds],  // 3 Saturday sources
+  sourceGroup: 'saturday_group',
+  forceRescrape: true,  // Bypass skip to replace data
+  triggerType: 'scheduled'
+})
+
+Note: Query database for d.repubblica.it, iodonna.it, sorrisi.com source IDs
+
+═══════════════════════════════════════════════════════════
+OPTIONAL: FALLBACK JOB
+═══════════════════════════════════════════════════════════
+
+You mentioned this might not be needed, but if I want one:
+
+Schedule: '30 8 * * 1' (8:30 AM Mondays, after main window)
+Purpose: Retry failed sources from Monday run
+
+Guards:
+1. Is weekly scraping enabled?
+2. Has fallback already run this week?
+3. Are there any failed sources to retry?
+
+Action if guards pass:
+Get failed sources, call orchestrator with those specific IDs
+
+═══════════════════════════════════════════════════════════
+
+TECHNICAL REQUIREMENTS:
+- Use node-cron (already in project)
+- Match the guard pattern and logging style of my daily scheduler
+- Handle timezone properly (Europe/Rome)
+- Add comprehensive logging for each guard check
+- Don't break existing daily cron jobs
+
+Build these cron jobs for me and show me how they integrate into the existing scheduler.ts structure.
