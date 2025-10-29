@@ -1,0 +1,82 @@
+The automated weekly scraping system is now built and running. Before I let it run in production, I need to test it thoroughly and build manual controls.
+
+CURRENT STATE:
+✅ Week utilities built (weekUtils.ts)
+✅ Orchestrator built (weeklyScraperOrchestrator.ts)
+✅ 3 cron jobs added to scheduler (Mon/Thu/Sat)
+✅ All guards implemented
+✅ System is running and cron jobs are initialized
+
+WHAT I NEED FROM YOU:
+
+1. MANUAL TRIGGER API ENDPOINT
+I need an admin endpoint to manually trigger weekly scrapes for testing and emergencies.
+
+Requirements:
+- Should accept parameters: targetWeek (optional), specificSources (optional), forceRescrape (boolean), sourceGroup
+- Should have authentication/admin check
+- Should validate inputs
+- Should return execution ID and initial stats
+- Should NOT block the response (run async)
+
+Questions:
+- Where should this endpoint go? (existing admin routes or new file?)
+- What validation should I add?
+- How do I test this safely without triggering actual scrapes?
+- Should there be rate limiting?
+
+2. VERIFICATION SQL QUERIES
+I need SQL queries to verify the system is working correctly.
+
+Help me build queries to check:
+- Current week coverage (which source+sign combinations have data?)
+- Execution history (when did each source_group run?)
+- Data freshness (which sources have been updated by replacement scrapes?)
+- Failed scrapes (what needs attention?)
+- Gaps in coverage (missing data that should exist?)
+- UPSERT verification (did Thursday/Saturday actually replace Monday data?)
+
+3. TESTING CHECKLIST
+Walk me through what to test before trusting this in production:
+
+Week Calculation Tests:
+- How do I verify week boundaries are correct?
+- How do I test across timezone changes (DST)?
+- What edge cases should I watch for?
+
+Skip Logic Tests:
+- How do I verify Monday scrapes everything even if some sources are stale?
+- How do I confirm Thursday/Saturday replacement scrapes bypass skip logic?
+- How do I test that forceRescrape actually works?
+
+UPSERT Verification:
+- How do I confirm data is actually being replaced (not duplicated)?
+- How do I check the scraped_at timestamps are updating?
+- What should I look for in the database after a replacement scrape?
+
+Guard Tests:
+- How do I test each guard without waiting for the actual schedule?
+- How do I simulate "already running" scenarios?
+- How do I verify the Monday prerequisite check for Thu/Sat?
+
+Source Group Tracking:
+- How do I verify source_group is being recorded correctly?
+- How do I check that Monday/Thursday/Saturday runs are tracked separately?
+
+4. EDGE CASES & FAILURE SCENARIOS
+Help me think through what could go wrong:
+
+- What if Monday scrape fails partway through?
+- What if elle.com scrape on Thursday fails? (Does it retry on next Monday?)
+- What if a source changes their URL pattern mid-week?
+- What if the system is down during a scheduled window?
+- What if I manually trigger a scrape while a scheduled one is running?
+- What happens at year boundaries (week 52 → week 1)?
+
+5. MONITORING & ALERTS
+What should I monitor to know the system is healthy?
+- Key metrics to track?
+- Warning signs to watch for?
+- How often should I check execution history?
+
+Give me your recommendations on all of these. Be conversational - help me think through scenarios I might not have considered. What are the gotchas and potential issues with this hybrid scraping approach?
