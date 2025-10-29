@@ -31,6 +31,7 @@ model ZodiacSign {
   horoscope_data HoroscopeData[]
   weekly_horoscope_data WeeklyHoroscopeData[]
   scraper_source_statuses ScraperSourceStatus[]
+  weekly_scraper_source_statuses WeeklyScraperSourceStatus[]
 
   @@map("zodiac_signs")
 }
@@ -60,13 +61,16 @@ model WeeklySource {
   logo_url         String?
   base_url         String
   url_pattern      String   // For pattern: URL template. For archive: archive page path
+  archive_url      String?  // Archive page URL for archive-based scraping
   scrape_strategy  String   @default("pattern") // 'pattern' or 'archive'
+  slug             String?  // Source identifier for source group classification
   reliability_score Decimal  @db.Decimal(3, 2) @default(3.0)
   is_active        Boolean  @default(true)
   created_at       DateTime @default(now())
   updated_at       DateTime @updatedAt
 
   weekly_horoscope_data WeeklyHoroscopeData[]
+  weekly_scraper_source_statuses WeeklyScraperSourceStatus[]
 
   @@map("weekly_sources")
 }
@@ -198,4 +202,49 @@ model ScraperConfig {
   updated_at               DateTime @updatedAt
 
   @@map("scraper_config")
+}
+
+model WeeklyScraperExecution {
+  id                  Int       @id @default(autoincrement())
+  started_at          DateTime  @default(now())
+  completed_at        DateTime?
+  status              String    // 'running', 'completed', 'failed', 'cancelled'
+  target_week         DateTime  @db.Date // Always Monday
+  source_group        String    // 'all', 'elle_only', 'saturday_group'
+  total_jobs_enqueued Int       @default(0)
+  successful_jobs     Int       @default(0)
+  failed_jobs         Int       @default(0)
+  trigger_type        String    // 'scheduled', 'manual', 'fallback'
+  error_message       String?   @db.Text
+
+  source_statuses WeeklyScraperSourceStatus[]
+
+  @@index([target_week, started_at])
+  @@index([status, started_at])
+  @@index([source_group, target_week])
+  @@map("weekly_scraper_executions")
+}
+
+model WeeklyScraperSourceStatus {
+  id               Int       @id @default(autoincrement())
+  execution_id     Int
+  source_id        Int
+  zodiac_sign_id   Int
+  target_week      DateTime  @db.Date // Always Monday
+  status           String    // 'pending', 'processing', 'success', 'failed', 'skipped'
+  attempt_count    Int       @default(0)
+  last_attempted_at DateTime?
+  completed_at     DateTime?
+  error_message    String?   @db.Text
+  created_at       DateTime  @default(now())
+  updated_at       DateTime  @updatedAt
+
+  execution   WeeklyScraperExecution @relation(fields: [execution_id], references: [id], onDelete: Cascade)
+  source      WeeklySource           @relation(fields: [source_id], references: [id], onDelete: Cascade)
+  zodiac_sign ZodiacSign             @relation(fields: [zodiac_sign_id], references: [id], onDelete: Cascade)
+
+  @@unique([source_id, zodiac_sign_id, target_week])
+  @@index([target_week, status])
+  @@index([execution_id, status])
+  @@map("weekly_scraper_source_status")
 }
