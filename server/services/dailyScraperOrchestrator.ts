@@ -8,6 +8,7 @@ export interface DailyScraperOptions {
   forceRescrape?: boolean;
   specificSources?: number[];
   dryRun?: boolean;
+  triggerType?: 'scheduled' | 'fallback' | 'manual';
 }
 
 export interface DailyScraperStats {
@@ -84,19 +85,22 @@ function isAlreadyProcessed(
   return cache[key] === true;
 }
 
-async function createExecutionRecord(targetDate: string): Promise<number> {
+async function createExecutionRecord(
+  targetDate: string,
+  triggerType: 'scheduled' | 'fallback' | 'manual'
+): Promise<number> {
   const targetDateObj = new Date(targetDate + 'T00:00:00.000Z');
   
   const execution = await prisma.scraperExecution.create({
     data: {
       status: 'running',
       target_date: targetDateObj,
-      trigger_type: 'scheduled',
+      trigger_type: triggerType,
       started_at: new Date(),
     },
   });
   
-  console.log(`[Orchestrator] Created execution record: ID ${execution.id}`);
+  console.log(`[Orchestrator] Created execution record: ID ${execution.id} (trigger: ${triggerType})`);
   return execution.id;
 }
 
@@ -183,7 +187,8 @@ export async function runDailyScraperCycle(
   try {
     // Step 1: Create execution record (unless dry run)
     if (!options.dryRun) {
-      executionId = await createExecutionRecord(options.targetDate);
+      const triggerType = options.triggerType || 'manual';
+      executionId = await createExecutionRecord(options.targetDate, triggerType);
     }
     
     // Step 2: Build processed cache for skip logic

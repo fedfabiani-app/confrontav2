@@ -157,7 +157,15 @@ async function executeDailyScraper() {
     }
     console.log('[DailyScraper] ✓ Time window check passed');
     
-    // Guard 3: Check for running execution
+    // Guard 3: Check if already completed today
+    if (await hasCompletedExecutionToday()) {
+      console.log('[DailyScraper] ⊘ Skipped - Successful execution already completed today');
+      console.log('==================================================\n');
+      return;
+    }
+    console.log('[DailyScraper] ✓ No completed execution today');
+    
+    // Guard 4: Check for running execution
     if (await hasRunningExecution(targetDate)) {
       console.log('[DailyScraper] ⊘ Skipped - Execution already in progress for today');
       console.log('==================================================\n');
@@ -167,7 +175,10 @@ async function executeDailyScraper() {
     
     // Execute orchestrator
     console.log('[DailyScraper] → Starting orchestrator...');
-    const result = await runDailyScraperCycle({ targetDate });
+    const result = await runDailyScraperCycle({ 
+      targetDate,
+      triggerType: 'scheduled'
+    });
     
     console.log('[DailyScraper] ✓ Orchestrator completed successfully');
     console.log(`[DailyScraper] Results: ${result.stats.enqueued} enqueued, ${result.stats.skipped} skipped, ${result.stats.failed} failed`);
@@ -242,6 +253,7 @@ async function executeFallbackRetry() {
       targetDate,
       specificSources: failedSourceIds,
       forceRescrape: true, // Force retry even if data exists
+      triggerType: 'fallback'
     });
     
     console.log('[Fallback] ✓ Retry completed successfully');
