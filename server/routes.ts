@@ -5,7 +5,18 @@ import prisma from "./services/database";
 import { enqueueScrapeJob, enqueueWeeklyScrapeJob, getAllJobStatuses, getJobStatus } from "./jobs";
 import { ScraperInput, WeeklyScraperInput } from "@shared/schema";
 import { ZODIAC_SIGNS_IT_EN, ITALIAN_WEEKDAYS, ITALIAN_MONTHS } from "@shared/constants";
-import { getMondayOfWeek, formatWeekUrlParams } from "./utils/weekUtils";
+import { getMondayOfWeek, formatWeekUrlParams, getCurrentWeekStart, isMonday } from "./utils/weekUtils";
+import { runWeeklyScraperCycle, type SourceGroup } from "./services/weeklyScraperOrchestrator";
+import {
+  getWeeklyCoverage,
+  getExecutionHistory,
+  getUpsertVerification,
+  findGapsInCoverage,
+  getFailedSources,
+  getHealthStats,
+  findStaleExecutions,
+  markStaleExecutionsAsTimeout,
+} from "./utils/weeklyScraperQueries";
 
 export async function registerRoutes(app: Express): Promise<Server> {
 
@@ -479,148 +490,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // POST /api/refresh-weekly/all
+  /**
+   * POST /api/refresh-weekly/all
+   * Manual trigger for weekly scraper - all sources
+   * Requires X-Admin-Secret header for authorization
+   * Supports dryRun mode for testing
+   */
   app.post("/api/refresh-weekly/all", async (req, res) => {
     try {
-      const { weekStartDate } = req.query;
-      const targetWeekStart = weekStartDate as string || getMondayOfWeek(new Date()).toISOString().split('T')[0];
-
-      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-      if (!dateRegex.test(targetWeekStart)) {
-        return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
+      // Admin auth check
+      const adminSecret = req.headers['x-admin-secret'];
+      const expectedSecret = process.env.ADMIN_SECRET || 'default-admin-secret-change-me';
+      
+      if (adminSecret !== expectedSecret) {
+        console.warn('[API Weekly Refresh] Unauthorized attempt blocked');
+        return res.status(401).json({ error: 'Unauthorized - X-Admin-Secret header required' });
       }
-
-      const [sources, zodiacSigns] = await Promise.all([
-        prisma.weeklySource.findMany({ where: { is_active: true } }),
-        prisma.zodiacSign.findMany({ orderBy: { id: 'asc' } }),
-      ]);
-
-      const jobIds: string[] = [];
-      const errors: string[] = [];
-
-      // Process signs sequentially to avoid overwhelming OpenAI rate limits
-      // Start background processing with automatic retry fallback
-      (async () => {
-        for (let i = 0; i < zodiacSigns.length; i++) {
-          const sign = zodiacSigns[i];
-          console.log(`[Weekly Refresh] Processing sign ${i + 1}/${zodiacSigns.length}: ${sign.name_italian}`);
-          
-          // Enqueue all sources for this sign
-          for (const source of sources) {
-            try {
-              const jobId = await enqueueWeeklyScrapeJob(createWeeklyScraperInput(source, sign, targetWeekStart));
-              jobIds.push(jobId);
-            } catch (error) {
-              const errorMsg = `Failed to enqueue ${source.name} - ${sign.name_italian}`;
-              errors.push(errorMsg);
-              console.error(errorMsg, error);
-            }
-          }
-          
-          // Wait 5 seconds before processing the next sign (except after the last one)
-          if (i < zodiacSigns.length - 1) {
-            console.log(`[Weekly Refresh] Waiting 5 seconds before processing next sign...`);
-            await new Promise(resolve => setTimeout(resolve, 5000));
-          }
-        }
-        console.log(`[Weekly Refresh] All signs enqueued. Total jobs: ${jobIds.length}, Errors: ${errors.length}`);
-        
-        // Automatic fallback retry mechanism
-        const expectedJobCount = sources.length * zodiacSigns.length;
-        const estimatedMinutes = Math.ceil(expectedJobCount / 20) + 2; // Add 2 min buffer
-        const waitTimeMs = estimatedMinutes * 60 * 1000;
-        
-        console.log(`[Auto-Retry Weekly] Waiting ${estimatedMinutes} minutes for initial scraping to complete before checking for failures...`);
-        await new Promise(resolve => setTimeout(resolve, waitTimeMs));
-        
-        // Check for missing/failed sources
-        console.log(`[Auto-Retry Weekly] Checking for failed sources...`);
-        const [allActiveSources, allZodiacSigns] = await Promise.all([
-          prisma.weeklySource.findMany({ where: { is_active: true } }),
-          prisma.zodiacSign.findMany(),
-        ]);
-        
-        const missingSources: Array<{ source: any; sign: any }> = [];
-        
-        for (const sign of allZodiacSigns) {
-          for (const source of allActiveSources) {
-            const entry = await prisma.weeklyHoroscopeData.findFirst({
-              where: {
-                source_id: source.id,
-                zodiac_sign_id: sign.id,
-                week_start_date: new Date(targetWeekStart),
-              }
-            });
-            
-            // Retry if missing OR if summary is empty (failed scrape)
-            if (!entry || entry.summary === '') {
-              missingSources.push({ source, sign });
-            }
-          }
+      
+      const { targetWeek, forceRescrape, dryRun } = req.body;
+      
+      // Parse and validate target week
+      let weekStart: Date;
+      if (targetWeek) {
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        if (!dateRegex.test(targetWeek)) {
+          return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
         }
         
-        if (missingSources.length > 0) {
-          console.log(`[Auto-Retry Weekly] Found ${missingSources.length} missing sources. Starting automatic retry...`);
-          
-          // Group by sign for sequential processing
-          const missingBySign = missingSources.reduce((acc, { source, sign }) => {
-            if (!acc[sign.id]) {
-              acc[sign.id] = { sign, sources: [] };
-            }
-            acc[sign.id].sources.push(source);
-            return acc;
-          }, {} as Record<number, { sign: any; sources: any[] }>);
-          
-          // Retry failed sources sequentially
-          const signIds = Object.keys(missingBySign).map(Number);
-          for (let i = 0; i < signIds.length; i++) {
-            const signId = signIds[i];
-            const { sign, sources: failedSources } = missingBySign[signId];
-            
-            console.log(`[Auto-Retry Weekly] Retrying sign ${i + 1}/${signIds.length}: ${sign.name_italian} (${failedSources.length} sources)`);
-            
-            for (const source of failedSources) {
-              try {
-                await enqueueWeeklyScrapeJob(createWeeklyScraperInput(source, sign, targetWeekStart));
-                console.log(`[Auto-Retry Weekly] Re-enqueued ${source.name} - ${sign.name_italian}`);
-              } catch (error) {
-                console.error(`[Auto-Retry Weekly] Failed to re-enqueue ${source.name} - ${sign.name_italian}:`, error);
-              }
-            }
-            
-            // Wait 5 seconds before next sign
-            if (i < signIds.length - 1) {
-              await new Promise(resolve => setTimeout(resolve, 5000));
-            }
-          }
-          
-          console.log(`[Auto-Retry Weekly] Automatic retry completed`);
-        } else {
-          console.log(`[Auto-Retry Weekly] No failed sources found. All scraping completed successfully!`);
+        weekStart = new Date(targetWeek);
+        
+        // Verify it's a Monday
+        if (!isMonday(weekStart)) {
+          return res.status(400).json({ 
+            error: 'Target week must be a Monday',
+            providedDate: targetWeek,
+            dayOfWeek: weekStart.toLocaleDateString('en-US', { weekday: 'long' })
+          });
         }
-      })();
-
-      res.json({
-        message: 'Weekly refresh started (processing signs sequentially)',
-        expectedJobs: sources.length * zodiacSigns.length,
-        totalSigns: zodiacSigns.length,
-        totalSources: sources.length,
-        weekStartDate: targetWeekStart,
-        note: 'Signs will be processed one at a time with 5-second delays to respect API rate limits',
+      } else {
+        weekStart = getCurrentWeekStart();
+      }
+      
+      // Trigger orchestrator (runs async, doesn't block response)
+      const resultPromise = runWeeklyScraperCycle({
+        weekStart,
+        sourceGroup: 'all',
+        forceRescrape: forceRescrape || false,
+        dryRun: dryRun || false,
+        triggerType: 'manual'
       });
+      
+      // For dry run, wait for result to show what would happen
+      if (dryRun) {
+        const result = await resultPromise;
+        return res.json({
+          success: true,
+          dryRun: true,
+          weekStart: weekStart.toISOString().split('T')[0],
+          stats: result.stats,
+          message: `[DRY RUN] Would process ${result.stats.enqueued} jobs (${result.stats.skipped} skipped)`,
+        });
+      }
+      
+      // For actual run, return immediately
+      res.json({
+        success: true,
+        dryRun: false,
+        weekStart: weekStart.toISOString().split('T')[0],
+        message: 'Weekly scrape triggered for all sources',
+        note: 'Processing will continue in background. Check /api/admin/weekly-scraper/executions for status'
+      });
+      
     } catch (error) {
-      console.error('Error starting weekly refresh all:', error);
-      res.status(500).json({ error: 'Failed to start weekly refresh' });
+      console.error('[API Weekly Refresh] Error:', error);
+      res.status(500).json({ 
+        error: 'Failed to trigger weekly refresh',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 
-  // POST /api/refresh-weekly/sign/:sign
+  /**
+   * POST /api/refresh-weekly/sign/:sign
+   * Manual trigger for weekly scraper - single sign, all sources
+   */
   app.post("/api/refresh-weekly/sign/:sign", async (req, res) => {
     try {
+      // Admin auth check
+      const adminSecret = req.headers['x-admin-secret'];
+      const expectedSecret = process.env.ADMIN_SECRET || 'default-admin-secret-change-me';
+      
+      if (adminSecret !== expectedSecret) {
+        console.warn('[API Weekly Refresh Sign] Unauthorized attempt blocked');
+        return res.status(401).json({ error: 'Unauthorized - X-Admin-Secret header required' });
+      }
+      
       const { sign } = req.params;
-      const { weekStartDate } = req.query;
-      const targetWeekStart = weekStartDate as string || getMondayOfWeek(new Date()).toISOString().split('T')[0];
-
+      const { targetWeek, forceRescrape, dryRun } = req.body;
+      
+      // Validate and convert sign
       const signString = sign as string;
       let englishSign = signString;
 
@@ -637,34 +605,109 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!zodiacSign) {
         return res.status(404).json({ error: 'Zodiac sign not found' });
       }
-
-      const sources = await prisma.weeklySource.findMany({ where: { is_active: true } });
-
-      const jobIds: string[] = [];
-      const errors: string[] = [];
-
-      for (const source of sources) {
-        try {
-          const jobId = await enqueueWeeklyScrapeJob(createWeeklyScraperInput(source, zodiacSign, targetWeekStart));
-          jobIds.push(jobId);
-        } catch (error) {
-          const errorMsg = `Failed to enqueue ${source.name} - ${sign}`;
-          errors.push(errorMsg);
-          console.error(errorMsg, error);
+      
+      // Parse target week
+      let weekStart: Date;
+      if (targetWeek) {
+        weekStart = new Date(targetWeek);
+        if (!isMonday(weekStart)) {
+          return res.status(400).json({ error: 'Target week must be a Monday' });
         }
+      } else {
+        weekStart = getCurrentWeekStart();
       }
-
-      res.json({
-        message: `Weekly refresh started for ${sign}`,
-        jobsEnqueued: jobIds.length,
-        errors: errors.length,
-        jobIds,
-        sign,
-        weekStartDate: targetWeekStart,
+      
+      // Note: Single-sign refresh not yet implemented in orchestrator
+      // For now, return helpful error
+      return res.status(501).json({
+        error: 'Single sign refresh not yet implemented',
+        suggestion: 'Use /api/refresh-weekly/all to trigger full week refresh'
       });
+      
     } catch (error) {
-      console.error(`Error starting weekly refresh for sign ${req.params.sign}:`, error);
-      res.status(500).json({ error: 'Failed to start weekly refresh' });
+      console.error('[API Weekly Refresh Sign] Error:', error);
+      res.status(500).json({ error: 'Failed to trigger weekly refresh' });
+    }
+  });
+
+  /**
+   * POST /api/refresh-weekly/source/:sourceId
+   * Manual trigger for weekly scraper - single source, all signs
+   */
+  app.post("/api/refresh-weekly/source/:sourceId", async (req, res) => {
+    try {
+      // Admin auth check
+      const adminSecret = req.headers['x-admin-secret'];
+      const expectedSecret = process.env.ADMIN_SECRET || 'default-admin-secret-change-me';
+      
+      if (adminSecret !== expectedSecret) {
+        console.warn('[API Weekly Refresh Source] Unauthorized attempt blocked');
+        return res.status(401).json({ error: 'Unauthorized - X-Admin-Secret header required' });
+      }
+      
+      const { sourceId } = req.params;
+      const { targetWeek, forceRescrape, dryRun } = req.body;
+      
+      // Validate source exists
+      const source = await prisma.weeklySource.findUnique({
+        where: { id: parseInt(sourceId) }
+      });
+      
+      if (!source) {
+        return res.status(404).json({ error: 'Weekly source not found' });
+      }
+      
+      if (!source.is_active) {
+        return res.status(400).json({ error: 'Source is not active' });
+      }
+      
+      // Parse target week
+      let weekStart: Date;
+      if (targetWeek) {
+        weekStart = new Date(targetWeek);
+        if (!isMonday(weekStart)) {
+          return res.status(400).json({ error: 'Target week must be a Monday' });
+        }
+      } else {
+        weekStart = getCurrentWeekStart();
+      }
+      
+      // Trigger orchestrator with specific source
+      const resultPromise = runWeeklyScraperCycle({
+        weekStart,
+        specificSources: [source.id],
+        sourceGroup: 'all',
+        forceRescrape: forceRescrape || false,
+        dryRun: dryRun || false,
+        triggerType: 'manual'
+      });
+      
+      // For dry run, wait for result
+      if (dryRun) {
+        const result = await resultPromise;
+        return res.json({
+          success: true,
+          dryRun: true,
+          source: source.name,
+          weekStart: weekStart.toISOString().split('T')[0],
+          stats: result.stats,
+          message: `[DRY RUN] Would process ${result.stats.enqueued} jobs for ${source.name}`,
+        });
+      }
+      
+      // For actual run, return immediately
+      res.json({
+        success: true,
+        dryRun: false,
+        source: source.name,
+        weekStart: weekStart.toISOString().split('T')[0],
+        message: `Weekly scrape triggered for ${source.name}`,
+        note: 'Processing will continue in background'
+      });
+      
+    } catch (error) {
+      console.error('[API Weekly Refresh Source] Error:', error);
+      res.status(500).json({ error: 'Failed to trigger weekly refresh' });
     }
   });
 
@@ -1128,6 +1171,226 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('[API] Error fetching cleanup stats:', error);
       res.status(500).json({
         error: 'Failed to fetch stats',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // ============================================================================
+  // WEEKLY SCRAPER MONITORING & ADMIN ENDPOINTS
+  // ============================================================================
+
+  /**
+   * GET /api/admin/weekly-scraper/guards
+   * Test all guard functions without triggering scrapes
+   * Shows current state of all guards for debugging
+   */
+  app.get("/api/admin/weekly-scraper/guards", async (req, res) => {
+    try {
+      const weekStart = getCurrentWeekStart();
+      const now = new Date();
+      const italyNow = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Rome' }));
+      
+      const { hasCompletedGroupScrapeForWeek } = await import('./services/weeklyScraperOrchestrator');
+      
+      // Check all guards
+      const [mondayDone, elleDone, saturdayDone, staleExecutions] = await Promise.all([
+        hasCompletedGroupScrapeForWeek(weekStart, 'all'),
+        hasCompletedGroupScrapeForWeek(weekStart, 'elle_only'),
+        hasCompletedGroupScrapeForWeek(weekStart, 'saturday_group'),
+        findStaleExecutions(2),
+      ]);
+      
+      const dayOfWeek = italyNow.getDay(); // 0=Sun, 1=Mon, 4=Thu, 6=Sat
+      const currentHour = italyNow.getHours();
+      const currentMinute = italyNow.getMinutes();
+      const currentTime = `${String(currentHour).padStart(2, '0')}:${String(currentMinute).padStart(2, '0')}`;
+      
+      const isMonday = dayOfWeek === 1;
+      const isThursday = dayOfWeek === 4;
+      const isSaturday = dayOfWeek === 6;
+      const isInMondayWindow = isMonday && currentHour >= 5 && currentHour < 8;
+      
+      res.json({
+        currentWeek: weekStart.toISOString().split('T')[0],
+        currentTime: {
+          italy: currentTime,
+          dayOfWeek: italyNow.toLocaleDateString('en-US', { weekday: 'long' }),
+          isMonday,
+          isThursday,
+          isSaturday,
+          isInMondayWindow,
+        },
+        guards: {
+          mondayDone,
+          elleDone,
+          saturdayDone,
+          hasStaleExecutions: staleExecutions.length > 0,
+          staleCount: staleExecutions.length,
+        },
+        staleExecutions: staleExecutions.map(ex => ({
+          id: ex.id,
+          targetWeek: ex.target_week.toISOString().split('T')[0],
+          sourceGroup: ex.source_group,
+          startedAt: ex.started_at.toISOString(),
+          triggerType: ex.trigger_type,
+        })),
+      });
+    } catch (error) {
+      console.error('[Admin API] Guard check error:', error);
+      res.status(500).json({ 
+        error: 'Failed to check guards',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  /**
+   * GET /api/admin/weekly-scraper/coverage
+   * Check current week coverage - which sources have data, which are missing
+   */
+  app.get("/api/admin/weekly-scraper/coverage", async (req, res) => {
+    try {
+      const { weekStart } = req.query;
+      const targetWeek = weekStart 
+        ? new Date(weekStart as string)
+        : getCurrentWeekStart();
+      
+      const coverage = await getWeeklyCoverage(targetWeek);
+      const gaps = await findGapsInCoverage(targetWeek);
+      
+      const totalSources = coverage.length;
+      const completeSources = coverage.filter(c => c.isComplete).length;
+      const coveragePercent = totalSources > 0 
+        ? Math.round((completeSources / totalSources) * 1000) / 10 
+        : 0;
+      
+      res.json({
+        weekStart: targetWeek.toISOString().split('T')[0],
+        summary: {
+          totalSources,
+          completeSources,
+          incompleteSources: totalSources - completeSources,
+          coveragePercent,
+        },
+        sources: coverage,
+        gaps,
+      });
+    } catch (error) {
+      console.error('[Admin API] Coverage check error:', error);
+      res.status(500).json({ 
+        error: 'Failed to check coverage',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  /**
+   * GET /api/admin/weekly-scraper/executions
+   * Recent execution history with optional filtering
+   */
+  app.get("/api/admin/weekly-scraper/executions", async (req, res) => {
+    try {
+      const { limit, sourceGroup } = req.query;
+      const limitNum = limit ? parseInt(limit as string) : 10;
+      const groupFilter = sourceGroup as SourceGroup | undefined;
+      
+      const executions = await getExecutionHistory(limitNum, groupFilter);
+      
+      res.json({
+        count: executions.length,
+        limit: limitNum,
+        sourceGroupFilter: groupFilter || 'all',
+        executions,
+      });
+    } catch (error) {
+      console.error('[Admin API] Execution history error:', error);
+      res.status(500).json({ 
+        error: 'Failed to fetch execution history',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  /**
+   * GET /api/admin/weekly-scraper/health
+   * Health check endpoint with warnings for monitoring
+   */
+  app.get("/api/admin/weekly-scraper/health", async (req, res) => {
+    try {
+      const weekStart = getCurrentWeekStart();
+      const now = new Date();
+      const italyNow = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Rome' }));
+      const dayOfWeek = italyNow.getDay();
+      
+      const [stats, staleExecutions, failed, mondayDone, gaps] = await Promise.all([
+        getHealthStats(weekStart),
+        findStaleExecutions(2),
+        getFailedSources(weekStart),
+        import('./services/weeklyScraperOrchestrator').then(m => 
+          m.hasCompletedGroupScrapeForWeek(weekStart, 'all')
+        ),
+        findGapsInCoverage(weekStart),
+      ]);
+      
+      const warnings: string[] = [];
+      
+      // Warning 1: No Monday scrape by Tuesday
+      if (dayOfWeek >= 2 && !mondayDone) {
+        warnings.push('Monday scrape not completed yet (expected by Tuesday)');
+      }
+      
+      // Warning 2: Stale executions
+      if (staleExecutions.length > 0) {
+        warnings.push(`${staleExecutions.length} stale execution(s) found (running > 2 hours)`);
+      }
+      
+      // Warning 3: Low coverage
+      if (stats.coveragePercent < 95) {
+        warnings.push(`Low coverage: ${stats.coveragePercent}% (expected > 95%)`);
+      }
+      
+      // Warning 4: Failed sources need attention
+      if (failed.length > 0) {
+        warnings.push(`${failed.length} failed source(s) need retry`);
+      }
+      
+      // Warning 5: Significant gaps
+      if (gaps.length > 3) {
+        warnings.push(`${gaps.length} sources have incomplete data`);
+      }
+      
+      const healthy = warnings.length === 0;
+      
+      res.json({
+        healthy,
+        weekStart: weekStart.toISOString().split('T')[0],
+        checkTime: now.toISOString(),
+        warnings,
+        stats: {
+          ...stats,
+          staleExecutionsCount: staleExecutions.length,
+          failedSourcesCount: failed.length,
+          gapsCount: gaps.length,
+        },
+        details: {
+          staleExecutions: staleExecutions.map(ex => ({
+            id: ex.id,
+            targetWeek: ex.target_week.toISOString().split('T')[0],
+            sourceGroup: ex.source_group,
+            hoursRunning: Math.round((now.getTime() - ex.started_at.getTime()) / (1000 * 60 * 60) * 10) / 10,
+          })),
+          failedSources: failed.map(f => ({
+            source: f.sourceName,
+            sign: f.signName,
+            failedAt: f.failedAt.toISOString(),
+          })),
+        },
+      });
+    } catch (error) {
+      console.error('[Admin API] Health check error:', error);
+      res.status(500).json({ 
+        error: 'Failed to check health',
         details: error instanceof Error ? error.message : 'Unknown error'
       });
     }
