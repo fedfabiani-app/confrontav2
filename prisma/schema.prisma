@@ -135,10 +135,8 @@ model UserPreferences {
 }
 
 model CleanupTracker {
-  id             Int      @id @default(autoincrement())
-  last_cleanup_at DateTime @default(now())
-  created_at     DateTime @default(now())
-  updated_at     DateTime @default(now()) @updatedAt
+  id           Int      @id @default(autoincrement())
+  last_cleanup DateTime @default(now())
 
   @@map("cleanup_tracker")
 }
