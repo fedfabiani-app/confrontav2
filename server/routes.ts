@@ -225,26 +225,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const jobIds: string[] = [];
       const errors: string[] = [];
 
-      // Enqueue jobs for all combinations
-      for (const source of sources) {
-        for (const sign of zodiacSigns) {
-          try {
-            const jobId = await enqueueScrapeJob(createScraperInput(source, sign, targetDate));
-            jobIds.push(jobId);
-          } catch (error) {
-            const errorMsg = `Failed to enqueue ${source.name} - ${sign.name_italian}`;
-            errors.push(errorMsg);
-            console.error(errorMsg, error);
+      // Process signs sequentially to avoid overwhelming OpenAI rate limits
+      // Start background processing, don't wait for completion
+      (async () => {
+        for (let i = 0; i < zodiacSigns.length; i++) {
+          const sign = zodiacSigns[i];
+          console.log(`[Refresh] Processing sign ${i + 1}/${zodiacSigns.length}: ${sign.name_italian}`);
+          
+          // Enqueue all sources for this sign
+          for (const source of sources) {
+            try {
+              const jobId = await enqueueScrapeJob(createScraperInput(source, sign, targetDate));
+              jobIds.push(jobId);
+            } catch (error) {
+              const errorMsg = `Failed to enqueue ${source.name} - ${sign.name_italian}`;
+              errors.push(errorMsg);
+              console.error(errorMsg, error);
+            }
+          }
+          
+          // Wait 5 seconds before processing the next sign (except after the last one)
+          if (i < zodiacSigns.length - 1) {
+            console.log(`[Refresh] Waiting 5 seconds before processing next sign...`);
+            await new Promise(resolve => setTimeout(resolve, 5000));
           }
         }
-      }
+        console.log(`[Refresh] All signs enqueued. Total jobs: ${jobIds.length}, Errors: ${errors.length}`);
+      })();
 
       res.json({
-        message: 'Refresh started',
-        jobsEnqueued: jobIds.length,
-        errors: errors.length,
-        jobIds,
+        message: 'Refresh started (processing signs sequentially)',
+        expectedJobs: sources.length * zodiacSigns.length,
+        totalSigns: zodiacSigns.length,
+        totalSources: sources.length,
         date: targetDate,
+        note: 'Signs will be processed one at a time with 5-second delays to respect API rate limits',
       });
     } catch (error) {
       console.error('Error starting refresh all:', error);
@@ -408,25 +423,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const jobIds: string[] = [];
       const errors: string[] = [];
 
-      for (const source of sources) {
-        for (const sign of zodiacSigns) {
-          try {
-            const jobId = await enqueueWeeklyScrapeJob(createWeeklyScraperInput(source, sign, targetWeekStart));
-            jobIds.push(jobId);
-          } catch (error) {
-            const errorMsg = `Failed to enqueue ${source.name} - ${sign.name_italian}`;
-            errors.push(errorMsg);
-            console.error(errorMsg, error);
+      // Process signs sequentially to avoid overwhelming OpenAI rate limits
+      // Start background processing, don't wait for completion
+      (async () => {
+        for (let i = 0; i < zodiacSigns.length; i++) {
+          const sign = zodiacSigns[i];
+          console.log(`[Weekly Refresh] Processing sign ${i + 1}/${zodiacSigns.length}: ${sign.name_italian}`);
+          
+          // Enqueue all sources for this sign
+          for (const source of sources) {
+            try {
+              const jobId = await enqueueWeeklyScrapeJob(createWeeklyScraperInput(source, sign, targetWeekStart));
+              jobIds.push(jobId);
+            } catch (error) {
+              const errorMsg = `Failed to enqueue ${source.name} - ${sign.name_italian}`;
+              errors.push(errorMsg);
+              console.error(errorMsg, error);
+            }
+          }
+          
+          // Wait 5 seconds before processing the next sign (except after the last one)
+          if (i < zodiacSigns.length - 1) {
+            console.log(`[Weekly Refresh] Waiting 5 seconds before processing next sign...`);
+            await new Promise(resolve => setTimeout(resolve, 5000));
           }
         }
-      }
+        console.log(`[Weekly Refresh] All signs enqueued. Total jobs: ${jobIds.length}, Errors: ${errors.length}`);
+      })();
 
       res.json({
-        message: 'Weekly refresh started',
-        jobsEnqueued: jobIds.length,
-        errors: errors.length,
-        jobIds,
+        message: 'Weekly refresh started (processing signs sequentially)',
+        expectedJobs: sources.length * zodiacSigns.length,
+        totalSigns: zodiacSigns.length,
+        totalSources: sources.length,
         weekStartDate: targetWeekStart,
+        note: 'Signs will be processed one at a time with 5-second delays to respect API rate limits',
       });
     } catch (error) {
       console.error('Error starting weekly refresh all:', error);
