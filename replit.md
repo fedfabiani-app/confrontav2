@@ -25,6 +25,11 @@ Preferred communication style: Simple, everyday language.
   - **Scrape Queue**: Concurrency 3, interval 2000ms, processes up to 3 scraping jobs per 2 seconds
   - **NLP Queue**: Concurrency 1, interval 3000ms, processes one OpenAI call at a time to avoid rate limits
   - **Sequential Sign Processing**: Refresh endpoints process signs one at a time with 5-second delays between signs
+- **Automated Scheduling**: node-cron scheduler with dynamic configuration from database
+  - **Daily Scraper**: Runs every N minutes (from config.intervalMinutes) during configured time window
+  - **Weekly Scrapers**: Fixed schedules for Monday (5:30-8:00 AM), Thursday (12:00 PM), Saturday (12:00 PM)
+  - **Fallback Retry**: Automatically runs 1 hour after daily scraping window ends to retry failures
+  - **Timezone**: All schedules use Europe/Rome timezone for consistency with Italian sources
 - **Worker Architecture**: Two dedicated worker modules:
   - Scraper worker for HTML parsing and content extraction
   - OpenAI worker for AI-powered content analysis and processing
