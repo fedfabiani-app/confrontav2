@@ -7,35 +7,10 @@ import { runDailyScraperCycle } from './services/dailyScraperOrchestrator';
 import { 
   runWeeklyScraperCycle, 
   hasCompletedGroupScrapeForWeek,
+  getFailedWeeklySources,
   type SourceGroup 
 } from './services/weeklyScraperOrchestrator';
 import { getCurrentWeekStart } from './utils/weekUtils';
-
-// ============================================================================
-// TEST CONFIGURATION
-// Calculate test time window: 2 minutes from now + 10 minute window
-// ============================================================================
-const now = new Date();
-const italyNow = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Rome' }));
-const testStart = new Date(italyNow.getTime() + 2 * 60 * 1000); // 2 minutes from now
-const testEnd = new Date(testStart.getTime() + 10 * 60 * 1000); // 10 minutes after start
-const testFallback = new Date(testEnd.getTime() + 2 * 60 * 1000); // 2 minutes after end
-
-const TEST_CONFIG = {
-  START_HOUR: testStart.getHours(),
-  START_MINUTE: testStart.getMinutes(),
-  END_HOUR: testEnd.getHours(),
-  END_MINUTE: testEnd.getMinutes(),
-  FALLBACK_HOUR: testFallback.getHours(),
-  FALLBACK_MINUTE: testFallback.getMinutes(),
-};
-
-console.log('\n========== [SCHEDULER] Test Configuration ==========');
-console.log(`Current Italy time: ${italyNow.toTimeString().split(' ')[0]}`);
-console.log(`Test window START: ${testStart.toTimeString().split(' ')[0]}`);
-console.log(`Test window END:   ${testEnd.toTimeString().split(' ')[0]}`);
-console.log(`Fallback trigger:  ${testFallback.toTimeString().split(' ')[0]}`);
-console.log('====================================================\n');
 
 // ============================================================================
 // HELPER FUNCTIONS - DAILY SCRAPER
@@ -110,20 +85,6 @@ async function getFailedSourceIds(targetDate: string): Promise<number[]> {
   });
   
   return failedStatuses.map(s => s.source_id);
-}
-
-/**
- * Check if current time is within the test window
- */
-function isWithinTestWindow(): boolean {
-  const now = new Date();
-  const italyNow = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Rome' }));
-  
-  const currentMinutes = italyNow.getHours() * 60 + italyNow.getMinutes();
-  const startMinutes = TEST_CONFIG.START_HOUR * 60 + TEST_CONFIG.START_MINUTE;
-  const endMinutes = TEST_CONFIG.END_HOUR * 60 + TEST_CONFIG.END_MINUTE;
-  
-  return currentMinutes >= startMinutes && currentMinutes <= endMinutes;
 }
 
 // ============================================================================
@@ -261,8 +222,8 @@ async function executeDailyScraper() {
     console.log('[DailyScraper] ✓ Daily config check passed - Scraping enabled');
     
     // Guard 2: Check time window
-    if (!isWithinTestWindow()) {
-      console.log(`[DailyScraper] ⊘ Skipped - Outside test window (${TEST_CONFIG.START_HOUR}:${String(TEST_CONFIG.START_MINUTE).padStart(2, '0')}-${TEST_CONFIG.END_HOUR}:${String(TEST_CONFIG.END_MINUTE).padStart(2, '0')})`);
+    if (!isWithinTimeWindow(config)) {
+      console.log(`[DailyScraper] ⊘ Skipped - Outside configured time window (${config.startTime}-${config.endTime})`);
       console.log('==================================================\n');
       return;
     }
@@ -710,20 +671,26 @@ export async function initializeScheduledTasks() {
   // Ensure tracker table exists
   await cleanupTracker.ensureTrackerTable();
 
+  // Get config to determine schedules
+  const dailyConfig = await getDailyScraperConfig();
+  
+  // Parse fallback time (1 hour after end time)
+  const [endHour, endMinute] = dailyConfig.endTime.split(':').map(Number);
+  const fallbackHour = (endHour + 1) % 24; // Add 1 hour for fallback
+  
   // ============================================================================
-  // DAILY SCRAPER - TEST SCHEDULE
-  // Runs every 2 minutes, guards enforce time window
+  // DAILY SCRAPER - PRODUCTION SCHEDULE
+  // Runs based on config interval, guards enforce time window
   // ============================================================================
-  cron.schedule('*/2 * * * *', executeDailyScraper, {
+  cron.schedule(`*/${dailyConfig.intervalMinutes} * * * *`, executeDailyScraper, {
     timezone: 'Europe/Rome'
   });
   
   // ============================================================================
-  // FALLBACK RETRY - TEST SCHEDULE
-  // Runs at specific time (2 minutes after test window ends)
+  // FALLBACK RETRY - PRODUCTION SCHEDULE
+  // Runs 1 hour after scraping window ends
   // ============================================================================
-  const fallbackCron = `${TEST_CONFIG.FALLBACK_MINUTE} ${TEST_CONFIG.FALLBACK_HOUR} * * *`;
-  cron.schedule(fallbackCron, executeFallbackRetry, {
+  cron.schedule(`${endMinute} ${fallbackHour} * * *`, executeFallbackRetry, {
     timezone: 'Europe/Rome'
   });
 
@@ -781,13 +748,15 @@ export async function initializeScheduledTasks() {
   });
 
   const lastCleanup = await cleanupTracker.getLastCleanupDate();
+  const weeklyConfig = await getWeeklyScraperConfig();
+  
   console.log('\n========== [Scheduler] Initialization Complete ==========');
   console.log('Scheduled tasks:');
-  console.log('  - Daily Scraper: Every 2 minutes (test mode)');
-  console.log(`  - Daily Fallback: ${String(TEST_CONFIG.FALLBACK_HOUR).padStart(2, '0')}:${String(TEST_CONFIG.FALLBACK_MINUTE).padStart(2, '0')} daily`);
-  console.log('  - Monday Weekly: Every 20 min on Mondays (5:30-8:00 AM)');
-  console.log('  - Thursday Weekly: Thursdays at 12:00 PM (Elle.com update)');
-  console.log('  - Saturday Weekly: Saturdays at 12:00 PM (3 sources update)');
+  console.log(`  - Daily Scraper: Every ${dailyConfig.intervalMinutes} min (window: ${dailyConfig.startTime}-${dailyConfig.endTime}) ${dailyConfig.enabled ? '✓' : '✗'}`);
+  console.log(`  - Daily Fallback: ${String(fallbackHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')} daily`);
+  console.log(`  - Monday Weekly: Every 20 min on Mondays (5:30-8:00 AM) ${weeklyConfig.enabled ? '✓' : '✗'}`);
+  console.log(`  - Thursday Weekly: Thursdays at 12:00 PM (Elle.com update) ${weeklyConfig.enabled ? '✓' : '✗'}`);
+  console.log(`  - Saturday Weekly: Saturdays at 12:00 PM (3 sources update) ${weeklyConfig.enabled ? '✓' : '✗'}`);
   console.log('  - Weekly Fallback: Mondays at 9:00 AM (retry failed sources)');
   console.log('  - Cleanup: Daily at 3 AM (31-day interval)');
   if (lastCleanup) {
