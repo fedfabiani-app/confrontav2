@@ -576,15 +576,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
    */
   app.post("/api/refresh-weekly/sign/:sign", async (req, res) => {
     try {
-      // Admin auth check
-      const adminSecret = req.headers['x-admin-secret'];
-      const expectedSecret = process.env.ADMIN_SECRET || 'default-admin-secret-change-me';
-      
-      if (adminSecret !== expectedSecret) {
-        console.warn('[API Weekly Refresh Sign] Unauthorized attempt blocked');
-        return res.status(401).json({ error: 'Unauthorized - X-Admin-Secret header required' });
-      }
-      
       const { sign } = req.params;
       const { targetWeek, forceRescrape, dryRun } = req.body;
       
