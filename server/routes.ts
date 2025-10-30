@@ -608,11 +608,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
         weekStart = getCurrentWeekStart();
       }
       
-      // Note: Single-sign refresh not yet implemented in orchestrator
-      // For now, return helpful error
-      return res.status(501).json({
-        error: 'Single sign refresh not yet implemented',
-        suggestion: 'Use /api/refresh-weekly/all to trigger full week refresh'
+      console.log(`[API Weekly Refresh Sign] Triggering for ${zodiacSign.name_italian}, week ${weekStart.toISOString().split('T')[0]}`);
+      
+      // Trigger weekly scrape for all sources but only this sign
+      // We'll do this by enqueueing jobs directly for this sign
+      const sources = await prisma.weeklySource.findMany({
+        where: { is_active: true },
+        orderBy: { id: 'asc' }
+      });
+      
+      let enqueued = 0;
+      let skipped = 0;
+      
+      for (const source of sources) {
+        // Check if already processed (unless force rescrape)
+        if (!forceRescrape) {
+          const existing = await prisma.weeklyHoroscopeData.findFirst({
+            where: {
+              source_id: source.id,
+              zodiac_sign_id: zodiacSign.id,
+              week_start_date: weekStart,
+              summary: { not: '' }
+            }
+          });
+          
+          if (existing) {
+            skipped++;
+            continue;
+          }
+        }
+        
+        // Enqueue the job
+        try {
+          const isSaturdayBased = source.domain.includes('repubblica.it') || source.domain.includes('sorrisi.com');
+          const useNumericMonth = source.domain.includes('repubblica.it');
+          const { startDay, endDay, month, year } = formatWeekUrlParams(weekStart, isSaturdayBased, useNumericMonth);
+          
+          const scraperInput = {
+            sourceId: source.id,
+            sourceName: source.name,
+            domain: source.domain,
+            baseUrl: source.base_url,
+            urlPattern: source.url_pattern,
+            scrapeStrategy: source.scrape_strategy,
+            signSlugIt: zodiacSign.name_italian,
+            weekStartDate: weekStart.toISOString().split('T')[0],
+            startDay,
+            endDay,
+            month,
+            year,
+            userAgent: process.env.SCRAPE_USER_AGENT || 'ItalianHoroscopeComparatorBot/1.0 (+contact)',
+          };
+          
+          await enqueueWeeklyScrapeJob(scraperInput);
+          enqueued++;
+        } catch (error) {
+          console.error(`[API Weekly Refresh Sign] Failed to enqueue ${source.name}:`, error);
+        }
+      }
+      
+      res.json({
+        success: true,
+        sign: zodiacSign.name_italian,
+        weekStart: weekStart.toISOString().split('T')[0],
+        stats: {
+          total: sources.length,
+          enqueued,
+          skipped
+        },
+        message: `Weekly scrape triggered for ${zodiacSign.name_italian}`
       });
       
     } catch (error) {
