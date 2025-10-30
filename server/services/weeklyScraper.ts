@@ -441,6 +441,113 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
     candidates.sort((a, b) => b.score - a.score);
   } 
 
+    // Special handling for Cosmopolitan
+    else if (input.domain.includes('cosmopolitan.com')) {
+      console.log('Cosmopolitan archive - Extracting weekly URLs with cross-month support');
+
+      const urlPattern = /\/oroscopo\/oroscopo-settimana\/a\d+\/oroscopo-settimana/i;
+
+      $('a').each((_, elem) => {
+        const href = $(elem).attr('href');
+        const linkText = $(elem).text().trim();
+
+        if (!href || !urlPattern.test(href)) {
+          return;
+        }
+
+        let score = 0;
+        const fullText = href + ' ' + linkText;
+
+        console.log(`Cosmopolitan - Checking link: ${href}`);
+
+        // Pattern 1: Single month format
+        // oroscopo-settimana-20-26-ottobre-2025
+        const singleMonthPattern = /oroscopo-settimana-(\d{1,2})-(\d{1,2})-(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)-(\d{4})/i;
+
+        // Pattern 2: Cross-month format  
+        // oroscopo-settimana-27-ottobre-2-novembre-2025
+        const crossMonthPattern = /oroscopo-settimana-(\d{1,2})-(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)-(\d{1,2})-(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)-(\d{4})/i;
+
+        let dateRange: WeekDateRange | null = null;
+        let match: RegExpMatchArray | null = null;
+
+        // Try cross-month pattern first (more specific)
+        match = href.match(crossMonthPattern);
+        if (match) {
+          const startDay = parseInt(match[1]);
+          const startMonthName = match[2].toLowerCase();
+          const endDay = parseInt(match[3]);
+          const endMonthName = match[4].toLowerCase();
+          const year = parseInt(match[5]);
+
+          const startMonth = ITALIAN_MONTHS[startMonthName];
+          const endMonth = ITALIAN_MONTHS[endMonthName];
+
+          if (startMonth && endMonth) {
+            const startDate = new Date(year, startMonth - 1, startDay);
+            const endDate = new Date(year, endMonth - 1, endDay);
+
+            dateRange = { startDate, endDate };
+            score += 25;
+
+            console.log(`Cosmopolitan - Parsed cross-month range: ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`);
+          }
+        } 
+        // Try single month pattern
+        else {
+          match = href.match(singleMonthPattern);
+          if (match) {
+            const startDay = parseInt(match[1]);
+            const endDay = parseInt(match[2]);
+            const monthName = match[3].toLowerCase();
+            const year = parseInt(match[4]);
+            const month = ITALIAN_MONTHS[monthName];
+
+            if (month) {
+              const startDate = new Date(year, month - 1, startDay);
+              let endDate = new Date(year, month - 1, endDay);
+
+              // Handle case where end day < start day (crosses into next month)
+              if (endDate < startDate) {
+                endDate.setMonth(endDate.getMonth() + 1);
+              }
+
+              dateRange = { startDate, endDate };
+              score += 20;
+
+              console.log(`Cosmopolitan - Parsed single-month range: ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`);
+            }
+          }
+        }
+
+        if (dateRange) {
+          // Bonus for article ID (higher = more recent)
+          const articleMatch = href.match(/\/a(\d+)\//);
+          if (articleMatch) {
+            const articleId = parseInt(articleMatch[1]);
+            score += Math.min(articleId / 1000000, 50);
+          }
+
+          let absoluteUrl = href;
+          if (href.startsWith('/')) {
+            absoluteUrl = 'https://www.cosmopolitan.com/it' + href;
+          } else if (!href.startsWith('http')) {
+            absoluteUrl = 'https://www.cosmopolitan.com/it/' + href;
+          } else if (href.startsWith('http://')) {
+            absoluteUrl = href.replace('http://', 'https://');
+          }
+
+          candidates.push({ url: absoluteUrl, dateRange, score });
+          console.log(`Found Cosmopolitan URL (score: ${score}): ${absoluteUrl} => ${dateRange.startDate.toISOString().split('T')[0]}`);
+        } else {
+          console.log(`Cosmopolitan - Could not parse date from: ${fullText}`);
+        }
+      });
+
+      candidates.sort((a, b) => b.score - a.score);
+      console.log(`Cosmopolitan - Total candidates found: ${candidates.length}`);
+    }
+    
     // Generic archive handling
   else {
     $('a').each((_, elem) => {
