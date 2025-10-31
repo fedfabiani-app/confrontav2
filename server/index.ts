@@ -1,3 +1,14 @@
+// Fix for Node.js v18 File API issue - polyfill for undici
+if (typeof File === 'undefined') {
+  global.File = class File extends Blob {
+    constructor(parts: any[], name: string, options?: any) {
+      super(parts, options);
+      Object.defineProperty(this, 'name', { value: name });
+      Object.defineProperty(this, 'lastModified', { value: Date.now() });
+    }
+  } as any;
+}
+
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
