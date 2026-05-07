@@ -2,7 +2,10 @@ import Anthropic from '@anthropic-ai/sdk';
 import { OpenAIInput, OpenAIOutput, openaiOutputSchema } from "@shared/schema";
 
 const client = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY
+  apiKey: process.env.ANTHROPIC_API_KEY,
+  defaultHeaders: {
+    "anthropic-beta": "prompt-caching-2024-07-31"
+  }
 });
 
 if (!process.env.ANTHROPIC_API_KEY) {
@@ -193,7 +196,45 @@ VERIFICA FINALE OBBLIGATORIA
 □ Se ultra-compresso: max 2-3 temi, max 2 frasi?
 
 Se anche una sola risposta è problematica,
-riscrivi prima di restituire l'output.`;
+riscrivi prima di restituire l'output.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SUPERQUOTE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+La superquote è una frase autonoma di massimo 80 caratteri
+che esprime il tono emotivo dominante o l'invito chiave
+della giornata, ricavata dal riassunto appena prodotto.
+
+REGOLE:
+- Completamente originale: zero parole prese dall'originale
+- Tono assertivo o evocativo, mai descrittivo
+  ("Ascolta il tuo istinto." non "La giornata è favorevole.")
+- Frase sintatticalmente completa, con punto finale
+- Senza riferimenti a pianeti, transiti, segni, date, fonti
+- Deve funzionare da sola, fuori contesto
+- Non deve anticipare o riassumere il summary:
+  è un'impressione, non una miniatura del testo
+
+ESEMPI BUONI:
+  "Oggi è il momento giusto per osare."
+  "La chiarezza arriva quando smetti di forzare."
+  "Metti al primo posto ciò che conta davvero."
+  "Qualcosa si sta muovendo nella direzione giusta."
+
+ESEMPI DA EVITARE:
+  "Giornata favorevole per le relazioni." → descrittivo
+  "Venere supporta i tuoi piani." → riferimento astrologico
+  "Le stelle ti attendono." → generico e riferimento a fonte
+  "Oggi potresti sentirti più energico del solito." → padding
+
+VERIFICA SUPERQUOTE:
+□ Meno di 80 caratteri?
+□ Zero parole dall'originale?
+□ Frase completa con punto finale?
+□ Zero riferimenti astrologici o a fonti?
+□ Tono assertivo o evocativo (non descrittivo)?
+□ Ha senso letta da sola?`;
 
 export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAIOutput> {
   try {
@@ -395,7 +436,7 @@ export async function processHoroscopeWithRetry(
       }
 
       const delay = Math.pow(2, attempt) * 1000;
-      console.log(`Claude attempt ${attempt} failed, retrying in ${delay}ms...`);
+      console.log(`[Claude] Attempt ${attempt} failed, retrying in ${delay}ms...`);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
