@@ -1,7 +1,7 @@
 import PQueue from 'p-queue';
 import { scraperWorker } from '../workers/scraper';
 import { weeklyScraperWorker } from '../workers/weeklyScraper';
-import { openaiWorker } from '../workers/openai';
+import { openaiWorker } from '../workers/claude';
 import { ScraperInput, OpenAIInput, ScraperOutput, OpenAIOutput, WeeklyScraperInput, WeeklyScraperOutput } from '@shared/schema';
 import prisma from '../services/database';
 

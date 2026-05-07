@@ -1,5 +1,5 @@
 import { OpenAIInput, OpenAIOutput } from '@shared/schema';
-import { processHoroscopeWithRetry } from '../services/openai';
+import { processHoroscopeWithRetry } from '../services/claude';
 
 export class OpenAIWorker {
   async process(input: OpenAIInput): Promise<OpenAIOutput> {
