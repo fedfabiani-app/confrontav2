@@ -3,6 +3,129 @@ import { HOROSCOPE_SOURCES } from '../shared/constants';
 
 const prisma = new PrismaClient();
 
+const WEEKLY_SOURCES = [
+  {
+    name: 'Paolo Fox - Corriere',
+    domain: 'corriere.it',
+    logo_url: 'https://cdn.brandfetch.io/idXZ1tQX9C/w/400/h/400/theme/dark/icon.jpeg',
+    base_url: 'https://www.corriere.it/oroscopo/settimana',
+    url_pattern: '/{sign}/',
+    scrape_strategy: 'pattern',
+    slug: null,
+    is_active: true,
+  },
+  {
+    name: 'Branko - SuperGuida TV',
+    domain: 'superguidatv.it',
+    logo_url: 'https://www.superguidatv.it/favicon.ico',
+    base_url: 'https://www.superguidatv.it',
+    url_pattern: '/oroscopo-branko-previsioni-settimana-dal-{start_day}-al-{end_day}-{month}-{year}/',
+    scrape_strategy: 'pattern',
+    slug: null,
+    is_active: true,
+  },
+  {
+    name: 'Cosmopolitan',
+    domain: 'cosmopolitan.com',
+    logo_url: 'https://www.cosmopolitan.com/it/apple-touch-icon.png',
+    base_url: 'https://www.cosmopolitan.com/it',
+    url_pattern: '/oroscopo/oroscopo-settimana/',
+    scrape_strategy: 'pattern',
+    slug: null,
+    is_active: true,
+  },
+  {
+    name: 'Webboh',
+    domain: 'webboh.it',
+    logo_url: 'https://www.webboh.it/apple-touch-icon.png',
+    base_url: 'https://www.webboh.it',
+    url_pattern: '/oroscopo-settimana-{start_day}-{end_day}-{month}/',
+    scrape_strategy: 'pattern',
+    slug: null,
+    is_active: true,
+  },
+  {
+    name: 'Sky TG24',
+    domain: 'tg24.sky.it',
+    logo_url: null,
+    base_url: 'https://tg24.sky.it',
+    url_pattern: '/lifestyle/oroscopo/settimana',
+    scrape_strategy: 'pattern',
+    slug: null,
+    is_active: true,
+  },
+  {
+    name: 'Marie Claire',
+    domain: 'marieclaire.it',
+    logo_url: 'https://www.marieclaire.it/apple-touch-icon.png',
+    base_url: 'https://www.marieclaire.it',
+    url_pattern: 'coolmix/{random_number}/oroscopo-settimana-di-marie-claire-dal-{start_day}-al-{end_day}-{month}/',
+    scrape_strategy: 'archive',
+    slug: null,
+    is_active: true,
+  },
+  {
+    name: 'IO Donna',
+    domain: 'iodonna.it',
+    logo_url: 'https://www.iodonna.it/favicon.ico',
+    base_url: 'https://www.iodonna.it',
+    url_pattern: '/oroscopo/settimana/{sign}/',
+    scrape_strategy: 'pattern',
+    slug: 'iodonna',
+    is_active: true,
+  },
+  {
+    name: 'Virgilio',
+    domain: 'virgilio.it',
+    logo_url: 'https://www.virgilio.it/favicon.ico',
+    base_url: 'https://www.virgilio.it',
+    url_pattern: '/oroscopo/settimanale/{sign}/',
+    scrape_strategy: 'pattern',
+    slug: null,
+    is_active: true,
+  },
+  {
+    name: 'Starbene',
+    domain: 'starbene.it',
+    logo_url: 'https://www.starbene.it/favicon.ico',
+    base_url: 'https://www.starbene.it',
+    url_pattern: '/oroscopo/previsioni-settimana-{start_day}-{end_day}-{month}-{year}/',
+    scrape_strategy: 'pattern',
+    slug: null,
+    is_active: true,
+  },
+  {
+    name: 'D Repubblica',
+    domain: 'd.repubblica.it',
+    logo_url: null,
+    base_url: 'https://d.repubblica.it',
+    url_pattern: '/oroscopo/oroscopo-della-settimana/{year}/{mm}/{dd}/news/oroscopo_settimana_dal_{start_day}_al_{end_day}_{month}_{year}',
+    scrape_strategy: 'pattern',
+    slug: 'd-repubblica',
+    is_active: true,
+  },
+  {
+    name: 'alFemminile',
+    domain: 'alfemminile.com',
+    logo_url: 'https://www.alfemminile.com/favicon.ico',
+    base_url: 'https://www.alfemminile.com',
+    url_pattern: '/astrologia/oroscopo/oroscopo-settimanale-dal-{week_start_day}-al-{week_end_day}-{week_end_month}-{year}/',
+    scrape_strategy: 'pattern',
+    slug: null,
+    is_active: true,
+  },
+  {
+    name: 'Simon and the Stars',
+    domain: 'simonandthestars.it',
+    logo_url: 'https://www.simonandthestars.it/favicon.ico',
+    base_url: 'https://www.simonandthestars.it',
+    url_pattern: '/{sign}-oroscopo-dal-{start_day}-al-{end_day}-{month}-{year}/',
+    scrape_strategy: 'pattern',
+    slug: null,
+    is_active: true,
+  },
+];
+
 async function main() {
   console.log('Seeding database...');
 
@@ -49,6 +172,27 @@ async function main() {
   }
 
   console.log('Sources seeded');
+
+  // Seed weekly sources
+  for (const source of WEEKLY_SOURCES) {
+    await prisma.weeklySource.upsert({
+      where: { domain: source.domain },
+      update: {},
+      create: {
+        name: source.name,
+        domain: source.domain,
+        logo_url: source.logo_url,
+        base_url: source.base_url,
+        url_pattern: source.url_pattern,
+        scrape_strategy: source.scrape_strategy,
+        slug: source.slug,
+        reliability_score: 3.5,
+        is_active: source.is_active,
+      },
+    });
+  }
+
+  console.log('Weekly sources seeded');
 
   // Create demo user
   await prisma.user.upsert({
