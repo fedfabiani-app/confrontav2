@@ -89,6 +89,7 @@ function formatDateDDMMYYYY(date: Date): string {
 
 /**
  * Builds URLs specifically for Gazzetta.it with all variations
+ * New URL structure (2026+): /oroscopo/storie/{pubDate}/oroscopo-di-{weekday}-{D}-{month}-{year}-le-previsioni-per-i-12-segni/{sign}.shtml
  */
 function buildGazzettaUrls(input: ScraperInput): string[] {
   console.log(`🔥 Building Gazzetta.it URLs for ${input.signSlugIt}`);
@@ -99,44 +100,43 @@ function buildGazzettaUrls(input: ScraperInput): string[] {
   const year = targetDate.getFullYear();
   const weekday = ITALIAN_WEEKDAYS[targetDate.getDay()];
   const monthName = ITALIAN_MONTHS[month];
+  const signSlug = ZODIAC_SIGN_MAP[input.signSlugIt] || input.signSlugIt.toLowerCase();
 
-  const gazzettaSignSlug = ZODIAC_SIGN_MAP[input.signSlugIt] || input.signSlugIt.toLowerCase();
-
-  // Calculate previous date (typical publishing date)
-  const prevDate = new Date(targetDate);
-  prevDate.setDate(prevDate.getDate() - 1);
-  const publishingDateFormatted = formatDateDDMMYYYY(prevDate);
-
-  // Also try current date (sometimes they publish same day)
-  const currentDateFormatted = formatDateDDMMYYYY(targetDate);
-
-  // Format horoscope date part (weekday-DD-monthname-YYYY)
   const horoscopeDatePart = `${weekday}-${day}-${monthName}-${year}`;
-  const baseSlug = `oroscopo-${horoscopeDatePart}`;
 
-  // All possible slug variations (ordered by likelihood)
-  const slugVariations = [
-    `${baseSlug}-previsioni-per-tutti-i-12-segni`,
-    `${baseSlug}-previsioni-per-12-segni`,
-    `${baseSlug}-previsioni-per-tutti-i-segni`,
-    `${baseSlug}-le-previsioni-per-i-12-segni`,
+  // Slug variations: new format (oroscopo-di-) first, old format as fallback
+  const newSlugs = [
+    `oroscopo-di-${horoscopeDatePart}-le-previsioni-per-i-12-segni`,
+    `oroscopo-di-${horoscopeDatePart}-previsioni-per-tutti-i-12-segni`,
+    `oroscopo-di-${horoscopeDatePart}-previsioni-per-12-segni`,
+  ];
+  const oldSlugs = [
+    `oroscopo-${horoscopeDatePart}-previsioni-per-tutti-i-12-segni`,
+    `oroscopo-${horoscopeDatePart}-le-previsioni-per-i-12-segni`,
+    `oroscopo-${horoscopeDatePart}-previsioni-per-12-segni`,
   ];
 
   const urls: string[] = [];
 
-  // Try with yesterday as publishing date first (most common)
-  for (const slug of slugVariations) {
-    urls.push(`${input.baseUrl}/storie/${publishingDateFormatted}/${slug}/${gazzettaSignSlug}.shtml`);
+  // Try publishing dates D-1, D-2, D-3 with new path + new slugs (most likely)
+  for (let offset = 1; offset <= 3; offset++) {
+    const pubDate = new Date(targetDate);
+    pubDate.setDate(pubDate.getDate() - offset);
+    const pubDateStr = formatDateDDMMYYYY(pubDate);
+    for (const slug of newSlugs) {
+      urls.push(`${input.baseUrl}/oroscopo/storie/${pubDateStr}/${slug}/${signSlug}.shtml`);
+    }
   }
 
-  // Then try with today as publishing date
-  for (const slug of slugVariations) {
-    urls.push(`${input.baseUrl}/storie/${currentDateFormatted}/${slug}/${gazzettaSignSlug}.shtml`);
+  // Fallback: old path + old slugs with D-1
+  const prevDate = new Date(targetDate);
+  prevDate.setDate(prevDate.getDate() - 1);
+  const prevDateStr = formatDateDDMMYYYY(prevDate);
+  for (const slug of oldSlugs) {
+    urls.push(`${input.baseUrl}/storie/${prevDateStr}/${slug}/${signSlug}.shtml`);
   }
 
   console.log(`Gazzetta.it - Target date: ${input.dateISO}`);
-  console.log(`Gazzetta.it - Publishing date (yesterday): ${publishingDateFormatted}`);
-  console.log(`Gazzetta.it - Publishing date (today): ${currentDateFormatted}`);
   console.log(`Gazzetta.it - Horoscope date part: ${horoscopeDatePart}`);
   console.log(`Gazzetta.it - Generated ${urls.length} URLs`);
 
