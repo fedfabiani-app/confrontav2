@@ -3,9 +3,6 @@ import { OpenAIInput, OpenAIOutput, openaiOutputSchema } from "@shared/schema";
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
-  defaultHeaders: {
-    "anthropic-beta": "prompt-caching-2024-07-31"
-  }
 });
 
 if (!process.env.ANTHROPIC_API_KEY) {
@@ -252,7 +249,8 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
               }
             },
             required: ['superquote', 'summary', 'relazioni', 'lavoro', 'benessere', 'tone']
-          }
+          },
+          cache_control: { type: 'ephemeral' as const }
         }
       ],
       tool_choice: { type: 'tool', name: 'extract_horoscope' }
@@ -264,6 +262,7 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
     }
 
     console.log(`[Claude] Tool response received`);
+    console.log(`[Claude] Cache usage — creation: ${response.usage.cache_creation_input_tokens ?? 0}, read: ${response.usage.cache_read_input_tokens ?? 0}, input: ${response.usage.input_tokens}`);
     const parsed = toolBlock.input as Record<string, unknown>;
 
     // Process summary (incipit) — enforce 200 char hard limit

@@ -66,6 +66,13 @@ export const ZODIAC_SIGN_MAP: Record<string, string> = {
   'Pesci': 'pesci'
 } as const;
 
+// Sky TG24 card index (1-based, standard zodiac order)
+const SKYTG24_CARD_MAP: Record<string, number> = {
+  'Ariete': 1, 'Toro': 2, 'Gemelli': 3, 'Cancro': 4,
+  'Leone': 5, 'Vergine': 6, 'Bilancia': 7, 'Scorpione': 8,
+  'Sagittario': 9, 'Capricorno': 10, 'Acquario': 11, 'Pesci': 12,
+};
+
 // ============================================================================
 // HELPER FUNCTIONS FOR URL BUILDING
 // ============================================================================
@@ -255,7 +262,23 @@ export async function scrapeHoroscope(input: ScraperInput): Promise<ScraperOutpu
   }
 }
 
+function buildSkyTG24Url(input: ScraperInput): string {
+  const d = new Date(input.dateISO);
+  const year = d.getFullYear();
+  const month = (d.getMonth() + 1).toString().padStart(2, '0');
+  const day = d.getDate().toString().padStart(2, '0');
+  const dayNum = d.getDate();
+  const monthName = ITALIAN_MONTHS[d.getMonth()];
+  const card = SKYTG24_CARD_MAP[input.signSlugIt] ?? 1;
+  return `https://tg24.sky.it/lifestyle/${year}/${month}/${day}/oroscopo-giorno-${dayNum}-${monthName}?card=${card}`;
+}
+
 function buildHoroscopeUrl(input: ScraperInput): string | string[] {
+  // ========== SPECIAL HANDLING: Sky TG24 ==========
+  if (input.domain.includes('tg24.sky.it') || input.domain.includes('skytg24.it')) {
+    return buildSkyTG24Url(input);
+  }
+
   // ========== SPECIAL HANDLING: Repubblica.it ==========
   if (input.domain.includes('repubblica.it')) {
     return input.baseUrl + input.urlPattern;
@@ -1193,51 +1216,76 @@ async function scrapeGazzettaHoroscopeText(url: string, input: ScraperInput): Pr
 // LA FUNZIONE SKY TG24
 async function scrapeSkyTG24HoroscopeText(url: string, input: ScraperInput): Promise<ScrapeResult> {
   try {
-    console.log('Sky TG24 - Starting specialized extraction for:', input.signSlugIt);
+    console.log('Sky TG24 - Starting extraction for:', input.signSlugIt, '| URL:', url);
 
     const html = await fetchHtml(url, input.userAgent);
-
-    // Clean HTML but preserve structure
-    let cleanHtml = cleanRawHtml(html);
+    const $ = cheerio.load(html);
 
     const zodiacNameLower = input.signSlugIt.toLowerCase();
-    let combinedSectionTexts: string[] = [];
+    let extractedText = '';
 
-    // Regex to find all c-article-section divs
-    const sectionDivRegex = /<div[^>]*class="[^"]*\bc-article-section\b[^"]*"[^>]*>([\s\S]*?)<\/div>/gi;
-    let match;
-
-    while ((match = sectionDivRegex.exec(cleanHtml)) !== null) {
-      let sectionHtml = match[1];
-      let sectionText = '';
-      let sectionMarker = '';
-
-      // Check for H2 headers to identify specific sections
-      if (/<h2[^>]*>\s*Amore\s*<\/h2>/i.test(sectionHtml)) {
-        sectionMarker = '\n\n---AMORE_SECTION_START---\n';
-        sectionText = sectionHtml.replace(/<h2[^>]*>\s*Amore\s*<\/h2>/i, '');
-      } else if (/<h2[^>]*>\s*Lavoro\s*<\/h2>/i.test(sectionHtml)) {
-        sectionMarker = '\n\n---LAVORO_SECTION_START---\n';
-        sectionText = sectionHtml.replace(/<h2[^>]*>\s*Lavoro\s*<\/h2>/i, '');
-      } else if (/<h2[^>]*>\s*Salute\s*<\/h2>/i.test(sectionHtml)) {
-        sectionMarker = '\n\n---SALUTE_SECTION_START---\n';
-        sectionText = sectionHtml.replace(/<h2[^>]*>\s*Salute\s*<\/h2>/i, '');
-      } else {
-        sectionMarker = '\n\n---GENERAL_SECTION_START---\n';
-        sectionText = sectionHtml;
-      }
-
-      // Clean the section HTML to plain text
-      let cleanedSectionText = cleanExtractedText(sectionText);
-
-      if (cleanedSectionText.length > 0) {
-        combinedSectionTexts.push(sectionMarker + cleanedSectionText);
+    // Strategy 1: card body containers (nuova struttura a card)
+    const cardSelectors = [
+      '.c-gallery-card__body', '.c-gallery-card__text',
+      '.c-card__body', '.card__body',
+      '[data-testid="card-body"]', '[data-testid="card-text"]',
+    ];
+    for (const sel of cardSelectors) {
+      const container = $(sel).first();
+      if (container.length > 0) {
+        const text = container.find('p').map((_, p) => $(p).text().trim()).get()
+          .filter(t => t.length > 20).join(' ');
+        if (text.length >= 50) {
+          extractedText = text;
+          console.log(`Sky TG24 - Strategy 1 (${sel}): ${text.length} chars`);
+          break;
+        }
       }
     }
 
-    let extractedText = combinedSectionTexts.join('\n').trim();
+    // Strategy 2: trova il titolo del segno come heading, estrai i paragrafi seguenti
+    if (!extractedText || extractedText.length < 50) {
+      const heading = $('h1, h2, h3, h4').filter((_, el) =>
+        $(el).text().trim().toLowerCase() === zodiacNameLower
+      ).first();
+      if (heading.length > 0) {
+        const paragraphs: string[] = [];
+        heading.nextAll('p').each((_, p) => {
+          const t = $(p).text().trim();
+          if (t.length > 20) paragraphs.push(t);
+        });
+        if (paragraphs.length > 0) {
+          extractedText = paragraphs.join(' ');
+          console.log(`Sky TG24 - Strategy 2 (heading "${input.signSlugIt}"): ${extractedText.length} chars`);
+        }
+      }
+    }
 
-    console.log(`Sky TG24 - Extracted ${combinedSectionTexts.length} sections, total length: ${extractedText.length}`);
+    // Strategy 3: paragrafi nell'area articolo principale (pagina card server-rendered)
+    if (!extractedText || extractedText.length < 50) {
+      const contentSelectors = [
+        'article', 'main',
+        '.c-detail', '.c-detail__body',
+        '.c-article-body', '.article-body',
+        '[data-component="article-body"]',
+      ];
+      for (const sel of contentSelectors) {
+        const container = $(sel).first();
+        if (container.length > 0) {
+          const texts = container.find('p')
+            .map((_, p) => $(p).text().trim()).get()
+            .filter(t => t.length > 30);
+          const combined = texts.join(' ');
+          if (combined.length >= 50) {
+            extractedText = combined;
+            console.log(`Sky TG24 - Strategy 3 (${sel}): ${extractedText.length} chars`);
+            break;
+          }
+        }
+      }
+    }
+
+    console.log(`Sky TG24 - Total extracted: ${extractedText.length} chars`);
 
     if (!extractedText || extractedText.length < 50) {
       return {
