@@ -114,7 +114,7 @@ VERIFICA SUPERQUOTE:
 □ Frase 1 è evocativa e cattura il tono?
 □ Frase 2 usa il "tu" diretto ed è assertiva?
 □ Le due frasi sono complementari?
-□ Totale tra 80 e 140 caratteri?
+□ Totale tra 90 e 180 caratteri?
 □ Entrambe con punto finale?
 □ Zero riferimenti astrologici o a fonti?
 □ Tono fedele all'originale?

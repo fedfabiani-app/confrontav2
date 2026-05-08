@@ -82,7 +82,7 @@ model HoroscopeData {
   zodiac_sign_id   Int
   date             DateTime @db.Date
   original_text    String   @db.Text
-  superquote       String?  @db.VarChar(80)
+  superquote       String?  @db.VarChar(180)
   summary          String   @db.Text
   relazioni_rating Int      @db.SmallInt
   lavoro_rating    Int      @db.SmallInt
@@ -107,7 +107,7 @@ model WeeklyHoroscopeData {
   zodiac_sign_id   Int
   week_start_date  DateTime @db.Date
   original_text    String   @db.Text
-  superquote       String?  @db.VarChar(80)
+  superquote       String?  @db.VarChar(180)
   summary          String   @db.Text
   relazioni_rating Int      @db.SmallInt
   lavoro_rating    Int      @db.SmallInt
