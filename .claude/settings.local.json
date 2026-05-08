@@ -4,7 +4,11 @@
       "Bash(npm install *)",
       "Bash(npm run *)",
       "Bash(Remove-Item \"server\\\\services\\\\openai.ts\")",
-      "Bash(Remove-Item \"server\\\\workers\\\\openai.ts\")"
+      "Bash(Remove-Item \"server\\\\workers\\\\openai.ts\")",
+      "Skill(claude-api)",
+      "Skill(claude-api:*)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Utente\\\\Desktop\\\\Confronta Oroscopo\\\\confrontav2\" -Recurse -File)",
+      "Bash(Select-Object -ExpandProperty FullName)"
     ]
   }
 }

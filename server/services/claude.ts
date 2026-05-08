@@ -13,228 +13,152 @@ if (!process.env.ANTHROPIC_API_KEY) {
 }
 
 const SYSTEM_PROMPT = `Sei un redattore editoriale specializzato in contenuti astrologici.
-Il tuo compito è riscrivere in forma di riassunto il testo di un
-oroscopo che ti fornirò, rispettando scrupolosamente le seguenti
-regole:
+Il tuo compito è analizzare il testo di un oroscopo e restituire:
+1. L'incipit testuale dell'oroscopo originale
+2. Una superquote editoriale originale
+3. Le valutazioni per ambito e il tono generale
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-REGOLE OBBLIGATORIE
+CAMPO 1 — INCIPIT (summary)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-1. LUNGHEZZA STANDARD:
-   - Il testo prodotto deve essere SEMPRE inferiore al 70%
-     dei caratteri del testo originale (spazi inclusi).
-   - Il testo prodotto non deve MAI superare i 500 caratteri.
-   - In nessun caso il riassunto può essere più lungo
-     o uguale all'originale.
-
-2. TESTI BREVI:
-   - Se il testo originale è inferiore a 350 caratteri,
-     il riassunto deve essere al massimo il 50%
-     dei caratteri dell'originale.
-   - Se non è possibile produrre un riassunto significativo
-     entro questi limiti, segnalalo esplicitamente.
-
-3. TARGET LUNGHEZZA:
-   - Punta al 55-60% dei caratteri dell'originale
-     come obiettivo ideale (35-45% per testi brevi).
-   - Il 70% (o il 50% per testi brevi) è il limite
-     massimo assoluto, non il target.
-
-4. PAROLE PROPRIE:
-   - Non copiare frasi, sintagmi o sequenze di parole
-     dall'originale.
-   - Usa esclusivamente parole e costruzioni sintattiche
-     proprie.
-   - Il risultato deve essere una riformulazione autonoma,
-     non una parafrasi meccanica.
-
-5. CONTENUTO:
-   - Mantieni i concetti chiave presenti nell'originale
-     (tono generale della giornata, ambiti positivi,
-     ambiti di attenzione).
-   - Non riprodurre dettagli tecnici astrologici specifici
-     (nomi di pianeti, aspetti, gradi, congiunzioni,
-     quadrature, trigoni, sestili, ecc.).
-   - Non riprodurre aforismi, citazioni, riferimenti
-     culturali o metafore presenti nell'originale.
-
-6. TONO:
-   - Adotta un registro neutro, fluido e contemporaneo.
-   - Evita di riprodurre il tono colloquiale, ironico
-     o stilistico caratteristico dell'originale.
-   - Preferisci costruzioni nominali e impersonali
-     rispetto alla seconda persona ("voi", "tu", ecc.).
-
-7. STRUTTURA:
-   - Non seguire la struttura narrativa dell'originale.
-   - Non seguire l'ordine dei temi dell'originale.
-   - Riorganizza liberamente gli argomenti,
-     accorpando o invertendo dove possibile.
-
-8. MARCATORI LINGUISTICI:
-   - Evita di riprodurre espressioni temporali o
-     strutturali presenti nell'originale
-     (es. "In serata", "Al mattino", "Nei rapporti",
-     "Oggi", "Questa sera", ecc.).
-   - Sostituiscile con riformulazioni equivalenti
-     (es. "Verso sera", "Sul piano relazionale", ecc.).
-
-9. LEGGIBILITÀ:
-   - Evita costruzioni puramente telegrafiche
-     (es. "Socialità in calo", "Lavoro positivo").
-   - Preferisci frasi minime ma sintatticamente complete
-     (es. "Verso sera cala il desiderio di socialità").
-   - La sintesi non deve mai compromettere
-     la fluidità di lettura.
-
-10. TESTI GIÀ SINTETICI:
-    - Se il testo originale è scritto in stile asciutto
-      e giornalistico (assenza di metafore, dettagli
-      astrologici, riferimenti culturali, tono colloquiale):
-      a) Accorpa più concetti in una singola frase,
-         riducendo il numero totale di frasi.
-      b) Generalizza i dettagli specifici
-         (es. "ambiti pratici" invece di
-         "lavoro e rapporti").
-      c) Usa un registro più narrativo e meno
-         elencastico rispetto all'originale.
-      d) Rispetta comunque i limiti delle regole 1-3.
-    - ATTENZIONE: applica questa regola SOLO a testi
-      asciutti. Non aggiungere contenuto narrativo
-      a testi già ricchi (vedi regola 11).
-
-11. DIVIETO DI PADDING:
-    - Non aggiungere MAI contenuti, interpretazioni
-      o elaborazioni non presenti nell'originale.
-    - Esempi di padding vietato:
-      * "rispetto ai giorni precedenti"
-        (se non presente nell'originale)
-      * "in progressivo alleggerimento"
-        (se non presente nell'originale)
-      * qualsiasi avverbio o locuzione che amplifichi
-        concetti oltre quanto scritto nella fonte
-    - Il riassunto deve essere sempre il risultato
-      di una COMPRESSIONE, mai di una ESPANSIONE.
-    - Ogni parola del riassunto deve trovare
-      corrispondenza in un concetto dell'originale.
-
-12. TESTI ULTRA-COMPRESSI:
-    - Se il testo originale è inferiore a 350 caratteri
-      E non contiene elementi eliminabili
-      (dettagli astrologici, metafore, riferimenti
-      culturali, tono colloquiale):
-      a) Seleziona i 2-3 concetti più rilevanti
-         e tralascia i dettagli secondari.
-      b) Fondi i concetti selezionati in massimo
-         2 frasi complete e fluide.
-      c) Generalizza al massimo i dettagli specifici.
-      d) Se il limite del 50% è irraggiungibile,
-         segnala con: "TESTO FONTE TROPPO COMPRESSO:"
-         seguito dal miglior riassunto possibile.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ALBERO DECISIONALE
-(seguilo nell'ordine indicato)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-PASSO 1 — Misura l'originale:
-  → Conta i caratteri dell'originale
-  → È < 350 caratteri?
-      SÌ → applica regole 2 e 3 (limite 50%)
-      NO → applica regole 1 e 3 (limite 70%)
-
-PASSO 2 — Classifica lo stile:
-  → Contiene metafore, dettagli astrologici,
-    riferimenti culturali, tono colloquiale?
-      SÌ (testo ricco) →
-            applica regole 4-9, 11
-            NON applicare regola 10
-      NO (testo asciutto) →
-            applica regole 4-11
-  → È < 350 caratteri E asciutto?
-      SÌ → applica anche regola 12
-
-PASSO 3 — Scrivi il riassunto
-
-PASSO 4 — Esegui la verifica finale
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-DIVIETI ASSOLUTI
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-- Non copiare titoli, sottotitoli o headline
-- Non riprodurre metafore o riferimenti culturali
-- Non parafrasare frase per frase
-- Non seguire l'ordine dei temi dell'originale
-- Non superare i 500 caratteri
-- Non produrre testo più lungo o uguale all'originale
-- Non usare costruzioni telegrafiche
-- Non riprodurre marcatori temporali o strutturali
-- Non aggiungere contenuti non presenti nell'originale
-- Non applicare regola 10 a testi ricchi e articolati
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-VERIFICA FINALE OBBLIGATORIA
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-□ Chars originale contati?
-□ È < 350? → limite 50% applicato?
-□ Stile asciutto? → regola 10 attivata?
-□ Ultra-compresso? → regola 12 attivata?
-□ Output < 70% (o 50% se breve)?
-□ Output < 500 caratteri?
-□ Output più corto dell'originale?
-□ Zero sequenze di parole identiche?
-□ Zero marcatori temporali/strutturali copiati?
-□ Ordine temi diverso dall'originale?
-□ Zero dettagli astrologici?
-□ Zero aforismi/metafore/citazioni?
-□ Frasi complete e fluide?
-□ Zero padding?
-□ Se asciutto: concetti accorpati e generalizzati?
-□ Se ultra-compresso: max 2-3 temi, max 2 frasi?
-
-Se anche una sola risposta è problematica,
-riscrivi prima di restituire l'output.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-SUPERQUOTE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-La superquote è una frase autonoma di massimo 80 caratteri
-che esprime il tono emotivo dominante o l'invito chiave
-della giornata, ricavata dal riassunto appena prodotto.
+L'incipit è la riproduzione testuale e fedele dell'inizio
+dell'oroscopo originale. Non rielaborare, non parafrasare,
+non modificare nemmeno una parola.
 
 REGOLE:
-- Completamente originale: zero parole prese dall'originale
-- Tono assertivo o evocativo, mai descrittivo
-  ("Ascolta il tuo istinto." non "La giornata è favorevole.")
-- Frase sintatticalmente completa, con punto finale
-- Senza riferimenti a pianeti, transiti, segni, date, fonti
-- Deve funzionare da sola, fuori contesto
-- Non deve anticipare o riassumere il summary:
-  è un'impressione, non una miniatura del testo
+- Estrai le prime due frasi dell'originale, verbatim
+- Limite assoluto: 200 caratteri (spazi inclusi)
+- Se entrambe le frasi rientrano nei 200 caratteri
+  → includi entrambe
+- Se solo la prima rientra nei 200 caratteri
+  → includi solo la prima
+- Se anche la prima supera i 200 caratteri
+  → tronca a 200 caratteri esatti e aggiungi "…"
+- Non aggiungere mai una terza frase
+- Non modificare punteggiatura, maiuscole o stile
 
-ESEMPI BUONI:
-  "Oggi è il momento giusto per osare."
-  "La chiarezza arriva quando smetti di forzare."
-  "Metti al primo posto ciò che conta davvero."
-  "Qualcosa si sta muovendo nella direzione giusta."
+VERIFICA INCIPIT:
+□ È riproduzione testuale fedele?
+□ Sono al massimo due frasi?
+□ È entro i 200 caratteri?
+□ Se troncato: termina con "…"?
+□ Zero modifiche al testo originale?
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CAMPO 2 — SUPERQUOTE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+La superquote è l'unico elemento editoriale originale della
+card. È la sintesi dell'intero oroscopo espressa in forma
+evocativa — non una decorazione, ma il modo per comunicare
+il messaggio essenziale dell'oroscopo senza riprodurlo.
+
+STRUTTURA — due frasi con ruoli distinti:
+
+FRASE 1 — TONO/ATMOSFERA:
+  Cattura l'energia o il clima emotivo dominante
+  della giornata. Tono evocativo, quasi poetico.
+  Deve rispecchiare fedelmente le priorità dell'oroscopo.
+  Può riferirsi a qualsiasi ambito (lavoro, relazioni,
+  energia personale) purché sia il tema principale
+  dell'oroscopo originale.
+
+FRASE 2 — INVITO/AZIONE:
+  Un'azione concreta o un atteggiamento suggerito
+  dalla giornata. Tono assertivo e diretto.
+  Usa sempre il "tu" diretto.
+  Può toccare un ambito diverso dalla frase 1
+  purché rispecchi le priorità dell'originale.
+
+CASO NEUTRO (tono né positivo né negativo):
+  Frase 1 → descrive l'energia stabile della giornata
+  Frase 2 → suggerisce come sfruttarla al meglio
+
+LIMITI:
+  - Minimo 80 caratteri totali (spazi inclusi)
+  - Massimo 140 caratteri totali (spazi inclusi)
+  - Entrambe le frasi con punto finale
+
+VINCOLI ASSOLUTI:
+  - Tono fedele all'oroscopo originale:
+    positivo se la giornata è positiva,
+    negativo se la giornata è difficile,
+    neutro se la giornata è nella norma
+  - Zero riferimenti a pianeti, transiti, segni,
+    date, fonti, dettagli astrologici
+  - Le due frasi devono essere complementari,
+    non ridondanti — la seconda non è una
+    variazione della prima
+  - Non possono riassumere o anticipare l'incipit
+  - Devono funzionare lette da sole, fuori contesto
+
+ESEMPI TONO POSITIVO:
+  "Qualcosa si sta sbloccando, anche se non è ancora visibile.
+  Fidati di ciò che senti e muoviti senza aspettare."
+
+ESEMPI TONO NEGATIVO:
+  "Non è il momento di forzare le cose, meglio lasciar scorrere.
+  Conserva le energie per quando il vento girerà."
+
+ESEMPI TONO NEUTRO:
+  "La giornata scorre su binari stabili, senza scossoni.
+  Usala per costruire qualcosa che durerà nel tempo."
 
 ESEMPI DA EVITARE:
-  "Giornata favorevole per le relazioni." → descrittivo
-  "Venere supporta i tuoi piani." → riferimento astrologico
-  "Le stelle ti attendono." → generico e riferimento a fonte
-  "Oggi potresti sentirti più energico del solito." → padding
+  "Venere favorisce i tuoi piani." → astrologico
+  "Le stelle ti sorridono." → riferimento a fonte
+  "Giornata positiva per le relazioni." → descrittivo
+  "Oggi potresti sentirti meglio." → vago e generico
+  "È una buona giornata." → troppo corto e piatto
 
 VERIFICA SUPERQUOTE:
-□ Meno di 80 caratteri?
-□ Zero parole dall'originale?
-□ Frase completa con punto finale?
+□ Sono esattamente due frasi?
+□ Frase 1 è evocativa e cattura il tono?
+□ Frase 2 usa il "tu" diretto ed è assertiva?
+□ Le due frasi sono complementari?
+□ Totale tra 80 e 140 caratteri?
+□ Entrambe con punto finale?
 □ Zero riferimenti astrologici o a fonti?
-□ Tono assertivo o evocativo (non descrittivo)?
-□ Ha senso letta da sola?`;
+□ Tono fedele all'originale?
+□ Non anticipano né riassumono l'incipit?
+□ Funzionano lette da sole?
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CAMPO 3 — RATINGS E TONE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Analizza l'intero testo originale e assegna:
+
+RELAZIONI (0-5):
+  Valutazione dell'ambito relazionale.
+  0 = non menzionato nell'oroscopo.
+
+LAVORO (0-5):
+  Valutazione dell'ambito professionale.
+  0 = non menzionato nell'oroscopo.
+
+BENESSERE (0-5):
+  Valutazione di umore, energia emotiva
+  e outlook generale della giornata.
+  0 = non menzionato nell'oroscopo.
+
+TONE:
+  "positive" = giornata complessivamente favorevole
+  "negative" = giornata complessivamente difficile
+  "neutral"  = giornata nella norma, senza picchi
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+VERIFICA FINALE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+□ Incipit: testuale, max 200 caratteri, max 2 frasi?
+□ Superquote: 2 frasi, 80-140 caratteri, tono fedele?
+□ Ratings: 0 per ambiti non menzionati?
+□ Tone: coerente con superquote e ratings?
+
+Se anche una sola risposta è problematica,
+correggi prima di restituire l'output.`;
 
 export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAIOutput> {
   try {
@@ -261,8 +185,8 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
 
     if (useNeutralFallback) {
       return {
-        superquote: 'Le stelle ti attendono.',
-        summary: 'Le stelle stanno preparando qualcosa di speciale per te oggi.',
+        superquote: 'La giornata scorre su binari stabili. Usala per costruire qualcosa che durerà.',
+        summary: 'Le previsioni di oggi non sono disponibili.',
         ratings: {
           relazioni: 0,
           lavoro: 0,
@@ -291,40 +215,40 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
       tools: [
         {
           name: 'extract_horoscope',
-          description: "Restituisci superquote, summary, ratings e tone dell'oroscopo elaborato",
+          description: "Restituisci incipit, superquote, ratings e tone dell'oroscopo analizzato",
           input_schema: {
             type: 'object' as const,
             properties: {
               superquote: {
                 type: 'string',
-                description: 'Frase efficace max 80 caratteri che cattura il messaggio chiave dal riassunto. Frase completa con punto finale, senza riferimenti a pianeti/transiti/fonte/segno/data. IMPORTANTE: La frase deve avere un senso compiuto in italiano, non può rimanere incompleta o troncata.'
+                description: 'Due frasi originali che sintetizzano il messaggio dell\'oroscopo. Frase 1: evocativa, cattura il tono/atmosfera. Frase 2: assertiva con "tu" diretto, suggerisce un\'azione o atteggiamento. Minimo 80, massimo 140 caratteri totali. Entrambe con punto finale. Zero riferimenti astrologici o a fonti.'
               },
               summary: {
                 type: 'string',
-                description: "Riassunto conciso, obiettivo e che catturi l'essenza dell'oroscopo, originale e copyright-safe. DEVE essere tra 250-530 caratteri e terminare con frasi complete senza troncamenti."
+                description: 'Riproduzione testuale fedele delle prime due frasi dell\'oroscopo originale. Massimo 200 caratteri. Se entrambe le frasi rientrano nei 200 caratteri includile entrambe, altrimenti solo la prima. Se anche la prima supera i 200 caratteri, tronca a 200 caratteri e aggiungi "…". Non modificare nulla del testo originale.'
               },
               relazioni: {
                 type: 'integer',
                 minimum: 0,
                 maximum: 5,
-                description: 'Valutazione relazioni da 0 a 5 stelle basata sul contenuto (0 = N/A se non menzionato)'
+                description: 'Valutazione relazioni da 0 a 5 stelle basata sul contenuto (0 = non menzionato)'
               },
               lavoro: {
                 type: 'integer',
                 minimum: 0,
                 maximum: 5,
-                description: 'Valutazione lavoro da 0 a 5 stelle basata sul contenuto (0 = N/A se non menzionato)'
+                description: 'Valutazione lavoro da 0 a 5 stelle basata sul contenuto (0 = non menzionato)'
               },
               benessere: {
                 type: 'integer',
                 minimum: 0,
                 maximum: 5,
-                description: 'Valutazione benessere/mood generale da 0 a 5 stelle basata sul contenuto - include umore, energia emotiva, outlook della giornata (0 = N/A se non menzionato)'
+                description: 'Valutazione benessere/umore/energia emotiva da 0 a 5 stelle basata sul contenuto (0 = non menzionato)'
               },
               tone: {
                 type: 'string',
                 enum: ['positive', 'negative', 'neutral'],
-                description: 'Analisi del tono generale delle previsioni'
+                description: 'Tono generale dell\'oroscopo: positive = favorevole, negative = difficile, neutral = nella norma'
               }
             },
             required: ['superquote', 'summary', 'relazioni', 'lavoro', 'benessere', 'tone']
@@ -342,57 +266,29 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
     console.log(`[Claude] Tool response received`);
     const parsed = toolBlock.input as Record<string, unknown>;
 
+    // Process summary (incipit) — enforce 200 char hard limit
     let summary = (parsed.summary as string) || '';
-
-    if (summary.length > 530) {
-      const sentences = summary.split(/[.!?]+/);
-      let truncatedSummary = '';
-
-      for (const sentence of sentences) {
-        const testSummary = truncatedSummary + sentence + '.';
-        if (testSummary.length <= 530) {
-          truncatedSummary = testSummary;
-        } else {
-          break;
-        }
-      }
-
-      if (truncatedSummary.length >= 250) {
-        summary = truncatedSummary.trim();
-      } else {
-        const words = summary.split(' ');
-        let wordSummary = '';
-
-        for (const word of words) {
-          const testSummary = wordSummary + (wordSummary ? ' ' : '') + word;
-          if (testSummary.length <= 525) {
-            wordSummary = testSummary;
-          } else {
-            break;
-          }
-        }
-
-        summary = wordSummary + (wordSummary.endsWith('.') ? '' : '.');
-      }
+    if (summary.length > 200) {
+      summary = summary.slice(0, 199) + '…';
     }
 
-    if (summary.length < 250) {
-      console.log(`[Claude] Warning: Summary too short (${summary.length} chars), using as-is`);
-    }
-
+    // Process superquote — enforce 80-140 char limits
     let superquote = (parsed.superquote as string) || '';
-    if (superquote.length > 80) {
-      const words = superquote.split(' ');
-      let truncated = '';
-      for (const word of words) {
-        const test = truncated + (truncated ? ' ' : '') + word;
-        if (test.length <= 75) {
-          truncated = test;
+    if (superquote.length > 140) {
+      // Trim to last complete sentence within 140 chars
+      const sentences = superquote.match(/[^.!?]+[.!?]+/g) || [];
+      let trimmed = '';
+      for (const sentence of sentences) {
+        if ((trimmed + sentence).length <= 140) {
+          trimmed += sentence;
         } else {
           break;
         }
       }
-      superquote = truncated + (truncated.endsWith('.') ? '' : '.');
+      superquote = trimmed.trim() || superquote.slice(0, 139) + '.';
+    }
+    if (superquote.length < 80) {
+      console.log(`[Claude] Warning: Superquote too short (${superquote.length} chars), using as-is`);
     }
 
     const result = {
@@ -409,7 +305,7 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
     };
 
     console.log(`[Claude] Final superquote length: ${result.superquote.length} characters`);
-    console.log(`[Claude] Final summary length: ${result.summary.length} characters`);
+    console.log(`[Claude] Final summary (incipit) length: ${result.summary.length} characters`);
     console.log(`[Claude] Processed result: Relazioni=${result.ratings.relazioni}, Lavoro=${result.ratings.lavoro}, Benessere=${result.ratings.benessere}, Tone=${result.tone}`);
 
     return openaiOutputSchema.parse(result);
