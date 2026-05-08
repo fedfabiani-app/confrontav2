@@ -213,10 +213,13 @@ export async function enqueueUpsertJob(scraperOutput: ScraperOutput, nlpOutput: 
       status.status = 'failed';
       status.completedAt = new Date();
       status.error = error instanceof Error ? error.message : 'Unknown error';
-      console.error(`[JobQueue] Upsert job ${jobId} failed:`, error);
+      const errorCode = (error as any)?.code;
+      const errorMeta = (error as any)?.meta;
+      console.error(`[JobQueue] Upsert job ${jobId} failed [${errorCode ?? 'no-code'}]:`, error instanceof Error ? error.message : error);
+      if (errorMeta) console.error(`[JobQueue] Prisma meta:`, JSON.stringify(errorMeta));
     }
   }, 100); // Small delay to avoid blocking
-  
+
   return jobId;
 }
 
