@@ -680,12 +680,11 @@ async function scrapeVirgilioHoroscopeText(url: string, input: ScraperInput): Pr
     const response = await fetchHtml(url, input.userAgent);
     const html = response;
 
-    // Clean HTML but preserve structure
     let cleanHtml = cleanRawHtml(html);
 
-    // Extract all <p class="txt-r-s1"> elements
+    // REGEX CORRETTA ✅
     let extractedParagraphs: string[] = [];
-    const pTagRegex = /<p[^>]*class="txt-r-s1"[^>]*>([\s\S]*?)<\/p>/gi;
+    const pTagRegex = /<p[^>]*class="[^"]*txt-r-s1[^"]*"[^>]*>([\s\S]*?)<\/p>/gi;
     let match;
 
     while ((match = pTagRegex.exec(cleanHtml)) !== null) {
@@ -701,7 +700,7 @@ async function scrapeVirgilioHoroscopeText(url: string, input: ScraperInput): Pr
     if (!finalExtractedText || finalExtractedText.length < 50) {
       return {
         success: false,
-        error: `No sufficient horoscope content found using p.txt-r-s1 for ${input.signSlugIt} on Virgilio.it`
+        error: `No sufficient horoscope content found for ${input.signSlugIt}`
       };
     }
 
