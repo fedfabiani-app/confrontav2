@@ -682,25 +682,36 @@ async function scrapeVirgilioHoroscopeText(url: string, input: ScraperInput): Pr
 
     let cleanHtml = cleanRawHtml(html);
 
-    // REGEX CORRETTA ✅
+    // Estrae TUTTI i paragrafi con classe txt-r-s1
     let extractedParagraphs: string[] = [];
     const pTagRegex = /<p[^>]*class="[^"]*txt-r-s1[^"]*"[^>]*>([\s\S]*?)<\/p>/gi;
     let match;
 
+    let paragraphOrder = 0;
+
     while ((match = pTagRegex.exec(cleanHtml)) !== null) {
       let paraContent = cleanExtractedText(match[1]);
 
+      // Scarta solo se è veramente vuoto
       if (paraContent.length > 10) {
+        // Il primo paragrafo è quello iniziale "In questo giorno"
+        if (paragraphOrder === 0) {
+          console.log('✓ Paragrafo iniziale trovato');
+        }
+        
         extractedParagraphs.push(paraContent);
+        paragraphOrder++;
       }
     }
+
+    console.log(`📝 Totale paragrafi estratti: ${extractedParagraphs.length}`);
 
     let finalExtractedText = extractedParagraphs.join('\n\n');
 
     if (!finalExtractedText || finalExtractedText.length < 50) {
       return {
         success: false,
-        error: `No sufficient horoscope content found for ${input.signSlugIt}`
+        error: `No sufficient horoscope content found using p.txt-r-s1 for ${input.signSlugIt} on Virgilio.it`
       };
     }
 
