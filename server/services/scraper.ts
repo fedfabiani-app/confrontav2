@@ -1321,89 +1321,80 @@ async function scrapeSkyTG24HoroscopeText(url: string, input: ScraperInput): Pro
 
 /**
  * Scrapes horoscope content from Oggi.it
- * Uses H4 tags and GIORNALIERO comment to extract content
+ * Uses cheerio for robust heading/paragraph extraction
  */
 async function scrapeOggiHoroscopeText(url: string, input: ScraperInput): Promise<ScrapeResult> {
   try {
     console.log('Oggi.it - Starting specialized extraction for:', input.signSlugIt);
 
     const html = await fetchHtml(url, input.userAgent);
-    const zodiacName = input.signSlugIt.toLowerCase();
+    const $ = cheerio.load(html);
 
-    // Clean HTML but preserve structure
-    let cleanHtml = html
-      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-      .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
-      .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '')
-      .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '')
-      .replace(/<!--[\s\S]*?-->/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
+    const zodiacNameLower = input.signSlugIt.toLowerCase();
+    let extractedText = '';
 
-    // Find all H4 tags (potential horoscope headers)
-    const h4GenericRegex = /<h4[^>]*>(?:Oroscopo\s+di\s+)?[^<]*<\/h4>/gi;
-    const h4Matches = Array.from(cleanHtml.matchAll(h4GenericRegex));
+    // Strategy 1: trova heading che contiene il nome del segno, estrai paragrafi seguenti
+    const headingLevels = ['h4', 'h3', 'h2', 'h1'];
+    for (const level of headingLevels) {
+      const heading = $(level).filter((_, el) => {
+        const text = $(el).text().trim().toLowerCase();
+        return text.includes(zodiacNameLower) || text.includes('oroscopo di oggi');
+      }).first();
 
-    for (const matchH4 of h4Matches) {
-      if (matchH4.index === undefined) continue;
-
-      console.log(`Oggi.it - Found h4 tag: ${matchH4[0]}`);
-
-      // Find the <!-- GIORNALIERO --> comment after this H4
-      const commentStartIndex = cleanHtml.indexOf('<!-- GIORNALIERO -->', matchH4.index);
-
-      // Determine content scope
-      let contentToSearch = '';
-      if (commentStartIndex !== -1) {
-        contentToSearch = cleanHtml.substring(matchH4.index + matchH4[0].length, commentStartIndex);
-        console.log(`Oggi.it - Found <!-- GIORNALIERO --> comment, restricting scope`);
-      } else {
-        contentToSearch = cleanHtml.substring(matchH4.index + matchH4[0].length);
-        console.log(`Oggi.it - <!-- GIORNALIERO --> comment not found, searching till end`);
+      if (heading.length > 0) {
+        console.log(`Oggi.it - Found ${level} heading: "${heading.text().trim()}"`);
+        const paragraphs: string[] = [];
+        heading.nextAll('p, div.text, div.content').each((_, el) => {
+          const text = $(el).text().trim().replace(/\s+/g, ' ');
+          if (text.length > 30) paragraphs.push(text);
+        });
+        if (paragraphs.length > 0) {
+          extractedText = paragraphs.join(' ');
+          console.log(`Oggi.it - Strategy 1 (${level} sibling paragraphs): ${extractedText.length} chars`);
+          break;
+        }
       }
+    }
 
-      // Extract paragraphs from this section
-      const paragraphs = extractOggiParagraphs(contentToSearch);
-
-      if (paragraphs.length === 0) {
-        console.log(`Oggi.it - No paragraphs found in this h4 section`);
-        continue;
+    // Strategy 2: estrai il contenuto dall'article o dal main content
+    if (!extractedText || extractedText.length < 50) {
+      const contentSelectors = [
+        'article', '.article-body', '.entry-content',
+        '.post-content', 'main', '.content', '.article__body',
+      ];
+      for (const sel of contentSelectors) {
+        const container = $(sel).first();
+        if (container.length > 0) {
+          const texts = container.find('p')
+            .map((_, p) => $(p).text().trim().replace(/\s+/g, ' ')).get()
+            .filter(t => t.length > 30);
+          if (texts.length > 0) {
+            extractedText = texts.join(' ');
+            console.log(`Oggi.it - Strategy 2 (${sel}): ${extractedText.length} chars`);
+            break;
+          }
+        }
       }
+    }
 
-      // Validate content
-      const combinedText = paragraphs.join(' ');
-      const hasZodiacSign = combinedText.toLowerCase().includes(zodiacName);
-      const hasHoroscopeContent = /\b(oroscopo|previsioni|stelle|fortuna|amore|lavoro|salute|giornata|energia|periodo)\b/i.test(combinedText);
+    console.log(`Oggi.it - Total extracted: ${extractedText.length} chars`);
 
-      if (!hasZodiacSign && !hasHoroscopeContent) {
-        console.log(`Oggi.it - Content validation failed: zodiac=${hasZodiacSign}, horoscope=${hasHoroscopeContent}`);
-        continue;
-      }
-
-      if (combinedText.length < 50) {
-        console.log(`Oggi.it - Content too short: ${combinedText.length} chars`);
-        continue;
-      }
-
-      console.log(`Oggi.it - Successfully extracted and validated ${paragraphs.length} paragraphs`);
-
-      // Organize into sections
-      const sections = organizeOggiSections(paragraphs);
-      const finalContent = buildOggiFinalContent(sections);
-
+    if (!extractedText || extractedText.length < 50) {
       return {
-        success: true,
-        text: finalContent.trim().substring(0, 3500),
-        url,
-        actualUrl: url
+        success: false,
+        error: `No valid horoscope content found for ${input.signSlugIt} on Oggi.it`
       };
     }
 
-    // No valid content found
+    const paragraphs = extractedText.split(/(?<=[.!?])\s+/).filter(s => s.length > 20);
+    const sections = organizeOggiSections(paragraphs);
+    const finalContent = buildOggiFinalContent(sections);
+
     return {
-      success: false,
-      error: `No valid horoscope content found for ${input.signSlugIt} on Oggi.it`
+      success: true,
+      text: finalContent.trim().substring(0, 3500),
+      url,
+      actualUrl: url
     };
 
   } catch (error) {
@@ -1412,31 +1403,6 @@ async function scrapeOggiHoroscopeText(url: string, input: ScraperInput): Promis
       error: error instanceof Error ? error.message : 'Unknown Oggi.it scraping error'
     };
   }
-}
-
-/**
- * Extracts and cleans paragraphs from Oggi.it content
- */
-function extractOggiParagraphs(content: string): string[] {
-  const pTagRegex = /<p[^>]*>([\s\S]*?)<\/p>/gi;
-  const paragraphs: string[] = [];
-  let match;
-
-  while ((match = pTagRegex.exec(content)) !== null) {
-    if (!match[1]) continue;
-
-    const cleaned = cleanExtractedText(match[1]);
-
-    // Filter out navigation and short content
-    const isNavigation = /^(menu|naviga|cookie|privacy|leggi anche|condividi|share|login|registrati|abbonati|tags?:|categor)/i.test(cleaned);
-    const isSubstantial = cleaned.length > 20;
-
-    if (!isNavigation && isSubstantial) {
-      paragraphs.push(cleaned);
-    }
-  }
-
-  return paragraphs;
 }
 
 /**
@@ -1635,7 +1601,8 @@ async function scrapeQuotidianoHoroscopeText(url: string, input: ScraperInput): 
     const GENERIC_PARAGRAPH_RE = /\b(tutti i segni|per tutti i segni|previsioni per tutti i segni|oroscopo per tutti)\b/i;
 
     // Strategy A: Find H2/H3/H4 heading that contains the sign (skip headings that are generic intros)
-    let anchorHeading: cheerio.Element | null = null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let anchorHeading: any = null;
     $('h2, h3, h4').each((_, h) => {
       const hText = $(h).text() || '';
       const hNorm = normalizeForMatching(hText);
