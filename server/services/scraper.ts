@@ -1877,10 +1877,116 @@ async function findQuotidianoArticleUrl(archiveUrl: string, targetDate: string):
     return null;
   }
 }
+async function scrapeVogueHoroscopeText(url: string, input: ScraperInput): Promise<ScrapeResult> {
+  try {
+    console.log('Vogue.it - Starting specialized extraction for:', input.signSlugIt);
+
+    const html = await fetchHtml(url, input.userAgent);
+    const $ = cheerio.load(html);
+
+    const zodiacNameLower = input.signSlugIt.toLowerCase();
+    let extractedText = '';
+
+    // STRATEGIA: Trova H2 che contiene "Oroscopo di oggi dell'[Segno]"
+    // e prendi il PRIMO <p> dopo quell'H2 (ma PRIMA del prossimo H2/H3)
+    
+    const h2Elements = $('h2');
+    let targetH2: any = null;
+
+    h2Elements.each((_, h2) => {
+      const text = $(h2).text().trim().toLowerCase();
+      // Cerca "oroscopo di oggi" + nome segno
+      if (text.includes('oroscopo di oggi') && text.includes(zodiacNameLower)) {
+        targetH2 = h2;
+        return false; // break
+      }
+    });
+
+    if (targetH2) {
+      console.log(`Vogue.it - Found target H2: "${$(targetH2).text().trim()}"`);
+
+      // Estrai i paragrafi immediatamente dopo questo H2
+      const paragraphs: string[] = [];
+      let foundEnough = false;
+
+      $(targetH2).nextAll().each((_, elem) => {
+        const tag = ((elem as any).tagName || '').toLowerCase();
+
+        // Stop se incontri un altro H2 o H3
+        if (tag === 'h2' || tag === 'h3') {
+          foundEnough = true;
+          return false; // break
+        }
+
+        if (tag === 'p') {
+          const text = $(elem).text().trim().replace(/\s+/g, ' ');
+          if (text.length > 30) {
+            paragraphs.push(text);
+          }
+        }
+      });
+
+      if (paragraphs.length > 0) {
+        extractedText = paragraphs.join('\n\n');
+        console.log(`Vogue.it - Extracted ${paragraphs.length} paragraphs, ${extractedText.length} chars`);
+      }
+    }
+
+    // Fallback: se non trovi il pattern, usa la strategia generica
+    if (!extractedText || extractedText.length < 50) {
+      console.log('Vogue.it - Fallback to generic paragraph extraction');
+      
+      const allParagraphs: string[] = [];
+      $('p').each((_, p) => {
+        const text = $(p).text().trim();
+        if (text.length > 30) {
+          allParagraphs.push(text);
+        }
+      });
+
+      if (allParagraphs.length > 0) {
+        const bestScore = Math.max(
+          ...allParagraphs.map(t => scoreHoroscopeContent(t, zodiacNameLower, 'vogue.it'))
+        );
+        extractedText = allParagraphs[
+          allParagraphs.findIndex(t => scoreHoroscopeContent(t, zodiacNameLower, 'vogue.it') === bestScore)
+        ];
+      }
+    }
+
+    if (!extractedText || extractedText.length < 50) {
+      return {
+        success: false,
+        error: `No horoscope content found for ${input.signSlugIt} on Vogue.it`
+      };
+    }
+
+    const finalScore = scoreHoroscopeContent(extractedText, zodiacNameLower, 'vogue.it');
+    console.log(`Vogue.it - Final score: ${finalScore}, length: ${extractedText.length}`);
+
+    return {
+      success: true,
+      text: extractedText.substring(0, 3500),
+      url,
+      actualUrl: url
+    };
+
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown Vogue.it scraping error'
+    };
+  }
+}
 
 async function scrapeHoroscopeText(url: string, input: ScraperInput): Promise<ScrapeResult> {
   try {
     console.log(`Starting scrape for ${input.signSlugIt} at URL: ${url}`);
+
+        // Special handling for Vogue.it
+    if (url.includes('vogue.it')) {
+      return await scrapeVogueHoroscopeText(url, input);
+    }
 
     // Special handling for Virgilio.it
     if (url.includes('virgilio.it')) {
