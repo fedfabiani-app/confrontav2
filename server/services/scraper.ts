@@ -1977,15 +1977,12 @@ async function scrapeVogueHoroscopeText(url: string, input: ScraperInput): Promi
     };
   }
 }
-// Special handling for Grazia.it
-    if (url.includes('grazia.it')) {
-      return await scrapeGraziaHoroscopeText(url, input);
-    }
+
 async function scrapeHoroscopeText(url: string, input: ScraperInput): Promise<ScrapeResult> {
   try {
     console.log(`Starting scrape for ${input.signSlugIt} at URL: ${url}`);
 
-        // Special handling for Vogue.it
+    // Special handling for Vogue.it
     if (url.includes('vogue.it')) {
       return await scrapeVogueHoroscopeText(url, input);
     }
@@ -1993,6 +1990,11 @@ async function scrapeHoroscopeText(url: string, input: ScraperInput): Promise<Sc
     // Special handling for Virgilio.it
     if (url.includes('virgilio.it')) {
       return await scrapeVirgilioHoroscopeText(url, input);
+    }
+
+    // Special handling for Grazia.it
+    if (url.includes('grazia.it')) {
+      return await scrapeGraziaHoroscopeText(url, input);
     }
 
     // Special handling for OnlyOroscopo
