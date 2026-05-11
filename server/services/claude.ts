@@ -33,20 +33,53 @@ riconoscibili del testo originale.
 Deve essere COERENTE con il messaggio dell'oroscopo (stesso tema, stesso tono
 generale) ma espressa con vocabolario e struttura completamente diversi e originali.
 
-Struttura — due frasi con ruoli distinti:
-• Frase 1 — evocativa: cattura l'energia/clima emotivo dominante (tono quasi poetico)
-• Frase 2 — assertiva: usa "tu" diretto, suggerisce un'azione o atteggiamento concreto
+Struttura OBBLIGATORIA — due frasi distinte e complementari:
+- Frase 1 — evocativa: descrive qualcosa che il lettore SENTE o VIVE in prima
+  persona. Il lettore è sempre il soggetto implicito o esplicito. Mai usare
+  "la giornata" o concetti astratti come soggetto principale.
+- Frase 2 — assertiva: usa "tu" diretto o imperativo, suggerisce un'azione
+  o atteggiamento concreto coerente con F1.
+Le due frasi devono essere COMPLEMENTARI: F2 non ripete F1, la completa.
 
 Limiti: 80–140 caratteri totali (spazi inclusi). Entrambe le frasi con punto finale.
 Vincoli: tono fedele all'originale (positivo/negativo/neutro). Zero riferimenti a
-pianeti, transiti, segni, date, fonti. Le due frasi complementari, non ridondanti.
+pianeti, transiti, segni, date, fonti. Se produci una sola frase il risultato
+è INVALIDO — riscrivi sempre con due frasi.
 
-Esempi corretti:
-  POSITIVO: "Qualcosa si sta sbloccando, anche se non è ancora visibile. Fidati di ciò che senti e muoviti senza aspettare."
-  NEGATIVO: "Non è il momento di forzare le cose, meglio lasciar scorrere. Conserva le energie per quando il vento girerà."
-  NEUTRO:   "La giornata scorre su binari stabili, senza scossoni. Usala per costruire qualcosa che durerà nel tempo."
+Soggetto di F1 — REGOLE PRECISE:
+✓ CORRETTO: "Senti che qualcosa si sta muovendo nella direzione giusta."
+✓ CORRETTO: "C'è un'energia nuova dentro di te, ancora silenziosa ma presente."
+✓ CORRETTO: "Qualcosa si allenta, e respiri meglio di ieri."
+✗ VIETATO:  "La giornata oscilla tra spinta e prudenza." → soggetto astratto
+✗ VIETATO:  "L'energia è generosa e multiforme." → non coinvolge il lettore
+✗ VIETATO:  "Il confronto è inevitabile." → filosofico, distante
 
-Da evitare: "Venere favorisce i tuoi piani." / "Le stelle ti sorridono." / "Giornata positiva per le relazioni." / "Oggi potresti sentirti meglio."
+Esempi corretti per tono:
+  POSITIVO: "Qualcosa si sta sbloccando dentro di te, anche se non è ancora visibile.
+             Fidati di ciò che senti e muoviti senza aspettare."
+  NEGATIVO: "Oggi fai fatica a trovare il ritmo, e le energie non bastano mai.
+             Conserva le forze e rimanda ciò che può aspettare."
+  NEUTRO:   "Scorre tutto in modo ordinato, senza scossoni né grandi sorprese.
+             Usa questa stabilità per costruire qualcosa che durerà nel tempo."
+
+Da evitare assoluto:
+  "Venere favorisce i tuoi piani." → riferimento astrologico
+  "Le stelle ti sorridono." → riferimento astrologico
+  "La giornata è favorevole per le relazioni." → descrittivo e generico
+  "Il silenzio custodisce il veleno." → metafora astratta senza lettore
+  "Oggi potresti sentirti meglio." → condizionale che indebolisce
+  Qualsiasi frase con soggetto "la giornata", "l'energia", "il momento" isolati
+  senza aggancio al lettore
+
+Verifica OBBLIGATORIA prima di restituire:
+□ Sono esattamente due frasi con punto finale?
+□ F1 ha il lettore come soggetto implicito o esplicito?
+□ F2 usa "tu" diretto o imperativo?
+□ F2 completa F1 senza ripeterla?
+□ Totale caratteri tra 80 e 140?
+□ Zero riferimenti astrologici o a fonti?
+□ Tono coerente con l'originale (positivo/negativo/neutro)?
+□ Se anche una sola risposta è NO → riscrivi prima di restituire.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 CAMPO 3 — RATINGS E TONE
