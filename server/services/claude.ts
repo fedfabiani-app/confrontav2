@@ -461,10 +461,13 @@ export async function processMultiSourceHoroscope(inputs: OpenAIInput[]): Promis
   console.log(`[Claude Batch] Response received — cache creation: ${response.usage.cache_creation_input_tokens ?? 0}, read: ${response.usage.cache_read_input_tokens ?? 0}, input: ${response.usage.input_tokens}`);
 
   const batchResults = (toolBlock.input as { results: Record<string, unknown>[] }).results;
-  for (let i = 0; i < batchResults.length; i++) {
-    const parsed = batchResults[i];
-    const entry = validEntries[i];
-    if (!entry) continue;
+  for (const parsed of batchResults) {
+    const sourceIndex = (parsed.source_index as number) - 1; // 1-based → 0-based
+    const entry = validEntries[sourceIndex];
+    if (!entry) {
+      console.warn(`[Claude Batch] source_index ${parsed.source_index} non corrisponde a nessuna fonte valida`);
+      continue;
+    }
     try {
       results[entry.index] = postProcessOutput(parsed);
       console.log(`[Claude Batch] Source ${entry.input.sourceName}: superquote=${results[entry.index].superquote.length}ch, tone=${results[entry.index].tone}`);
