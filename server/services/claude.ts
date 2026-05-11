@@ -30,15 +30,17 @@ REGOLE:
   es. testo di 600+ caratteri → incipit max 200 caratteri
 - Se entrambe le frasi rientrano nel limite → includi entrambe
 - Se solo la prima rientra nel limite → includi solo la prima
-- Se anche la prima supera il limite → tronca al limite e aggiungi "…"
+- Se anche la prima supera il limite → tronca al limite
+- Rimuovi la punteggiatura finale (., !, ?) e aggiungi sempre "…"
+  L'incipit è un teaser: termina SEMPRE con "…", senza eccezioni
 - Non aggiungere mai una terza frase
-- Non modificare punteggiatura, maiuscole o stile
+- Non modificare il resto del testo (maiuscole, stile, parole)
 
 VERIFICA INCIPIT:
 □ È riproduzione testuale fedele?
 □ Sono al massimo due frasi?
 □ È entro min(200 caratteri, 50% del testo originale)?
-□ Se troncato: termina con "…"?
+□ Termina con "…" (obbligatorio, sempre)?
 □ Zero modifiche al testo originale?
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -141,7 +143,7 @@ TONE:
 VERIFICA FINALE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-□ Incipit: testuale, max 2 frasi, entro min(200 char, 50% del testo originale)?
+□ Incipit: testuale, max 2 frasi, entro min(200 char, 50% del testo originale), termina con "…"?
 □ Superquote: 1-2 frasi, 70-160 caratteri, tono fedele?
 □ Ratings: 0 per ambiti non menzionati?
 □ Tone: coerente con superquote e ratings?
@@ -214,7 +216,7 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
               },
               summary: {
                 type: 'string',
-                description: 'Riproduzione testuale fedele delle prime due frasi dell\'oroscopo originale. Massimo 200 caratteri E mai più del 50% della lunghezza del testo originale (per testi brevi il limite % è vincolante). Tronca con "…" se necessario. Non modificare nulla del testo originale.'
+                description: 'Riproduzione testuale fedele delle prime due frasi dell\'oroscopo originale. Massimo 200 caratteri E mai più del 50% della lunghezza del testo originale. Termina SEMPRE con "…" (rimuovi la punteggiatura finale e aggiungi "…") — l\'incipit è sempre un teaser. Non modificare nulla del resto del testo.'
               },
               relazioni: {
                 type: 'integer',
@@ -257,7 +259,7 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
     console.log(`[Claude] Cache usage — creation: ${response.usage.cache_creation_input_tokens ?? 0}, read: ${response.usage.cache_read_input_tokens ?? 0}, input: ${response.usage.input_tokens}`);
     const parsed = toolBlock.input as Record<string, unknown>;
 
-    // Process summary (incipit) — enforce min(200 chars, 50% of original text)
+    // Process summary (incipit) — enforce min(200 chars, 50% of original text) + always "…"
     let summary = (parsed.summary as string) || '';
     const maxIncipitLength = Math.min(200, Math.floor(input.extracted_text.length * 0.5));
     if (summary.length > maxIncipitLength) {
@@ -265,8 +267,9 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
       const lastSentenceEnd = truncated.search(/[.!?][^.!?]*$/);
       summary = lastSentenceEnd > 0
         ? truncated.slice(0, lastSentenceEnd + 1)
-        : truncated.trimEnd() + '…';
+        : truncated.trimEnd();
     }
+    summary = summary.replace(/[.!?…]+$/, '') + '…';
 
     // Process superquote — enforce 70-160 char limits
     let superquote = (parsed.superquote as string) || '';
@@ -366,8 +369,9 @@ function postProcessOutput(parsed: Record<string, unknown>, originalLength?: num
     const lastSentenceEnd = truncated.search(/[.!?][^.!?]*$/);
     summary = lastSentenceEnd > 0
       ? truncated.slice(0, lastSentenceEnd + 1)
-      : truncated.trimEnd() + '…';
+      : truncated.trimEnd();
   }
+  summary = summary.replace(/[.!?…]+$/, '') + '…';
 
   let superquote = (parsed.superquote as string) || '';
   if (superquote.length > 160) {
@@ -446,7 +450,7 @@ export async function processMultiSourceHoroscope(inputs: OpenAIInput[]): Promis
                 properties: {
                   source_index: { type: 'integer' as const, description: 'Indice 1-based della fonte (1 = prima fonte)' },
                   superquote: { type: 'string' as const, description: 'Testo ORIGINALE che esprime il clima emotivo dal punto di vista del lettore. Una o due frasi con punto finale. Lettore sempre soggetto. 70-160 caratteri totali. Zero astrologico, zero condizionali, zero aperture con "La giornata".' },
-                  summary: { type: 'string' as const, description: 'Riproduzione testuale fedele delle prime due frasi originali. Massimo 200 caratteri e mai più del 50% della lunghezza del testo originale. Tronca con "…" se necessario.' },
+                  summary: { type: 'string' as const, description: 'Riproduzione testuale fedele delle prime due frasi originali. Massimo 200 caratteri e mai più del 50% della lunghezza del testo originale. Termina SEMPRE con "…" (l\'incipit è un teaser, non testo completo).' },
                   relazioni: { type: 'integer' as const, minimum: 0, maximum: 5 },
                   lavoro: { type: 'integer' as const, minimum: 0, maximum: 5 },
                   benessere: { type: 'integer' as const, minimum: 0, maximum: 5 },
