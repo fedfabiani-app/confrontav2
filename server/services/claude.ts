@@ -50,7 +50,7 @@ La superquote è un testo ORIGINALE scritto da zero — NON una citazione né un
 parafrasi del testo sorgente. Non deve contenere frasi, espressioni o costrutti
 riconoscibili del testo originale.
 
-Limite: 80–140 caratteri totali (spazi inclusi). Punto finale obbligatorio.
+Limite: 70–160 caratteri totali (spazi inclusi). Punto finale obbligatorio.
 
 COSA DEVE FARE:
 Esprimere in modo diretto ed esperienziale il clima emotivo dominante
@@ -105,7 +105,7 @@ DIVIETI ASSOLUTI:
 VERIFICA FINALE:
 □ Il lettore è il soggetto implicito o esplicito?
 □ C'è una tensione interna (contrasto, svolta, risoluzione)?
-□ Tra 80 e 140 caratteri con punto finale?
+□ Tra 70 e 160 caratteri con punto finale?
 □ Tono coerente con l'originale?
 □ Zero riferimenti astrologici, anche se nell'originale?
 □ Funziona letta da sola, fuori contesto?
@@ -143,7 +143,7 @@ VERIFICA FINALE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 □ Incipit: testuale, max 200 caratteri, max 2 frasi?
-□ Superquote: 1-2 frasi, 80-140 caratteri, tono fedele?
+□ Superquote: 1-2 frasi, 70-160 caratteri, tono fedele?
 □ Ratings: 0 per ambiti non menzionati?
 □ Tone: coerente con superquote e ratings?
 
@@ -211,7 +211,7 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
             properties: {
               superquote: {
                 type: 'string',
-                description: 'Testo ORIGINALE (non citazione né parafrasi) che esprime il clima emotivo dell\'oroscopo dal punto di vista del lettore. Una o due frasi complementari con punto finale. Il lettore è sempre soggetto implicito o esplicito. Cerca una tensione interna (contrasto, svolta, risoluzione). 80–140 caratteri totali. Zero riferimenti astrologici, zero condizionali, zero aperture con "La giornata"/"L\'energia"/"Il momento".'
+                description: 'Testo ORIGINALE (non citazione né parafrasi) che esprime il clima emotivo dell\'oroscopo dal punto di vista del lettore. Una o due frasi complementari con punto finale. Il lettore è sempre soggetto implicito o esplicito. Cerca una tensione interna (contrasto, svolta, risoluzione). 70–160 caratteri totali. Zero riferimenti astrologici, zero condizionali, zero aperture con "La giornata"/"L\'energia"/"Il momento".'
               },
               summary: {
                 type: 'string',
@@ -264,22 +264,22 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
       summary = summary.slice(0, 199) + '…';
     }
 
-    // Process superquote — enforce 80-140 char limits
+    // Process superquote — enforce 70-160 char limits
     let superquote = (parsed.superquote as string) || '';
-    if (superquote.length > 140) {
-      // Trim to last complete sentence within 140 chars
+    if (superquote.length > 160) {
+      // Trim to last complete sentence within 160 chars
       const sentences = superquote.match(/[^.!?]+[.!?]+/g) || [];
       let trimmed = '';
       for (const sentence of sentences) {
-        if ((trimmed + sentence).length <= 140) {
+        if ((trimmed + sentence).length <= 160) {
           trimmed += sentence;
         } else {
           break;
         }
       }
-      superquote = trimmed.trim() || superquote.slice(0, 139) + '.';
+      superquote = trimmed.trim() || superquote.slice(0, 159) + '.';
     }
-    if (superquote.length < 80) {
+    if (superquote.length < 70) {
       console.log(`[Claude] Warning: Superquote too short (${superquote.length} chars), using as-is`);
     }
 
@@ -359,19 +359,19 @@ function postProcessOutput(parsed: Record<string, unknown>): OpenAIOutput {
   }
 
   let superquote = (parsed.superquote as string) || '';
-  if (superquote.length > 140) {
+  if (superquote.length > 160) {
     const sentences = superquote.match(/[^.!?]+[.!?]+/g) || [];
     let trimmed = '';
     for (const sentence of sentences) {
-      if ((trimmed + sentence).length <= 140) {
+      if ((trimmed + sentence).length <= 160) {
         trimmed += sentence;
       } else {
         break;
       }
     }
-    superquote = trimmed.trim() || superquote.slice(0, 139) + '.';
+    superquote = trimmed.trim() || superquote.slice(0, 159) + '.';
   }
-  if (superquote.length < 80) {
+  if (superquote.length < 70) {
     console.log(`[Claude] Warning: Superquote too short (${superquote.length} chars), using as-is`);
   }
 
@@ -434,7 +434,7 @@ export async function processMultiSourceHoroscope(inputs: OpenAIInput[]): Promis
                 type: 'object' as const,
                 properties: {
                   source_index: { type: 'integer' as const, description: 'Indice 1-based della fonte (1 = prima fonte)' },
-                  superquote: { type: 'string' as const, description: 'Testo ORIGINALE che esprime il clima emotivo dal punto di vista del lettore. Una o due frasi con punto finale. Lettore sempre soggetto. 80-140 caratteri totali. Zero astrologico, zero condizionali, zero aperture con "La giornata".' },
+                  superquote: { type: 'string' as const, description: 'Testo ORIGINALE che esprime il clima emotivo dal punto di vista del lettore. Una o due frasi con punto finale. Lettore sempre soggetto. 70-160 caratteri totali. Zero astrologico, zero condizionali, zero aperture con "La giornata".' },
                   summary: { type: 'string' as const, description: 'Riproduzione testuale fedele delle prime due frasi originali. Massimo 200 caratteri.' },
                   relazioni: { type: 'integer' as const, minimum: 0, maximum: 5 },
                   lavoro: { type: 'integer' as const, minimum: 0, maximum: 5 },
