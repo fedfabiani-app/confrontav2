@@ -91,8 +91,9 @@ GRAMMATICA:
 Il lettore tipo è una donna: usa il femminile come genere grammaticale
 di default ("leggera", "pronta", "aperta", "te stessa", ecc.) salvo
 che il testo originale usi esplicitamente il maschile o il plurale misto.
-Usa solo italiano corretto: verifica accordi soggetto-verbo, ortografia
-e che ogni parola esista davvero in italiano.
+Prima di restituire l'output, rileggi la superquote ad alta voce nella
+testa: se una parola suona strana o una costruzione zoppica, riscrivila.
+Ogni verbo deve esistere in italiano e concordare con il suo soggetto.
 
 DIVIETI ASSOLUTI:
 - Zero riferimenti a pianeti, transiti, segni, date, fonti —
@@ -110,7 +111,7 @@ VERIFICA FINALE:
 □ Funziona letta da sola, fuori contesto?
 □ L'attacco è scelto dalla lista e varia rispetto ai casi più frequenti?
 □ Genere grammaticale femminile dove non specificato?
-□ Italiano corretto: accordi, ortografia, parole esistenti?
+□ Ogni verbo esiste in italiano e concorda con il suo soggetto?
 □ Se anche una sola risposta è NO → riscrivi prima di restituire.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
