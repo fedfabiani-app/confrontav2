@@ -1982,7 +1982,7 @@ async function scrapeHoroscopeText(url: string, input: ScraperInput): Promise<Sc
   try {
     console.log(`Starting scrape for ${input.signSlugIt} at URL: ${url}`);
 
-        // Special handling for Vogue.it
+    // Special handling for Vogue.it
     if (url.includes('vogue.it')) {
       return await scrapeVogueHoroscopeText(url, input);
     }
@@ -1990,6 +1990,11 @@ async function scrapeHoroscopeText(url: string, input: ScraperInput): Promise<Sc
     // Special handling for Virgilio.it
     if (url.includes('virgilio.it')) {
       return await scrapeVirgilioHoroscopeText(url, input);
+    }
+
+    // Special handling for Grazia.it
+    if (url.includes('grazia.it')) {
+      return await scrapeGraziaHoroscopeText(url, input);
     }
 
     // Special handling for OnlyOroscopo
@@ -2048,7 +2053,144 @@ async function scrapeHoroscopeText(url: string, input: ScraperInput): Promise<Sc
     if (url.includes('fanpage.it')) {
       return await scrapeFanpageHoroscopeText(url, input);
     }
+// ============================================================================
+// GRAZIA.IT — Handler dedicato
+// ============================================================================
+async function scrapeGraziaHoroscopeText(url: string, input: ScraperInput): Promise<ScrapeResult> {
+  try {
+    console.log('Grazia.it - Starting dedicated scraping for:', input.signSlugIt);
 
+    const html = await fetchHtml(url, input.userAgent);
+    const $ = cheerio.load(html);
+
+    // ── Rimuovi SUBITO elementi rumorosi prima di qualsiasi estrazione ──────
+    // Cookie policy, GDPR banner, overlay di consenso
+    $('[id*="cookie"], [class*="cookie"]').remove();
+    $('[id*="gdpr"], [class*="gdpr"]').remove();
+    $('[id*="privacy"], [class*="privacy"]').remove();
+    $('[id*="consent"], [class*="consent"]').remove();
+    $('[id*="didomi"], [class*="didomi"]').remove();
+    $('[id*="onetrust"], [class*="onetrust"]').remove();
+    $('[id*="cmp"], [class*="cmp"]').remove();
+    // Elementi strutturali non pertinenti
+    $('header, footer, nav, aside').remove();
+    $('[class*="header"], [class*="footer"], [class*="sidebar"]').remove();
+    $('[class*="related"], [class*="correlati"], [class*="suggest"]').remove();
+    $('[class*="newsletter"], [class*="subscribe"], [class*="social"]').remove();
+    $('[class*="ad-"], [class*="-ad"], [id*="adv"], [class*="adv"]').remove();
+
+    let extractedText = '';
+
+    // ── STRATEGIA 1: selettori semantici specifici di Grazia ────────────────
+    // Grazia usa WordPress/Condé Nast con classi tipo .entry-content, .article__body
+    const primarySelectors = [
+      '.article__body p',
+      '.entry-content p',
+      '.post-content p',
+      '[class*="article-body"] p',
+      '[class*="articleBody"] p',
+      '[class*="article__content"] p',
+      '.horoscope-content p',
+      '[class*="horoscope"] p',
+      '[class*="oroscopo"] p',
+    ];
+
+    for (const selector of primarySelectors) {
+      const paragraphs: string[] = [];
+
+      $(selector).each((_, el) => {
+        const text = $(el).text().trim();
+        // Salta paragrafi troppo corti o che contengono ancora riferimenti a policy
+        if (text.length < 30) return;
+        if (/cookie|privacy|consenso|gdpr|trattamento dei dati|acconsento/i.test(text)) return;
+        paragraphs.push(text);
+      });
+
+      if (paragraphs.length >= 2) {
+        extractedText = paragraphs.join('\n\n');
+        console.log(`Grazia.it - ✓ Strategy 1 (${selector}): ${extractedText.length} chars`);
+        break;
+      }
+    }
+
+    // ── STRATEGIA 2: JSON-LD (articleBody) ──────────────────────────────────
+    // Molti siti Condé Nast espongono il testo nell'articolo strutturato Schema.org
+    if (!extractedText || extractedText.length < 100) {
+      console.log('Grazia.it - Trying Strategy 2: JSON-LD...');
+
+      $('script[type="application/ld+json"]').each((_, el) => {
+        if (extractedText.length >= 100) return; // già trovato
+        try {
+          const json = JSON.parse($(el).html() || '{}');
+          const candidates = Array.isArray(json) ? json : [json];
+          for (const obj of candidates) {
+            const body = obj.articleBody || obj.description || '';
+            if (body.length >= 100) {
+              extractedText = body;
+              console.log(`Grazia.it - ✓ Strategy 2 JSON-LD: ${extractedText.length} chars`);
+              break;
+            }
+          }
+        } catch { /* malformed JSON, skip */ }
+      });
+    }
+
+    // ── STRATEGIA 3: Scoring su tutti i <p> rimasti dopo cleanup ────────────
+    if (!extractedText || extractedText.length < 100) {
+      console.log('Grazia.it - Trying Strategy 3: scored paragraph sweep...');
+
+      const zodiacName = input.signSlugIt.toLowerCase();
+      let bestScore = 0;
+      const candidates: string[] = [];
+
+      $('p').each((_, el) => {
+        const text = $(el).text().trim();
+        if (text.length < 40) return;
+        if (/cookie|privacy|consenso|gdpr|trattamento|acconsento|policy/i.test(text)) return;
+
+        const score = scoreHoroscopeContent(text, zodiacName, 'grazia.it');
+        if (score > bestScore) {
+          bestScore = score;
+          candidates.unshift(text); // metti il migliore in cima
+        } else if (score > 10) {
+          candidates.push(text);
+        }
+      });
+
+      if (candidates.length > 0 && bestScore >= 15) {
+        // Prendi al massimo i primi 6 paragrafi più rilevanti
+        extractedText = candidates.slice(0, 6).join('\n\n');
+        console.log(`Grazia.it - ✓ Strategy 3: ${extractedText.length} chars, best score: ${bestScore}`);
+      }
+    }
+
+    // ── Validazione finale ──────────────────────────────────────────────────
+    if (!extractedText || extractedText.length < 80) {
+      console.log('Grazia.it - ✗ FAILED: No valid content after all strategies');
+      return {
+        success: false,
+        error: `No horoscope content found for ${input.signSlugIt} on Grazia.it`
+      };
+    }
+
+    extractedText = normalizeWhitespace(decodeHtmlEntities(extractedText));
+
+    const finalScore = scoreHoroscopeContent(extractedText, input.signSlugIt.toLowerCase(), 'grazia.it');
+    console.log(`Grazia.it - ✅ FINAL: ${extractedText.length} chars, quality score: ${finalScore}`);
+
+    return {
+      success: true,
+      text: extractedText.substring(0, 3500),
+      url,
+      actualUrl: url,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown Grazia.it scraping error',
+    };
+  }
+}
     const html = await fetchHtml(url, input.userAgent);
 
     // Enhanced HTML cleaning
