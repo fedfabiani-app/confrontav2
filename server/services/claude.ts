@@ -46,79 +46,58 @@ VERIFICA INCIPIT:
 CAMPO 2 — SUPERQUOTE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-La superquote è l'unico elemento editoriale originale della
-card. È la sintesi dell'intero oroscopo espressa in forma
-evocativa — non una decorazione, ma il modo per comunicare
-il messaggio essenziale dell'oroscopo senza riprodurlo.
+La superquote è un testo ORIGINALE scritto da zero — NON una citazione né una
+parafrasi del testo sorgente. Non deve contenere frasi, espressioni o costrutti
+riconoscibili del testo originale.
 
-STRUTTURA — due frasi con ruoli distinti:
+Limite: 80–140 caratteri totali (spazi inclusi). Punto finale obbligatorio.
 
-FRASE 1 — TONO/ATMOSFERA:
-  Cattura l'energia o il clima emotivo dominante
-  della giornata. Tono evocativo, quasi poetico.
-  Deve rispecchiare fedelmente le priorità dell'oroscopo.
-  Può riferirsi a qualsiasi ambito (lavoro, relazioni,
-  energia personale) purché sia il tema principale
-  dell'oroscopo originale.
+COSA DEVE FARE:
+Esprimere in modo diretto ed esperienziale il clima emotivo dominante
+dell'oroscopo. Il lettore è sempre il soggetto — non "la giornata", non
+concetti astratti fluttuanti. Deve funzionare da sola, fuori contesto,
+come se il lettore la leggesse senza aver letto l'oroscopo.
 
-FRASE 2 — INVITO/AZIONE:
-  Un'azione concreta o un atteggiamento suggerito
-  dalla giornata. Tono assertivo e diretto.
-  Usa sempre il "tu" diretto.
-  Può toccare un ambito diverso dalla frase 1
-  purché rispecchi le priorità dell'originale.
+COME COSTRUIRLA:
+Cerca una tensione interna al testo originale — un contrasto, una svolta,
+una risoluzione — e rendila concreta dal punto di vista del lettore.
+Una o due frasi: scegli tu in base a cosa funziona meglio per quel testo.
+Se usi due frasi, devono essere complementari, non ridondanti.
 
-CASO NEUTRO (tono né positivo né negativo):
-  Frase 1 → descrive l'energia stabile della giornata
-  Frase 2 → suggerisce come sfruttarla al meglio
+SOGGETTO — REGOLA FONDAMENTALE:
+Il lettore è sempre al centro, come soggetto implicito o esplicito.
 
-LIMITI:
-  - Minimo 80 caratteri totali (spazi inclusi)
-  - Massimo 140 caratteri totali (spazi inclusi)
-  - Entrambe le frasi con punto finale
+✓ "Senti che qualcosa si allenta, e respiri meglio di ieri."
+✓ "C'è una stanchezza che non hai ancora smaltito, ma il ritmo sta tornando."
+✓ "Ti ritrovi a fare più di quanto pensavi di riuscire."
+✗ "La giornata oscilla tra spinta e prudenza." → soggetto astratto
+✗ "L'energia è generosa e multiforme." → non coinvolge il lettore
+✗ "Il silenzio custodisce il veleno." → metafora filosofica senza lettore
 
-VINCOLI ASSOLUTI:
-  - Tono fedele all'oroscopo originale:
-    positivo se la giornata è positiva,
-    negativo se la giornata è difficile,
-    neutro se la giornata è nella norma
-  - Zero riferimenti a pianeti, transiti, segni,
-    date, fonti, dettagli astrologici
-  - Le due frasi devono essere complementari,
-    non ridondanti — la seconda non è una
-    variazione della prima
-  - Non possono riassumere o anticipare l'incipit
-  - Devono funzionare lette da sole, fuori contesto
+TONO:
+Fedele all'originale: positivo se favorevole, negativo se difficile,
+neutro se nella norma. Non addolcire un testo difficile, non caricare
+uno neutro. Il condizionale indebolisce — preferisci l'indicativo.
 
-ESEMPI TONO POSITIVO:
-  "Qualcosa si sta sbloccando, anche se non è ancora visibile.
-  Fidati di ciò che senti e muoviti senza aspettare."
+VARIETÀ:
+Evita di iniziare sempre con "Senti che" o "Dentro di te".
+Varia l'attacco: sensazioni fisiche, affermazioni dirette, immagini
+concrete, costruzioni con "c'è", "hai", "ti ritrovi", "emerge", ecc.
 
-ESEMPI TONO NEGATIVO:
-  "Non è il momento di forzare le cose, meglio lasciar scorrere.
-  Conserva le energie per quando il vento girerà."
+DIVIETI ASSOLUTI:
+- Zero riferimenti a pianeti, transiti, segni, date, fonti
+- Zero parafrasi dell'originale
+- Zero condizionali ("potresti", "potrebbe", "forse")
+- Zero aperture con "La giornata", "L'energia", "Il momento"
 
-ESEMPI TONO NEUTRO:
-  "La giornata scorre su binari stabili, senza scossoni.
-  Usala per costruire qualcosa che durerà nel tempo."
-
-Da evitare assoluto:
-  "Venere favorisce i tuoi piani." → riferimento astrologico
-  "Le stelle ti sorridono." → riferimento astrologico
-  "La giornata è favorevole per le relazioni." → descrittivo e generico
-  "Il silenzio custodisce il veleno." → metafora astratta senza lettore
-  "Oggi potresti sentirti meglio." → condizionale che indebolisce
-  Qualsiasi frase con soggetto "la giornata", "l'energia", "il momento" isolati
-  senza aggancio al lettore
-
-Verifica OBBLIGATORIA prima di restituire:
-□ Sono esattamente due frasi con punto finale?
-□ F1 ha il lettore come soggetto implicito o esplicito?
-□ F2 usa "tu" diretto o imperativo?
-□ F2 completa F1 senza ripeterla?
-□ Totale caratteri tra 80 e 140?
-□ Zero riferimenti astrologici o a fonti?
-□ Tono coerente con l'originale (positivo/negativo/neutro)?
+VERIFICA FINALE:
+□ Il lettore è il soggetto implicito o esplicito?
+□ C'è una tensione interna (contrasto, svolta, risoluzione)?
+□ Tra 80 e 140 caratteri con punto finale?
+□ Tono coerente con l'originale?
+□ Zero riferimenti astrologici?
+□ Funziona letta da sola, fuori contesto?
+□ L'attacco è vario (non sempre "Senti che" o "Dentro di te")?
 □ Se anche una sola risposta è NO → riscrivi prima di restituire.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -150,7 +129,7 @@ VERIFICA FINALE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 □ Incipit: testuale, max 200 caratteri, max 2 frasi?
-□ Superquote: 2 frasi, 80-140 caratteri, tono fedele?
+□ Superquote: 1-2 frasi, 80-140 caratteri, tono fedele?
 □ Ratings: 0 per ambiti non menzionati?
 □ Tone: coerente con superquote e ratings?
 
@@ -182,7 +161,7 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
 
     if (useNeutralFallback) {
       return {
-        superquote: 'La giornata scorre su binari stabili. Usala per costruire qualcosa che durerà.',
+        superquote: 'C\'è più equilibrio intorno a te di quanto percepisci. Usalo per costruire qualcosa che dura.',
         summary: 'Le previsioni di oggi non sono disponibili.',
         ratings: {
           relazioni: 0,
@@ -218,7 +197,7 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
             properties: {
               superquote: {
                 type: 'string',
-                description: 'Due frasi originali che sintetizzano il messaggio dell\'oroscopo. Frase 1: evocativa, cattura il tono/atmosfera. Frase 2: assertiva con "tu" diretto, suggerisce un\'azione o atteggiamento. Minimo 80, massimo 140 caratteri totali. Entrambe con punto finale. Zero riferimenti astrologici o a fonti.'
+                description: 'Testo ORIGINALE (non citazione né parafrasi) che esprime il clima emotivo dell\'oroscopo dal punto di vista del lettore. Una o due frasi complementari con punto finale. Il lettore è sempre soggetto implicito o esplicito. Cerca una tensione interna (contrasto, svolta, risoluzione). 80–140 caratteri totali. Zero riferimenti astrologici, zero condizionali, zero aperture con "La giornata"/"L\'energia"/"Il momento".'
               },
               summary: {
                 type: 'string',
@@ -340,7 +319,7 @@ export async function processHoroscopeWithRetry(
 }
 
 const NEUTRAL_FALLBACK: OpenAIOutput = {
-  superquote: 'La giornata scorre su binari stabili. Usala per costruire qualcosa che durerà.',
+  superquote: 'C\'è più equilibrio intorno a te di quanto percepisci. Usalo per costruire qualcosa che dura.',
   summary: 'Le previsioni di oggi non sono disponibili.',
   ratings: { relazioni: 0, lavoro: 0, benessere: 0 },
   tone: 'neutral' as const,
@@ -441,7 +420,7 @@ export async function processMultiSourceHoroscope(inputs: OpenAIInput[]): Promis
                 type: 'object' as const,
                 properties: {
                   source_index: { type: 'integer' as const, description: 'Indice 1-based della fonte (1 = prima fonte)' },
-                  superquote: { type: 'string' as const, description: 'Due frasi originali che sintetizzano il messaggio. Frase 1 evocativa, frase 2 assertiva con "tu". 80-140 caratteri totali.' },
+                  superquote: { type: 'string' as const, description: 'Testo ORIGINALE che esprime il clima emotivo dal punto di vista del lettore. Una o due frasi con punto finale. Lettore sempre soggetto. 80-140 caratteri totali. Zero astrologico, zero condizionali, zero aperture con "La giornata".' },
                   summary: { type: 'string' as const, description: 'Riproduzione testuale fedele delle prime due frasi originali. Massimo 200 caratteri.' },
                   relazioni: { type: 'integer' as const, minimum: 0, maximum: 5 },
                   lavoro: { type: 'integer' as const, minimum: 0, maximum: 5 },
