@@ -80,9 +80,19 @@ neutro se nella norma. Non addolcire un testo difficile, non caricare
 uno neutro. Il condizionale indebolisce — preferisci l'indicativo.
 
 VARIETÀ:
-Evita di iniziare sempre con "Senti che" o "Dentro di te".
-Varia l'attacco: sensazioni fisiche, affermazioni dirette, immagini
-concrete, costruzioni con "c'è", "hai", "ti ritrovi", "emerge", ecc.
+Scegli l'attacco più adatto al testo tra questi, distribuendo le scelte
+in modo vario e non privilegiando sempre i primi della lista:
+"Senti che", "Dentro di te", "Ti ritrovi", "Hai", "C'è", "Torni",
+"Scopri", "Riprendi", "Qualcosa", "Il peso", "Non riesci", "Vuoi",
+"Respiri", "Riesci", "Svegliarti", "Fatica a", "Stai", "Capisci che",
+"Emerge", "Avverti", "Porti", "Lasci andare", "Cerchi".
+
+GRAMMATICA:
+Il lettore tipo è una donna: usa il femminile come genere grammaticale
+di default ("leggera", "pronta", "aperta", "te stessa", ecc.) salvo
+che il testo originale usi esplicitamente il maschile o il plurale misto.
+Rileggi ogni frase per verificare accordi e costruzioni sintattiche
+prima di restituire l'output.
 
 DIVIETI ASSOLUTI:
 - Zero riferimenti a pianeti, transiti, segni, date, fonti
@@ -97,7 +107,8 @@ VERIFICA FINALE:
 □ Tono coerente con l'originale?
 □ Zero riferimenti astrologici?
 □ Funziona letta da sola, fuori contesto?
-□ L'attacco è vario (non sempre "Senti che" o "Dentro di te")?
+□ L'attacco è scelto dalla lista e varia rispetto ai casi più frequenti?
+□ Genere grammaticale femminile dove non specificato?
 □ Se anche una sola risposta è NO → riscrivi prima di restituire.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
