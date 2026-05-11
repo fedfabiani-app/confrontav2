@@ -91,11 +91,12 @@ GRAMMATICA:
 Il lettore tipo è una donna: usa il femminile come genere grammaticale
 di default ("leggera", "pronta", "aperta", "te stessa", ecc.) salvo
 che il testo originale usi esplicitamente il maschile o il plurale misto.
-Rileggi ogni frase per verificare accordi e costruzioni sintattiche
-prima di restituire l'output.
+Usa solo italiano corretto: verifica accordi soggetto-verbo, ortografia
+e che ogni parola esista davvero in italiano.
 
 DIVIETI ASSOLUTI:
-- Zero riferimenti a pianeti, transiti, segni, date, fonti
+- Zero riferimenti a pianeti, transiti, segni, date, fonti —
+  anche se presenti nel testo originale
 - Zero parafrasi dell'originale
 - Zero condizionali ("potresti", "potrebbe", "forse")
 - Zero aperture con "La giornata", "L'energia", "Il momento"
@@ -105,10 +106,11 @@ VERIFICA FINALE:
 □ C'è una tensione interna (contrasto, svolta, risoluzione)?
 □ Tra 80 e 140 caratteri con punto finale?
 □ Tono coerente con l'originale?
-□ Zero riferimenti astrologici?
+□ Zero riferimenti astrologici, anche se nell'originale?
 □ Funziona letta da sola, fuori contesto?
 □ L'attacco è scelto dalla lista e varia rispetto ai casi più frequenti?
 □ Genere grammaticale femminile dove non specificato?
+□ Italiano corretto: accordi, ortografia, parole esistenti?
 □ Se anche una sola risposta è NO → riscrivi prima di restituire.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
