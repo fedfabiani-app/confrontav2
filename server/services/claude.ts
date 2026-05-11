@@ -46,40 +46,61 @@ VERIFICA INCIPIT:
 CAMPO 2 — SUPERQUOTE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-La superquote è un testo ORIGINALE scritto da zero — NON una citazione né una
-parafrasi del testo sorgente. Non deve contenere frasi, espressioni o costrutti
-riconoscibili del testo originale.
-Deve essere COERENTE con il messaggio dell'oroscopo (stesso tema, stesso tono
-generale) ma espressa con vocabolario e struttura completamente diversi e originali.
+La superquote è l'unico elemento editoriale originale della
+card. È la sintesi dell'intero oroscopo espressa in forma
+evocativa — non una decorazione, ma il modo per comunicare
+il messaggio essenziale dell'oroscopo senza riprodurlo.
 
-Struttura OBBLIGATORIA — due frasi distinte e complementari:
-- Frase 1 — evocativa: descrive qualcosa che il lettore SENTE o VIVE in prima
-  persona. Il lettore è sempre il soggetto implicito o esplicito. Mai usare
-  "la giornata" o concetti astratti come soggetto principale.
-- Frase 2 — assertiva: usa "tu" diretto o imperativo, suggerisce un'azione
-  o atteggiamento concreto coerente con F1.
-Le due frasi devono essere COMPLEMENTARI: F2 non ripete F1, la completa.
+STRUTTURA — due frasi con ruoli distinti:
 
-Limiti: 80–140 caratteri totali (spazi inclusi). Entrambe le frasi con punto finale.
-Vincoli: tono fedele all'originale (positivo/negativo/neutro). Zero riferimenti a
-pianeti, transiti, segni, date, fonti. Se produci una sola frase il risultato
-è INVALIDO — riscrivi sempre con due frasi.
+FRASE 1 — TONO/ATMOSFERA:
+  Cattura l'energia o il clima emotivo dominante
+  della giornata. Tono evocativo, quasi poetico.
+  Deve rispecchiare fedelmente le priorità dell'oroscopo.
+  Può riferirsi a qualsiasi ambito (lavoro, relazioni,
+  energia personale) purché sia il tema principale
+  dell'oroscopo originale.
 
-Soggetto di F1 — REGOLE PRECISE:
-✓ CORRETTO: "Senti che qualcosa si sta muovendo nella direzione giusta."
-✓ CORRETTO: "C'è un'energia nuova dentro di te, ancora silenziosa ma presente."
-✓ CORRETTO: "Qualcosa si allenta, e respiri meglio di ieri."
-✗ VIETATO:  "La giornata oscilla tra spinta e prudenza." → soggetto astratto
-✗ VIETATO:  "L'energia è generosa e multiforme." → non coinvolge il lettore
-✗ VIETATO:  "Il confronto è inevitabile." → filosofico, distante
+FRASE 2 — INVITO/AZIONE:
+  Un'azione concreta o un atteggiamento suggerito
+  dalla giornata. Tono assertivo e diretto.
+  Usa sempre il "tu" diretto.
+  Può toccare un ambito diverso dalla frase 1
+  purché rispecchi le priorità dell'originale.
 
-Esempi corretti per tono:
-  POSITIVO: "Qualcosa si sta sbloccando dentro di te, anche se non è ancora visibile.
-             Fidati di ciò che senti e muoviti senza aspettare."
-  NEGATIVO: "Oggi fai fatica a trovare il ritmo, e le energie non bastano mai.
-             Conserva le forze e rimanda ciò che può aspettare."
-  NEUTRO:   "Scorre tutto in modo ordinato, senza scossoni né grandi sorprese.
-             Usa questa stabilità per costruire qualcosa che durerà nel tempo."
+CASO NEUTRO (tono né positivo né negativo):
+  Frase 1 → descrive l'energia stabile della giornata
+  Frase 2 → suggerisce come sfruttarla al meglio
+
+LIMITI:
+  - Minimo 80 caratteri totali (spazi inclusi)
+  - Massimo 140 caratteri totali (spazi inclusi)
+  - Entrambe le frasi con punto finale
+
+VINCOLI ASSOLUTI:
+  - Tono fedele all'oroscopo originale:
+    positivo se la giornata è positiva,
+    negativo se la giornata è difficile,
+    neutro se la giornata è nella norma
+  - Zero riferimenti a pianeti, transiti, segni,
+    date, fonti, dettagli astrologici
+  - Le due frasi devono essere complementari,
+    non ridondanti — la seconda non è una
+    variazione della prima
+  - Non possono riassumere o anticipare l'incipit
+  - Devono funzionare lette da sole, fuori contesto
+
+ESEMPI TONO POSITIVO:
+  "Qualcosa si sta sbloccando, anche se non è ancora visibile.
+  Fidati di ciò che senti e muoviti senza aspettare."
+
+ESEMPI TONO NEGATIVO:
+  "Non è il momento di forzare le cose, meglio lasciar scorrere.
+  Conserva le energie per quando il vento girerà."
+
+ESEMPI TONO NEUTRO:
+  "La giornata scorre su binari stabili, senza scossoni.
+  Usala per costruire qualcosa che durerà nel tempo."
 
 Da evitare assoluto:
   "Venere favorisce i tuoi piani." → riferimento astrologico
