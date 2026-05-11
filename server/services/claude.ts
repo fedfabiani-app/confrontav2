@@ -46,80 +46,60 @@ VERIFICA INCIPIT:
 CAMPO 2 — SUPERQUOTE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-La superquote è l'unico elemento editoriale originale della
-card. È la sintesi dell'intero oroscopo espressa in forma
-evocativa — non una decorazione, ma il modo per comunicare
-il messaggio essenziale dell'oroscopo senza riprodurlo.
 
-STRUTTURA — due frasi con ruoli distinti:
+La superquote è un testo ORIGINALE scritto da zero — NON una citazione né una
+parafrasi del testo sorgente. Non deve contenere frasi, espressioni o costrutti
+riconoscibili del testo originale.
+Deve essere COERENTE con il messaggio dell'oroscopo (stesso tema, stesso tono
+generale) ma espressa con vocabolario e struttura completamente diversi e originali.
 
-FRASE 1 — TONO/ATMOSFERA:
-  Cattura l'energia o il clima emotivo dominante
-  della giornata. Tono evocativo, quasi poetico.
-  Deve rispecchiare fedelmente le priorità dell'oroscopo.
-  Può riferirsi a qualsiasi ambito (lavoro, relazioni,
-  energia personale) purché sia il tema principale
-  dell'oroscopo originale.
+Struttura OBBLIGATORIA — due frasi distinte e complementari:
+- Frase 1 — evocativa: descrive qualcosa che il lettore SENTE o VIVE in prima
+  persona. Il lettore è sempre il soggetto implicito o esplicito. Mai usare
+  "la giornata" o concetti astratti come soggetto principale.
+- Frase 2 — assertiva: usa "tu" diretto o imperativo, suggerisce un'azione
+  o atteggiamento concreto coerente con F1.
+Le due frasi devono essere COMPLEMENTARI: F2 non ripete F1, la completa.
 
-FRASE 2 — INVITO/AZIONE:
-  Un'azione concreta o un atteggiamento suggerito
-  dalla giornata. Tono assertivo e diretto.
-  Usa sempre il "tu" diretto.
-  Può toccare un ambito diverso dalla frase 1
-  purché rispecchi le priorità dell'originale.
+Limiti: 80–140 caratteri totali (spazi inclusi). Entrambe le frasi con punto finale.
+Vincoli: tono fedele all'originale (positivo/negativo/neutro). Zero riferimenti a
+pianeti, transiti, segni, date, fonti. Se produci una sola frase il risultato
+è INVALIDO — riscrivi sempre con due frasi.
 
-CASO NEUTRO (tono né positivo né negativo):
-  Frase 1 → descrive l'energia stabile della giornata
-  Frase 2 → suggerisce come sfruttarla al meglio
+Soggetto di F1 — REGOLE PRECISE:
+✓ CORRETTO: "Senti che qualcosa si sta muovendo nella direzione giusta."
+✓ CORRETTO: "C'è un'energia nuova dentro di te, ancora silenziosa ma presente."
+✓ CORRETTO: "Qualcosa si allenta, e respiri meglio di ieri."
+✗ VIETATO:  "La giornata oscilla tra spinta e prudenza." → soggetto astratto
+✗ VIETATO:  "L'energia è generosa e multiforme." → non coinvolge il lettore
+✗ VIETATO:  "Il confronto è inevitabile." → filosofico, distante
 
-LIMITI:
-  - Minimo 80 caratteri totali (spazi inclusi)
-  - Massimo 140 caratteri totali (spazi inclusi)
-  - Entrambe le frasi con punto finale
+Esempi corretti per tono:
+  POSITIVO: "Qualcosa si sta sbloccando dentro di te, anche se non è ancora visibile.
+             Fidati di ciò che senti e muoviti senza aspettare."
+  NEGATIVO: "Oggi fai fatica a trovare il ritmo, e le energie non bastano mai.
+             Conserva le forze e rimanda ciò che può aspettare."
+  NEUTRO:   "Scorre tutto in modo ordinato, senza scossoni né grandi sorprese.
+             Usa questa stabilità per costruire qualcosa che durerà nel tempo."
 
-VINCOLI ASSOLUTI:
-  - Tono fedele all'oroscopo originale:
-    positivo se la giornata è positiva,
-    negativo se la giornata è difficile,
-    neutro se la giornata è nella norma
-  - Zero riferimenti a pianeti, transiti, segni,
-    date, fonti, dettagli astrologici
-  - Le due frasi devono essere complementari,
-    non ridondanti — la seconda non è una
-    variazione della prima
-  - Non possono riassumere o anticipare l'incipit
-  - Devono funzionare lette da sole, fuori contesto
+Da evitare assoluto:
+  "Venere favorisce i tuoi piani." → riferimento astrologico
+  "Le stelle ti sorridono." → riferimento astrologico
+  "La giornata è favorevole per le relazioni." → descrittivo e generico
+  "Il silenzio custodisce il veleno." → metafora astratta senza lettore
+  "Oggi potresti sentirti meglio." → condizionale che indebolisce
+  Qualsiasi frase con soggetto "la giornata", "l'energia", "il momento" isolati
+  senza aggancio al lettore
 
-ESEMPI TONO POSITIVO:
-  "Qualcosa si sta sbloccando, anche se non è ancora visibile.
-  Fidati di ciò che senti e muoviti senza aspettare."
-
-ESEMPI TONO NEGATIVO:
-  "Non è il momento di forzare le cose, meglio lasciar scorrere.
-  Conserva le energie per quando il vento girerà."
-
-ESEMPI TONO NEUTRO:
-  "La giornata scorre su binari stabili, senza scossoni.
-  Usala per costruire qualcosa che durerà nel tempo."
-
-ESEMPI DA EVITARE:
-  "Venere favorisce i tuoi piani." → astrologico
-  "Le stelle ti sorridono." → riferimento a fonte
-  "Giornata positiva per le relazioni." → descrittivo
-  "Oggi potresti sentirti meglio." → vago e generico
-  "È una buona giornata." → troppo corto e piatto
-
-VERIFICA SUPERQUOTE:
-□ Sono esattamente due frasi?
-□ Frase 1 è evocativa e cattura il tono?
-□ Frase 2 usa il "tu" diretto ed è assertiva?
-□ Le due frasi sono complementari?
-□ Totale tra 90 e 180 caratteri?
-□ Entrambe con punto finale?
+Verifica OBBLIGATORIA prima di restituire:
+□ Sono esattamente due frasi con punto finale?
+□ F1 ha il lettore come soggetto implicito o esplicito?
+□ F2 usa "tu" diretto o imperativo?
+□ F2 completa F1 senza ripeterla?
+□ Totale caratteri tra 80 e 140?
 □ Zero riferimenti astrologici o a fonti?
-□ Tono fedele all'originale?
-□ Non anticipano né riassumono l'incipit?
-□ Funzionano lette da sole?
+□ Tono coerente con l'originale (positivo/negativo/neutro)?
+□ Se anche una sola risposta è NO → riscrivi prima di restituire.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 CAMPO 3 — RATINGS E TONE
