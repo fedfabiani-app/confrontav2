@@ -2,8 +2,8 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { z } from "zod";
 import prisma from "./services/database";
-import { enqueueScrapeJob, enqueueWeeklyScrapeJob, getAllJobStatuses, getJobStatus } from "./jobs";
-import { ScraperInput, WeeklyScraperInput } from "@shared/schema";
+import { enqueueScrapeJob, enqueueWeeklyScrapeJob, enqueueScrapeJobWithCallback, enqueueWeeklyScrapeJobWithCallback, enqueueAggregatedNlpJob, enqueueAggregatedWeeklyNlpJob, getAllJobStatuses, getJobStatus } from "./jobs";
+import { ScraperInput, WeeklyScraperInput, ScraperOutput, WeeklyScraperOutput } from "@shared/schema";
 import { ZODIAC_SIGNS_IT_EN, ITALIAN_WEEKDAYS, ITALIAN_MONTHS } from "@shared/constants";
 import { getMondayOfWeek, formatWeekUrlParams, getCurrentWeekStart } from "./utils/weekUtils";
 import { runWeeklyScraperCycle, type SourceGroup } from "./services/weeklyScraperOrchestrator";
@@ -217,140 +217,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // POST /api/refresh/all
   app.post("/api/refresh/all", async (req, res) => {
-    try {
-      const { date } = req.query;
-      const targetDate = date as string || new Date().toISOString().split('T')[0];
+    const { date } = req.query;
+    const targetDate = (date as string) || new Date().toISOString().split('T')[0];
 
-      // Validate date format
-      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-      if (!dateRegex.test(targetDate)) {
-        return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
-      }
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(targetDate)) {
+      return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
+    }
 
-      // Get all active sources and zodiac signs
-      const [sources, zodiacSigns] = await Promise.all([
-        prisma.source.findMany({ where: { is_active: true } }),
-        prisma.zodiacSign.findMany({ orderBy: { id: 'asc' } }),
-      ]);
+    res.json({ message: 'Full refresh started' });
 
-      const jobIds: string[] = [];
-      const errors: string[] = [];
+    (async () => {
+      let executionId: number | null = null;
+      try {
+        const targetDateObj = new Date(targetDate + 'T00:00:00.000Z');
+        const execution = await prisma.scraperExecution.create({
+          data: {
+            status: 'running',
+            target_date: targetDateObj,
+            trigger_type: 'scheduled',
+            started_at: new Date(),
+          },
+        });
+        executionId = execution.id;
+        console.log(`[Refresh All] Created execution record ID ${executionId}`);
 
-      // Process signs sequentially to avoid overwhelming OpenAI rate limits
-      // Start background processing with automatic retry fallback
-      (async () => {
+        const [sources, zodiacSigns] = await Promise.all([
+          prisma.source.findMany({ where: { is_active: true } }),
+          prisma.zodiacSign.findMany({ orderBy: { id: 'asc' } }),
+        ]);
+
+        let totalEnqueued = 0;
+        let totalFailed = 0;
+
         for (let i = 0; i < zodiacSigns.length; i++) {
           const sign = zodiacSigns[i];
-          console.log(`[Refresh] Processing sign ${i + 1}/${zodiacSigns.length}: ${sign.name_italian}`);
-          
-          // Enqueue all sources for this sign
-          for (const source of sources) {
-            try {
-              const jobId = await enqueueScrapeJob(createScraperInput(source, sign, targetDate));
-              jobIds.push(jobId);
-            } catch (error) {
-              const errorMsg = `Failed to enqueue ${source.name} - ${sign.name_italian}`;
-              errors.push(errorMsg);
-              console.error(errorMsg, error);
-            }
-          }
-          
-          // Wait 5 seconds before processing the next sign (except after the last one)
-          if (i < zodiacSigns.length - 1) {
-            console.log(`[Refresh] Waiting 5 seconds before processing next sign...`);
-            await new Promise(resolve => setTimeout(resolve, 5000));
-          }
-        }
-        console.log(`[Refresh] All signs enqueued. Total jobs: ${jobIds.length}, Errors: ${errors.length}`);
-        
-        // Automatic fallback retry mechanism
-        // Wait for all jobs to complete (estimated: ~20 jobs/min with OpenAI rate limiting)
-        const expectedJobCount = sources.length * zodiacSigns.length;
-        const estimatedMinutes = Math.ceil(expectedJobCount / 20) + 2; // Add 2 min buffer
-        const waitTimeMs = estimatedMinutes * 60 * 1000;
-        
-        console.log(`[Auto-Retry] Waiting ${estimatedMinutes} minutes for initial scraping to complete before checking for failures...`);
-        await new Promise(resolve => setTimeout(resolve, waitTimeMs));
-        
-        // Check for missing/failed sources
-        console.log(`[Auto-Retry] Checking for failed sources...`);
-        const [allActiveSources, allZodiacSigns] = await Promise.all([
-          prisma.source.findMany({ where: { is_active: true } }),
-          prisma.zodiacSign.findMany(),
-        ]);
-        
-        const missingSources: Array<{ source: any; sign: any }> = [];
-        
-        for (const sign of allZodiacSigns) {
-          for (const source of allActiveSources) {
-            const entry = await prisma.horoscopeData.findFirst({
-              where: {
-                source_id: source.id,
-                zodiac_sign_id: sign.id,
-                date: new Date(targetDate),
-              }
-            });
-            
-            // Retry if missing OR if summary is empty (failed scrape)
-            if (!entry || entry.summary === '') {
-              missingSources.push({ source, sign });
-            }
-          }
-        }
-        
-        if (missingSources.length > 0) {
-          console.log(`[Auto-Retry] Found ${missingSources.length} missing sources. Starting automatic retry...`);
-          
-          // Group by sign for sequential processing
-          const missingBySign = missingSources.reduce((acc, { source, sign }) => {
-            if (!acc[sign.id]) {
-              acc[sign.id] = { sign, sources: [] };
-            }
-            acc[sign.id].sources.push(source);
-            return acc;
-          }, {} as Record<number, { sign: any; sources: any[] }>);
-          
-          // Retry failed sources sequentially
-          const signIds = Object.keys(missingBySign).map(Number);
-          for (let i = 0; i < signIds.length; i++) {
-            const signId = signIds[i];
-            const { sign, sources: failedSources } = missingBySign[signId];
-            
-            console.log(`[Auto-Retry] Retrying sign ${i + 1}/${signIds.length}: ${sign.name_italian} (${failedSources.length} sources)`);
-            
-            for (const source of failedSources) {
-              try {
-                await enqueueScrapeJob(createScraperInput(source, sign, targetDate));
-                console.log(`[Auto-Retry] Re-enqueued ${source.name} - ${sign.name_italian}`);
-              } catch (error) {
-                console.error(`[Auto-Retry] Failed to re-enqueue ${source.name} - ${sign.name_italian}:`, error);
-              }
-            }
-            
-            // Wait 5 seconds before next sign
-            if (i < signIds.length - 1) {
-              await new Promise(resolve => setTimeout(resolve, 5000));
-            }
-          }
-          
-          console.log(`[Auto-Retry] Automatic retry completed`);
-        } else {
-          console.log(`[Auto-Retry] No failed sources found. All scraping completed successfully!`);
-        }
-      })();
+          console.log(`[Refresh All] Processing sign ${i + 1}/${zodiacSigns.length}: ${sign.name_italian}`);
 
-      res.json({
-        message: 'Refresh started (processing signs sequentially)',
-        expectedJobs: sources.length * zodiacSigns.length,
-        totalSigns: zodiacSigns.length,
-        totalSources: sources.length,
-        date: targetDate,
-        note: 'Signs will be processed one at a time with 5-second delays to respect API rate limits',
-      });
-    } catch (error) {
-      console.error('Error starting refresh all:', error);
-      res.status(500).json({ error: 'Failed to start refresh' });
-    }
+          const collected: Array<{ scraperOutput: ScraperOutput; sourceName: string }> = [];
+
+          await new Promise<void>(resolve => {
+            let pending = sources.length;
+            if (pending === 0) { resolve(); return; }
+
+            for (const source of sources) {
+              const sourceName = source.name;
+              enqueueScrapeJobWithCallback(
+                createScraperInput(source, sign, targetDate),
+                (result) => {
+                  if (result) collected.push({ scraperOutput: result, sourceName });
+                  pending--;
+                  if (pending === 0) resolve();
+                }
+              );
+            }
+          });
+
+          if (collected.length > 0) {
+            await enqueueAggregatedNlpJob(collected);
+            totalEnqueued += collected.length;
+          }
+          totalFailed += sources.length - collected.length;
+
+          if (i < zodiacSigns.length - 1) {
+            await new Promise(r => setTimeout(r, 3000));
+          }
+        }
+
+        await prisma.scraperExecution.update({
+          where: { id: executionId },
+          data: {
+            status: 'completed',
+            completed_at: new Date(),
+            total_jobs_enqueued: totalEnqueued,
+            successful_jobs: totalEnqueued,
+            failed_jobs: totalFailed,
+          },
+        });
+        console.log(`[Refresh All] Completed. Enqueued: ${totalEnqueued}, Failed: ${totalFailed}`);
+
+      } catch (error) {
+        console.error('[Refresh All] Critical error:', error);
+        if (executionId) {
+          await prisma.scraperExecution.update({
+            where: { id: executionId },
+            data: {
+              status: 'failed',
+              completed_at: new Date(),
+              error_message: error instanceof Error ? error.message : 'Unknown error',
+            },
+          });
+        }
+      }
+    })();
   });
 
   // GET /api/weekly-horoscopes
@@ -492,82 +451,147 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   /**
    * POST /api/refresh-weekly/all
-   * Manual trigger for weekly scraper - all sources
-   * Requires X-Admin-Secret header for authorization
-   * Supports dryRun mode for testing
+   * Batch weekly refresh for all signs × all sources.
+   * Requires X-Admin-Secret header.
+   * Query params: ?weekStartDate=YYYY-MM-DD  ?forceRescrape=true
    */
   app.post("/api/refresh-weekly/all", async (req, res) => {
-    try {
-      // Admin auth check
-      const adminSecret = req.headers['x-admin-secret'];
-      const expectedSecret = process.env.ADMIN_SECRET || 'default-admin-secret-change-me';
-      
-      if (adminSecret !== expectedSecret) {
-        console.warn('[API Weekly Refresh] Unauthorized attempt blocked');
-        return res.status(401).json({ error: 'Unauthorized - X-Admin-Secret header required' });
+    const adminSecret = req.headers['x-admin-secret'];
+    const expectedSecret = process.env.ADMIN_SECRET || 'default-admin-secret-change-me';
+    if (adminSecret !== expectedSecret) {
+      console.warn('[Weekly Refresh All] Unauthorized attempt blocked');
+      return res.status(401).json({ error: 'Unauthorized - X-Admin-Secret header required' });
+    }
+
+    const forceRescrape = req.query.forceRescrape === 'true' || req.body?.forceRescrape === true;
+    const weekStartParam = (req.query.weekStartDate as string) || req.body?.targetWeek;
+
+    let weekStart: Date;
+    if (weekStartParam) {
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(weekStartParam)) {
+        return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
       }
-      
-      const { targetWeek, forceRescrape, dryRun } = req.body;
-      
-      // Parse and validate target week
-      let weekStart: Date;
-      if (targetWeek) {
-        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-        if (!dateRegex.test(targetWeek)) {
-          return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
+      weekStart = new Date(weekStartParam);
+      if (weekStart.getDay() !== 1) {
+        return res.status(400).json({ error: 'Target week must be a Monday' });
+      }
+    } else {
+      weekStart = getCurrentWeekStart();
+    }
+
+    res.json({ message: 'Full refresh started' });
+
+    (async () => {
+      let executionId: number | null = null;
+      try {
+        const execution = await prisma.weeklyScraperExecution.create({
+          data: {
+            status: 'running',
+            target_week: weekStart,
+            source_group: 'all',
+            trigger_type: 'scheduled',
+            started_at: new Date(),
+          },
+        });
+        executionId = execution.id;
+        console.log(`[Weekly Refresh All] Created execution record ID ${executionId}`);
+
+        const [sources, zodiacSigns] = await Promise.all([
+          prisma.weeklySource.findMany({ where: { is_active: true } }),
+          prisma.zodiacSign.findMany({ orderBy: { id: 'asc' } }),
+        ]);
+
+        let totalEnqueued = 0;
+        let totalSkipped = 0;
+        let totalFailed = 0;
+
+        for (let i = 0; i < zodiacSigns.length; i++) {
+          const sign = zodiacSigns[i];
+          console.log(`[Weekly Refresh All] Processing sign ${i + 1}/${zodiacSigns.length}: ${sign.name_italian}`);
+
+          // Apply skip logic: exclude sources already scraped with non-empty summary
+          const sourcesToProcess: typeof sources = [];
+          for (const source of sources) {
+            if (!forceRescrape) {
+              const existing = await prisma.weeklyHoroscopeData.findFirst({
+                where: {
+                  source_id: source.id,
+                  zodiac_sign_id: sign.id,
+                  week_start_date: weekStart,
+                  summary: { not: '' },
+                },
+              });
+              if (existing) {
+                totalSkipped++;
+                continue;
+              }
+            }
+            sourcesToProcess.push(source);
+          }
+
+          if (sourcesToProcess.length === 0) {
+            console.log(`[Weekly Refresh All] All sources skipped for ${sign.name_italian}`);
+            if (i < zodiacSigns.length - 1) await new Promise(r => setTimeout(r, 3000));
+            continue;
+          }
+
+          const collected: Array<{ scraperOutput: WeeklyScraperOutput; sourceName: string }> = [];
+
+          await new Promise<void>(resolve => {
+            let pending = sourcesToProcess.length;
+            if (pending === 0) { resolve(); return; }
+
+            for (const source of sourcesToProcess) {
+              const sourceName = source.name;
+              enqueueWeeklyScrapeJobWithCallback(
+                createWeeklyScraperInput(source, sign, weekStart.toISOString().split('T')[0]),
+                (result) => {
+                  if (result) collected.push({ scraperOutput: result, sourceName });
+                  pending--;
+                  if (pending === 0) resolve();
+                }
+              );
+            }
+          });
+
+          if (collected.length > 0) {
+            await enqueueAggregatedWeeklyNlpJob(collected);
+            totalEnqueued += collected.length;
+          }
+          totalFailed += sourcesToProcess.length - collected.length;
+
+          if (i < zodiacSigns.length - 1) {
+            await new Promise(r => setTimeout(r, 3000));
+          }
         }
-        
-        weekStart = new Date(targetWeek);
-        
-        // Verify it's a Monday
-        if (weekStart.getDay() !== 1) {
-          return res.status(400).json({ 
-            error: 'Target week must be a Monday',
-            providedDate: targetWeek,
-            dayOfWeek: weekStart.toLocaleDateString('en-US', { weekday: 'long' })
+
+        await prisma.weeklyScraperExecution.update({
+          where: { id: executionId },
+          data: {
+            status: 'completed',
+            completed_at: new Date(),
+            total_jobs_enqueued: totalEnqueued,
+            successful_jobs: totalEnqueued,
+            failed_jobs: totalFailed,
+          },
+        });
+        console.log(`[Weekly Refresh All] Completed. Enqueued: ${totalEnqueued}, Skipped: ${totalSkipped}, Failed: ${totalFailed}`);
+
+      } catch (error) {
+        console.error('[Weekly Refresh All] Critical error:', error);
+        if (executionId) {
+          await prisma.weeklyScraperExecution.update({
+            where: { id: executionId },
+            data: {
+              status: 'failed',
+              completed_at: new Date(),
+              error_message: error instanceof Error ? error.message : 'Unknown error',
+            },
           });
         }
-      } else {
-        weekStart = getCurrentWeekStart();
       }
-      
-      // Trigger orchestrator (runs async, doesn't block response)
-      const resultPromise = runWeeklyScraperCycle({
-        weekStart,
-        sourceGroup: 'all',
-        forceRescrape: forceRescrape || false,
-        dryRun: dryRun || false,
-        triggerType: 'manual'
-      });
-      
-      // For dry run, wait for result to show what would happen
-      if (dryRun) {
-        const result = await resultPromise;
-        return res.json({
-          success: true,
-          dryRun: true,
-          weekStart: weekStart.toISOString().split('T')[0],
-          stats: result.stats,
-          message: `[DRY RUN] Would process ${result.stats.enqueued} jobs (${result.stats.skipped} skipped)`,
-        });
-      }
-      
-      // For actual run, return immediately
-      res.json({
-        success: true,
-        dryRun: false,
-        weekStart: weekStart.toISOString().split('T')[0],
-        message: 'Weekly scrape triggered for all sources',
-        note: 'Processing will continue in background. Check /api/admin/weekly-scraper/executions for status'
-      });
-      
-    } catch (error) {
-      console.error('[API Weekly Refresh] Error:', error);
-      res.status(500).json({ 
-        error: 'Failed to trigger weekly refresh',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      });
-    }
+    })();
   });
 
   /**

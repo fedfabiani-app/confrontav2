@@ -394,6 +394,105 @@ export async function enqueueWeeklyUpsertJob(scraperOutput: WeeklyScraperOutput,
   return jobId;
 }
 
+// Callback-based daily scrape job — does NOT auto-enqueue NLP
+export async function enqueueScrapeJobWithCallback(
+  input: ScraperInput,
+  onComplete: (result: ScraperOutput | null) => void
+): Promise<string> {
+  const jobId = generateJobId();
+
+  scrapeQueue.add(async () => {
+    try {
+      const result = await scraperWorker.process(input);
+      onComplete(result);
+    } catch (error) {
+      console.error(`[JobQueue] Scrape job ${jobId} failed:`, error);
+      onComplete(null);
+    }
+  });
+
+  return jobId;
+}
+
+// Aggregated daily NLP — processes all scraped outputs for one sign,
+// grouping NLP calls together so the system-prompt cache stays warm
+export async function enqueueAggregatedNlpJob(
+  outputs: Array<{ scraperOutput: ScraperOutput; sourceName: string }>
+): Promise<void> {
+  const sign = outputs[0]?.scraperOutput.signSlugIt ?? 'unknown';
+
+  await Promise.all(
+    outputs.map(({ scraperOutput, sourceName }) => {
+      const nlpInput: OpenAIInput = {
+        sourceId: scraperOutput.sourceId,
+        sourceName,
+        signSlugIt: scraperOutput.signSlugIt,
+        dateISO: scraperOutput.dateISO,
+        extracted_text: scraperOutput.extracted_text,
+      };
+      return nlpQueue.add(async () => {
+        try {
+          const nlpResult = await openaiWorker.process(nlpInput);
+          await enqueueUpsertJob(scraperOutput, nlpResult);
+        } catch (error) {
+          console.error(`[JobQueue] Aggregated NLP failed for ${sign}/${scraperOutput.sourceId}:`, error);
+        }
+      });
+    })
+  );
+
+  console.log(`[JobQueue] Aggregated NLP job: ${outputs.length} sources processed for ${sign}`);
+}
+
+// Callback-based weekly scrape job — does NOT auto-enqueue NLP
+export async function enqueueWeeklyScrapeJobWithCallback(
+  input: WeeklyScraperInput,
+  onComplete: (result: WeeklyScraperOutput | null) => void
+): Promise<string> {
+  const jobId = generateJobId();
+
+  scrapeQueue.add(async () => {
+    try {
+      const result = await weeklyScraperWorker.process(input);
+      onComplete(result);
+    } catch (error) {
+      console.error(`[JobQueue] Weekly scrape job ${jobId} failed:`, error);
+      onComplete(null);
+    }
+  });
+
+  return jobId;
+}
+
+// Aggregated weekly NLP — processes all scraped outputs for one sign
+export async function enqueueAggregatedWeeklyNlpJob(
+  outputs: Array<{ scraperOutput: WeeklyScraperOutput; sourceName: string }>
+): Promise<void> {
+  const sign = outputs[0]?.scraperOutput.signSlugIt ?? 'unknown';
+
+  await Promise.all(
+    outputs.map(({ scraperOutput, sourceName }) => {
+      const nlpInput: OpenAIInput = {
+        sourceId: scraperOutput.sourceId,
+        sourceName,
+        signSlugIt: scraperOutput.signSlugIt,
+        dateISO: scraperOutput.weekStartDate,
+        extracted_text: scraperOutput.extracted_text,
+      };
+      return nlpQueue.add(async () => {
+        try {
+          const nlpResult = await openaiWorker.process(nlpInput);
+          await enqueueWeeklyUpsertJob(scraperOutput, nlpResult);
+        } catch (error) {
+          console.error(`[JobQueue] Aggregated Weekly NLP failed for ${sign}/${scraperOutput.sourceId}:`, error);
+        }
+      });
+    })
+  );
+
+  console.log(`[JobQueue] Aggregated Weekly NLP job: ${outputs.length} sources processed for ${sign}`);
+}
+
 // Cleanup old job statuses (older than 1 hour)
 setInterval(() => {
   const oneHourAgo = Date.now() - 60 * 60 * 1000;
