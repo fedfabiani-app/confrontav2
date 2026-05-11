@@ -25,20 +25,19 @@ non modificare nemmeno una parola.
 
 REGOLE:
 - Estrai le prime due frasi dell'originale, verbatim
-- Limite assoluto: 200 caratteri (spazi inclusi)
-- Se entrambe le frasi rientrano nei 200 caratteri
-  → includi entrambe
-- Se solo la prima rientra nei 200 caratteri
-  → includi solo la prima
-- Se anche la prima supera i 200 caratteri
-  → tronca a 200 caratteri esatti e aggiungi "…"
+- Limite: min(200 caratteri, 50% della lunghezza del testo originale)
+  es. testo di 200 caratteri → incipit max 100 caratteri
+  es. testo di 600+ caratteri → incipit max 200 caratteri
+- Se entrambe le frasi rientrano nel limite → includi entrambe
+- Se solo la prima rientra nel limite → includi solo la prima
+- Se anche la prima supera il limite → tronca al limite e aggiungi "…"
 - Non aggiungere mai una terza frase
 - Non modificare punteggiatura, maiuscole o stile
 
 VERIFICA INCIPIT:
 □ È riproduzione testuale fedele?
 □ Sono al massimo due frasi?
-□ È entro i 200 caratteri?
+□ È entro min(200 caratteri, 50% del testo originale)?
 □ Se troncato: termina con "…"?
 □ Zero modifiche al testo originale?
 
@@ -142,7 +141,7 @@ TONE:
 VERIFICA FINALE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-□ Incipit: testuale, max 200 caratteri, max 2 frasi?
+□ Incipit: testuale, max 2 frasi, entro min(200 char, 50% del testo originale)?
 □ Superquote: 1-2 frasi, 70-160 caratteri, tono fedele?
 □ Ratings: 0 per ambiti non menzionati?
 □ Tone: coerente con superquote e ratings?
@@ -215,7 +214,7 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
               },
               summary: {
                 type: 'string',
-                description: 'Riproduzione testuale fedele delle prime due frasi dell\'oroscopo originale. Massimo 200 caratteri. Se entrambe le frasi rientrano nei 200 caratteri includile entrambe, altrimenti solo la prima. Se anche la prima supera i 200 caratteri, tronca a 200 caratteri e aggiungi "…". Non modificare nulla del testo originale.'
+                description: 'Riproduzione testuale fedele delle prime due frasi dell\'oroscopo originale. Massimo 200 caratteri E mai più del 50% della lunghezza del testo originale (per testi brevi il limite % è vincolante). Tronca con "…" se necessario. Non modificare nulla del testo originale.'
               },
               relazioni: {
                 type: 'integer',
@@ -258,10 +257,15 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
     console.log(`[Claude] Cache usage — creation: ${response.usage.cache_creation_input_tokens ?? 0}, read: ${response.usage.cache_read_input_tokens ?? 0}, input: ${response.usage.input_tokens}`);
     const parsed = toolBlock.input as Record<string, unknown>;
 
-    // Process summary (incipit) — enforce 200 char hard limit
+    // Process summary (incipit) — enforce min(200 chars, 50% of original text)
     let summary = (parsed.summary as string) || '';
-    if (summary.length > 200) {
-      summary = summary.slice(0, 199) + '…';
+    const maxIncipitLength = Math.min(200, Math.floor(input.extracted_text.length * 0.5));
+    if (summary.length > maxIncipitLength) {
+      const truncated = summary.slice(0, maxIncipitLength);
+      const lastSentenceEnd = truncated.search(/[.!?][^.!?]*$/);
+      summary = lastSentenceEnd > 0
+        ? truncated.slice(0, lastSentenceEnd + 1)
+        : truncated.trimEnd() + '…';
     }
 
     // Process superquote — enforce 70-160 char limits
@@ -352,10 +356,17 @@ function isInvalidText(text: string): boolean {
   return false;
 }
 
-function postProcessOutput(parsed: Record<string, unknown>): OpenAIOutput {
+function postProcessOutput(parsed: Record<string, unknown>, originalLength?: number): OpenAIOutput {
   let summary = (parsed.summary as string) || '';
-  if (summary.length > 200) {
-    summary = summary.slice(0, 199) + '…';
+  const maxIncipitLength = originalLength != null
+    ? Math.min(200, Math.floor(originalLength * 0.5))
+    : 200;
+  if (summary.length > maxIncipitLength) {
+    const truncated = summary.slice(0, maxIncipitLength);
+    const lastSentenceEnd = truncated.search(/[.!?][^.!?]*$/);
+    summary = lastSentenceEnd > 0
+      ? truncated.slice(0, lastSentenceEnd + 1)
+      : truncated.trimEnd() + '…';
   }
 
   let superquote = (parsed.superquote as string) || '';
@@ -435,7 +446,7 @@ export async function processMultiSourceHoroscope(inputs: OpenAIInput[]): Promis
                 properties: {
                   source_index: { type: 'integer' as const, description: 'Indice 1-based della fonte (1 = prima fonte)' },
                   superquote: { type: 'string' as const, description: 'Testo ORIGINALE che esprime il clima emotivo dal punto di vista del lettore. Una o due frasi con punto finale. Lettore sempre soggetto. 70-160 caratteri totali. Zero astrologico, zero condizionali, zero aperture con "La giornata".' },
-                  summary: { type: 'string' as const, description: 'Riproduzione testuale fedele delle prime due frasi originali. Massimo 200 caratteri.' },
+                  summary: { type: 'string' as const, description: 'Riproduzione testuale fedele delle prime due frasi originali. Massimo 200 caratteri e mai più del 50% della lunghezza del testo originale. Tronca con "…" se necessario.' },
                   relazioni: { type: 'integer' as const, minimum: 0, maximum: 5 },
                   lavoro: { type: 'integer' as const, minimum: 0, maximum: 5 },
                   benessere: { type: 'integer' as const, minimum: 0, maximum: 5 },
@@ -469,7 +480,7 @@ export async function processMultiSourceHoroscope(inputs: OpenAIInput[]): Promis
       continue;
     }
     try {
-      results[entry.index] = postProcessOutput(parsed);
+      results[entry.index] = postProcessOutput(parsed, entry.input.extracted_text.length);
       console.log(`[Claude Batch] Source ${entry.input.sourceName}: superquote=${results[entry.index].superquote.length}ch, tone=${results[entry.index].tone}`);
     } catch (err) {
       console.error(`[Claude Batch] Post-processing failed for source ${entry.input.sourceName}:`, err);
