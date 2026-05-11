@@ -1227,45 +1227,45 @@ async function scrapeSkyTG24HoroscopeText(url: string, input: ScraperInput): Pro
     const zodiacNameLower = input.signSlugIt.toLowerCase();
     let extractedText = '';
 
-    // Strategy 1: h2 uppercase exact match — nuova struttura pagina unica con tutti i segni
-    const headingExact = $('h2').filter((_, el) =>
-      $(el).text().trim().toUpperCase() === input.signSlugIt.toUpperCase()
+    // Strategy 1: struttura reale — div.c-extended-card con h2 figlio diretto che corrisponde al segno
+    // HTML: <div class="c-extended-card"><h2>PESCI</h2><div class="c-extended-card__body"><p>testo</p></div></div>
+    const signCard = $('.c-extended-card').filter((_, el) =>
+      $(el).children('h2').first().text().trim().toLowerCase() === zodiacNameLower
     ).first();
-    if (headingExact.length > 0) {
+
+    if (signCard.length > 0) {
       const paragraphs: string[] = [];
-      let next = headingExact.next();
-      while (next.length > 0 && !next.is('h2')) {
-        if (next.is('p')) {
-          const t = next.text().trim();
-          if (t.length > 20) paragraphs.push(t);
-        }
-        next = next.next();
-      }
+      signCard.find('.c-extended-card__body p').each((_, p) => {
+        const $p = $(p);
+        const t = $p.text().trim();
+        // Salta paragrafi vuoti o che sono solo un link (es. "Leggi l'oroscopo del giorno")
+        const isOnlyLink = $p.find('a').length > 0 && t === $p.find('a').text().trim();
+        if (t.length > 20 && !isOnlyLink) paragraphs.push(t);
+      });
       if (paragraphs.length > 0) {
         extractedText = paragraphs.join(' ');
-        console.log(`Sky TG24 - Strategy 1 (h2 uppercase): ${extractedText.length} chars`);
+        console.log(`Sky TG24 - Strategy 1 (c-extended-card): ${extractedText.length} chars`);
       }
     }
 
-    // Strategy 2: heading contenente il nome del segno (case-insensitive), stessa logica di traversal
+    // Strategy 2: fallback — h2 che include il nome del segno, poi cerca .c-extended-card__body nel parent
     if (!extractedText || extractedText.length < 50) {
-      const headingPartial = $('h1, h2, h3').filter((_, el) =>
+      const heading = $('h2').filter((_, el) =>
         $(el).text().trim().toLowerCase().includes(zodiacNameLower)
       ).first();
-      if (headingPartial.length > 0) {
-        const tagName = headingPartial.prop('tagName')?.toLowerCase() ?? 'h2';
+      if (heading.length > 0) {
+        console.log(`Sky TG24 - Strategy 2 heading: "${heading.text().trim()}"`);
+        const body = heading.closest('.c-extended-card').find('.c-extended-card__body');
         const paragraphs: string[] = [];
-        let next = headingPartial.next();
-        while (next.length > 0 && !next.is(tagName)) {
-          if (next.is('p')) {
-            const t = next.text().trim();
-            if (t.length > 20) paragraphs.push(t);
-          }
-          next = next.next();
-        }
+        (body.length > 0 ? body : heading.parent()).find('p').each((_, p) => {
+          const $p = $(p);
+          const t = $p.text().trim();
+          const isOnlyLink = $p.find('a').length > 0 && t === $p.find('a').text().trim();
+          if (t.length > 20 && !isOnlyLink) paragraphs.push(t);
+        });
         if (paragraphs.length > 0) {
           extractedText = paragraphs.join(' ');
-          console.log(`Sky TG24 - Strategy 2 (heading contains "${input.signSlugIt}"): ${extractedText.length} chars`);
+          console.log(`Sky TG24 - Strategy 2 (h2 + body): ${extractedText.length} chars`);
         }
       }
     }
@@ -1297,6 +1297,7 @@ async function scrapeSkyTG24HoroscopeText(url: string, input: ScraperInput): Pro
     };
 
   } catch (error) {
+    console.error(`Sky TG24 - Fetch/parse error for ${input.signSlugIt}:`, error instanceof Error ? error.message : error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown Sky TG24 scraping error'
