@@ -7,6 +7,7 @@ import Home from "@/pages/Home";
 import SignDetail from "@/pages/SignDetail";
 import InfoPage from "@/pages/Info";
 import Login from "@/pages/Login";
+import Account from "@/pages/Account";
 import NotFound from "@/pages/not-found";
 
 function Footer() {
@@ -34,6 +35,7 @@ function Router() {
         </Route>
         <Route path="/info" component={InfoPage} />
         <Route path="/login" component={Login} />
+        <Route path="/account" component={Account} />
         <Route component={NotFound} />
       </Switch>
       
