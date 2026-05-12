@@ -96,6 +96,16 @@ Prima di restituire l'output, rileggi la superquote ad alta voce nella
 testa: se una parola suona strana o una costruzione zoppica, riscrivila.
 Ogni verbo deve esistere in italiano e concordare con il suo soggetto.
 
+Parole vietate perché inesistenti o anglicismi non italianizzati:
+- "clarità" → usa "chiarezza"
+- "conspira/conspirasse" → usa "cospira/cospirasse"
+- "chance" → usa "occasione"
+- "ansiarti" → usa "angosciarti"
+- "rhythm" → usa "ritmo"
+- "focus" → usa "concentrazione"
+- "under" → usa "sotto"
+- "step" → usa "passo"
+
 DIVIETI ASSOLUTI:
 - Zero riferimenti a pianeti, transiti, segni, date, fonti —
   anche se presenti nel testo originale
