@@ -13,6 +13,7 @@ interface AuthState {
 
 export function useAuth(): AuthState {
   const { isLoaded, isSignedIn, user } = useUser();
+  console.log('[useAuth] isLoaded:', isLoaded, 'isSignedIn:', isSignedIn, 'userId:', user?.id);
   const [tier, setTier] = useState<Tier>('guest');
   const [tierLoading, setTierLoading] = useState(false);
 

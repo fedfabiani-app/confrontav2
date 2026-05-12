@@ -5,7 +5,7 @@ import { useAuth } from '../hooks/use-auth';
 import { useAccess } from '../hooks/use-access';
 
 export function UserMenu() {
-  const { isLoggedIn, user } = useAuth();
+  const { isLoggedIn, isLoading, user } = useAuth();
   const { userTier } = useAccess();
   const { signOut } = useClerk();
   const [, navigate] = useLocation();
@@ -22,6 +22,8 @@ export function UserMenu() {
     document.addEventListener('mousedown', onMouseDown);
     return () => document.removeEventListener('mousedown', onMouseDown);
   }, [open]);
+
+  console.log('[UserMenu] isLoggedIn:', isLoggedIn, 'isLoading:', isLoading, 'tier:', userTier);
 
   if (!isLoggedIn) {
     return (
