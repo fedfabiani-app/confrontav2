@@ -256,14 +256,18 @@ export async function scrapeHoroscope(input: ScraperInput): Promise<ScraperOutpu
   }
 }
 
-function buildSkyTG24Url(input: ScraperInput): string {
+function buildSkyTG24Url(input: ScraperInput): string[] {
   const d = new Date(input.dateISO);
   const year = d.getFullYear();
   const month = (d.getMonth() + 1).toString().padStart(2, '0');
   const day = d.getDate().toString().padStart(2, '0');
   const dayNum = d.getDate();
   const monthName = ITALIAN_MONTHS[d.getMonth()];
-  return `https://tg24.sky.it/lifestyle/${year}/${month}/${day}/oroscopo-oggi-${dayNum}-${monthName}`;
+  const base = `https://tg24.sky.it/lifestyle/${year}/${month}/${day}`;
+  return [
+    `${base}/oroscopo-oggi-${dayNum}-${monthName}`,
+    `${base}/oroscopo-${dayNum}-${monthName}`,
+  ];
 }
 
 function buildHoroscopeUrl(input: ScraperInput): string | string[] {
