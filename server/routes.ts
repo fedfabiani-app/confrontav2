@@ -2,8 +2,8 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { z } from "zod";
 import prisma from "./services/database";
-import { enqueueScrapeJob, enqueueWeeklyScrapeJob, enqueueScrapeJobWithCallback, enqueueWeeklyScrapeJobWithCallback, enqueueAggregatedNlpJob, enqueueAggregatedWeeklyNlpJob, getAllJobStatuses, getJobStatus } from "./jobs";
-import { ScraperInput, WeeklyScraperInput, ScraperOutput, WeeklyScraperOutput } from "@shared/schema";
+import { enqueueScrapeJob, enqueueWeeklyScrapeJob, enqueueAggregatedNlpJob, enqueueAggregatedWeeklyNlpJob, getAllJobStatuses, getJobStatus } from "./jobs";
+import { ScraperInput, WeeklyScraperInput, ScraperOutput, WeeklyScraperOutput, OpenAIInput } from "@shared/schema";
 import { ZODIAC_SIGNS_IT_EN, ITALIAN_WEEKDAYS, ITALIAN_MONTHS } from "@shared/constants";
 import { getMondayOfWeek, formatWeekUrlParams, getCurrentWeekStart } from "./utils/weekUtils";
 import { runWeeklyScraperCycle, type SourceGroup } from "./services/weeklyScraperOrchestrator";
@@ -643,7 +643,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       let enqueued = 0;
       let skipped = 0;
-      
+
+      // Accumulate scraper outputs to run one batch NLP call per sign
+      let weeklyDoneCount = 0;
+      let weeklyTotalExpected = 0;
+      const weeklyAccumulatedPairs: Array<{ nlpInput: OpenAIInput; scraperOutput: WeeklyScraperOutput }> = [];
+
+      const handleWeeklyScrapeComplete = (output: WeeklyScraperOutput | null, sourceName: string) => {
+        weeklyDoneCount++;
+        if (output) {
+          weeklyAccumulatedPairs.push({
+            scraperOutput: output,
+            nlpInput: {
+              sourceId: output.sourceId,
+              sourceName,
+              signSlugIt: output.signSlugIt,
+              dateISO: output.weekStartDate,
+              extracted_text: output.extracted_text,
+            },
+          });
+        }
+        if (weeklyDoneCount === weeklyTotalExpected && weeklyTotalExpected > 0 && weeklyAccumulatedPairs.length > 0) {
+          enqueueAggregatedWeeklyNlpJob(weeklyAccumulatedPairs).catch(err =>
+            console.error(`[API Weekly Refresh Sign] Failed to enqueue aggregated NLP job for ${zodiacSign.name_italian}:`, err)
+          );
+        }
+      };
+
       for (const source of sources) {
         // Check if already processed (unless force rescrape)
         if (!forceRescrape) {
@@ -655,19 +681,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
               summary: { not: '' }
             }
           });
-          
+
           if (existing) {
             skipped++;
             continue;
           }
         }
-        
+
         // Enqueue the job
         try {
           const isSaturdayBased = source.domain.includes('repubblica.it') || source.domain.includes('sorrisi.com');
           const useNumericMonth = source.domain.includes('repubblica.it');
           const { startDay, endDay, month, year } = formatWeekUrlParams(weekStart, isSaturdayBased, useNumericMonth);
-          
+
           const scraperInput = {
             sourceId: source.id,
             sourceName: source.name,
@@ -683,9 +709,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             year,
             userAgent: process.env.SCRAPE_USER_AGENT || 'ItalianHoroscopeComparatorBot/1.0 (+contact)',
           };
-          
-          await enqueueWeeklyScrapeJob(scraperInput);
+
+          await enqueueWeeklyScrapeJob(scraperInput, (output) => handleWeeklyScrapeComplete(output, source.name));
           enqueued++;
+          weeklyTotalExpected++;
         } catch (error) {
           console.error(`[API Weekly Refresh Sign] Failed to enqueue ${source.name}:`, error);
         }
@@ -824,15 +851,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const jobIds: string[] = [];
       const errors: string[] = [];
 
-      // Enqueue jobs for this sign across all sources
+      // Accumulate scraper outputs to run one batch NLP call per sign
+      let doneCount = 0;
+      const totalExpected = sources.length;
+      const accumulatedPairs: Array<{ nlpInput: OpenAIInput; scraperOutput: ScraperOutput }> = [];
+
+      const handleScrapeComplete = (output: ScraperOutput | null, sourceName: string) => {
+        doneCount++;
+        if (output) {
+          accumulatedPairs.push({
+            scraperOutput: output,
+            nlpInput: {
+              sourceId: output.sourceId,
+              sourceName,
+              signSlugIt: output.signSlugIt,
+              dateISO: output.dateISO,
+              extracted_text: output.extracted_text,
+            },
+          });
+        }
+        if (doneCount === totalExpected && accumulatedPairs.length > 0) {
+          enqueueAggregatedNlpJob(accumulatedPairs).catch(err =>
+            console.error(`[API Refresh Sign] Failed to enqueue aggregated NLP job for ${sign}:`, err)
+          );
+        }
+      };
+
+      // Enqueue scrape jobs for this sign across all sources
       for (const source of sources) {
         try {
-          const jobId = await enqueueScrapeJob(createScraperInput(source, zodiacSign, targetDate));
+          const jobId = await enqueueScrapeJob(
+            createScraperInput(source, zodiacSign, targetDate),
+            (output) => handleScrapeComplete(output, source.name)
+          );
           jobIds.push(jobId);
         } catch (error) {
           const errorMsg = `Failed to enqueue ${source.name} - ${sign}`;
           errors.push(errorMsg);
           console.error(errorMsg, error);
+          // Count enqueue failures so the batch trigger is not permanently blocked
+          doneCount++;
         }
       }
 

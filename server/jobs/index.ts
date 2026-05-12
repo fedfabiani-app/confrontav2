@@ -2,6 +2,7 @@ import PQueue from 'p-queue';
 import { scraperWorker } from '../workers/scraper';
 import { weeklyScraperWorker } from '../workers/weeklyScraper';
 import { openaiWorker } from '../workers/claude';
+import { processMultiSourceHoroscopeWithRetry } from '../services/claude';
 import { ScraperInput, OpenAIInput, ScraperOutput, OpenAIOutput, WeeklyScraperInput, WeeklyScraperOutput } from '@shared/schema';
 import prisma from '../services/database';
 
@@ -21,7 +22,7 @@ export const nlpQueue = new PQueue({
 // Job status tracking
 interface JobStatus {
   id: string;
-  type: 'scrape' | 'nlp' | 'upsert' | 'weekly-scrape' | 'weekly-nlp' | 'weekly-upsert';
+  type: 'scrape' | 'nlp' | 'upsert' | 'weekly-scrape' | 'weekly-nlp' | 'weekly-upsert' | 'aggregated-nlp' | 'aggregated-weekly-nlp';
   status: 'pending' | 'running' | 'completed' | 'failed';
   sourceId: number;
   signSlugIt: string;
@@ -45,9 +46,12 @@ export function getAllJobStatuses(): JobStatus[] {
   return Array.from(jobStatusMap.values());
 }
 
-export async function enqueueScrapeJob(input: ScraperInput): Promise<string> {
+export async function enqueueScrapeJob(
+  input: ScraperInput,
+  onComplete?: (output: ScraperOutput | null) => void
+): Promise<string> {
   const jobId = generateJobId();
-  
+
   const status: JobStatus = {
     id: jobId,
     type: 'scrape',
@@ -56,40 +60,44 @@ export async function enqueueScrapeJob(input: ScraperInput): Promise<string> {
     signSlugIt: input.signSlugIt,
     dateISO: input.dateISO,
   };
-  
+
   jobStatusMap.set(jobId, status);
-  
+
   scrapeQueue.add(async () => {
     try {
       status.status = 'running';
       status.startedAt = new Date();
-      
+
       console.log(`[JobQueue] Starting scrape job ${jobId}`);
       const result = await scraperWorker.process(input);
-      
+
       status.status = 'completed';
       status.completedAt = new Date();
-      
-      // Enqueue NLP job for this result
-      const nlpInput: OpenAIInput = {
-        sourceId: result.sourceId,
-        sourceName: input.sourceName,
-        signSlugIt: result.signSlugIt,
-        dateISO: result.dateISO,
-        extracted_text: result.extracted_text,
-      };
-      
-      await enqueueNlpJob(nlpInput, result);
-      console.log(`[JobQueue] Scrape job ${jobId} completed, NLP job enqueued`);
-      
+
+      if (onComplete) {
+        onComplete(result);
+        console.log(`[JobQueue] Scrape job ${jobId} completed, callback invoked`);
+      } else {
+        const nlpInput: OpenAIInput = {
+          sourceId: result.sourceId,
+          sourceName: input.sourceName,
+          signSlugIt: result.signSlugIt,
+          dateISO: result.dateISO,
+          extracted_text: result.extracted_text,
+        };
+        await enqueueNlpJob(nlpInput, result);
+        console.log(`[JobQueue] Scrape job ${jobId} completed, NLP job enqueued`);
+      }
+
     } catch (error) {
       status.status = 'failed';
       status.completedAt = new Date();
       status.error = error instanceof Error ? error.message : 'Unknown error';
       console.error(`[JobQueue] Scrape job ${jobId} failed:`, error);
+      onComplete?.(null);
     }
   });
-  
+
   return jobId;
 }
 
@@ -224,9 +232,12 @@ export async function enqueueUpsertJob(scraperOutput: ScraperOutput, nlpOutput: 
 }
 
 // Weekly horoscope job functions
-export async function enqueueWeeklyScrapeJob(input: WeeklyScraperInput): Promise<string> {
+export async function enqueueWeeklyScrapeJob(
+  input: WeeklyScraperInput,
+  onComplete?: (output: WeeklyScraperOutput | null) => void
+): Promise<string> {
   const jobId = generateJobId();
-  
+
   const status: JobStatus = {
     id: jobId,
     type: 'weekly-scrape',
@@ -235,39 +246,44 @@ export async function enqueueWeeklyScrapeJob(input: WeeklyScraperInput): Promise
     signSlugIt: input.signSlugIt,
     dateISO: input.weekStartDate,
   };
-  
+
   jobStatusMap.set(jobId, status);
-  
+
   scrapeQueue.add(async () => {
     try {
       status.status = 'running';
       status.startedAt = new Date();
-      
+
       console.log(`[JobQueue] Starting weekly scrape job ${jobId}`);
       const result = await weeklyScraperWorker.process(input);
-      
+
       status.status = 'completed';
       status.completedAt = new Date();
-      
-      const nlpInput: OpenAIInput = {
-        sourceId: result.sourceId,
-        sourceName: input.sourceName,
-        signSlugIt: result.signSlugIt,
-        dateISO: result.weekStartDate,
-        extracted_text: result.extracted_text,
-      };
-      
-      await enqueueWeeklyNlpJob(nlpInput, result);
-      console.log(`[JobQueue] Weekly scrape job ${jobId} completed, NLP job enqueued`);
-      
+
+      if (onComplete) {
+        onComplete(result);
+        console.log(`[JobQueue] Weekly scrape job ${jobId} completed, callback invoked`);
+      } else {
+        const nlpInput: OpenAIInput = {
+          sourceId: result.sourceId,
+          sourceName: input.sourceName,
+          signSlugIt: result.signSlugIt,
+          dateISO: result.weekStartDate,
+          extracted_text: result.extracted_text,
+        };
+        await enqueueWeeklyNlpJob(nlpInput, result);
+        console.log(`[JobQueue] Weekly scrape job ${jobId} completed, NLP job enqueued`);
+      }
+
     } catch (error) {
       status.status = 'failed';
       status.completedAt = new Date();
       status.error = error instanceof Error ? error.message : 'Unknown error';
       console.error(`[JobQueue] Weekly scrape job ${jobId} failed:`, error);
+      onComplete?.(null);
     }
   });
-  
+
   return jobId;
 }
 
@@ -394,103 +410,92 @@ export async function enqueueWeeklyUpsertJob(scraperOutput: WeeklyScraperOutput,
   return jobId;
 }
 
-// Callback-based daily scrape job — does NOT auto-enqueue NLP
-export async function enqueueScrapeJobWithCallback(
-  input: ScraperInput,
-  onComplete: (result: ScraperOutput | null) => void
-): Promise<string> {
-  const jobId = generateJobId();
-
-  scrapeQueue.add(async () => {
-    try {
-      const result = await scraperWorker.process(input);
-      onComplete(result);
-    } catch (error) {
-      console.error(`[JobQueue] Scrape job ${jobId} failed:`, error);
-      onComplete(null);
-    }
-  });
-
-  return jobId;
-}
-
-// Aggregated daily NLP — processes all scraped outputs for one sign,
-// grouping NLP calls together so the system-prompt cache stays warm
 export async function enqueueAggregatedNlpJob(
-  outputs: Array<{ scraperOutput: ScraperOutput; sourceName: string }>
-): Promise<void> {
-  const sign = outputs[0]?.scraperOutput.signSlugIt ?? 'unknown';
-
-  await Promise.all(
-    outputs.map(({ scraperOutput, sourceName }) => {
-      const nlpInput: OpenAIInput = {
-        sourceId: scraperOutput.sourceId,
-        sourceName,
-        signSlugIt: scraperOutput.signSlugIt,
-        dateISO: scraperOutput.dateISO,
-        extracted_text: scraperOutput.extracted_text,
-      };
-      return nlpQueue.add(async () => {
-        try {
-          const nlpResult = await openaiWorker.process(nlpInput);
-          await enqueueUpsertJob(scraperOutput, nlpResult);
-        } catch (error) {
-          console.error(`[JobQueue] Aggregated NLP failed for ${sign}/${scraperOutput.sourceId}:`, error);
-        }
-      });
-    })
-  );
-
-  console.log(`[JobQueue] Aggregated NLP job: ${outputs.length} sources processed for ${sign}`);
-}
-
-// Callback-based weekly scrape job — does NOT auto-enqueue NLP
-export async function enqueueWeeklyScrapeJobWithCallback(
-  input: WeeklyScraperInput,
-  onComplete: (result: WeeklyScraperOutput | null) => void
+  pairs: Array<{ nlpInput: OpenAIInput; scraperOutput: ScraperOutput }>
 ): Promise<string> {
   const jobId = generateJobId();
 
-  scrapeQueue.add(async () => {
+  const firstPair = pairs[0];
+  const status: JobStatus = {
+    id: jobId,
+    type: 'aggregated-nlp',
+    status: 'pending',
+    sourceId: firstPair.scraperOutput.sourceId,
+    signSlugIt: firstPair.scraperOutput.signSlugIt,
+    dateISO: firstPair.scraperOutput.dateISO,
+  };
+
+  jobStatusMap.set(jobId, status);
+
+  nlpQueue.add(async () => {
     try {
-      const result = await weeklyScraperWorker.process(input);
-      onComplete(result);
+      status.status = 'running';
+      status.startedAt = new Date();
+
+      console.log(`[JobQueue] Starting aggregated NLP job ${jobId} for ${pairs.length} sources (${firstPair.scraperOutput.signSlugIt})`);
+      const nlpResults = await processMultiSourceHoroscopeWithRetry(pairs.map(p => p.nlpInput));
+
+      for (let i = 0; i < nlpResults.length; i++) {
+        await enqueueUpsertJob(pairs[i].scraperOutput, nlpResults[i]);
+      }
+
+      status.status = 'completed';
+      status.completedAt = new Date();
+      console.log(`[JobQueue] Aggregated NLP job ${jobId}: ${pairs.length} sources processed, upsert jobs enqueued`);
+
     } catch (error) {
-      console.error(`[JobQueue] Weekly scrape job ${jobId} failed:`, error);
-      onComplete(null);
+      status.status = 'failed';
+      status.completedAt = new Date();
+      status.error = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`[JobQueue] Aggregated NLP job ${jobId} failed:`, error);
     }
   });
 
   return jobId;
 }
 
-// Aggregated weekly NLP — processes all scraped outputs for one sign
 export async function enqueueAggregatedWeeklyNlpJob(
-  outputs: Array<{ scraperOutput: WeeklyScraperOutput; sourceName: string }>
-): Promise<void> {
-  const sign = outputs[0]?.scraperOutput.signSlugIt ?? 'unknown';
+  pairs: Array<{ nlpInput: OpenAIInput; scraperOutput: WeeklyScraperOutput }>
+): Promise<string> {
+  const jobId = generateJobId();
 
-  await Promise.all(
-    outputs.map(({ scraperOutput, sourceName }) => {
-      const nlpInput: OpenAIInput = {
-        sourceId: scraperOutput.sourceId,
-        sourceName,
-        signSlugIt: scraperOutput.signSlugIt,
-        dateISO: scraperOutput.weekStartDate,
-        extracted_text: scraperOutput.extracted_text,
-      };
-      return nlpQueue.add(async () => {
-        try {
-          const nlpResult = await openaiWorker.process(nlpInput);
-          await enqueueWeeklyUpsertJob(scraperOutput, nlpResult);
-        } catch (error) {
-          console.error(`[JobQueue] Aggregated Weekly NLP failed for ${sign}/${scraperOutput.sourceId}:`, error);
-        }
-      });
-    })
-  );
+  const firstPair = pairs[0];
+  const status: JobStatus = {
+    id: jobId,
+    type: 'aggregated-weekly-nlp',
+    status: 'pending',
+    sourceId: firstPair.scraperOutput.sourceId,
+    signSlugIt: firstPair.scraperOutput.signSlugIt,
+    dateISO: firstPair.scraperOutput.weekStartDate,
+  };
 
-  console.log(`[JobQueue] Aggregated Weekly NLP job: ${outputs.length} sources processed for ${sign}`);
+  jobStatusMap.set(jobId, status);
+
+  nlpQueue.add(async () => {
+    try {
+      status.status = 'running';
+      status.startedAt = new Date();
+
+      console.log(`[JobQueue] Starting aggregated weekly NLP job ${jobId} for ${pairs.length} sources (${firstPair.scraperOutput.signSlugIt})`);
+      const nlpResults = await processMultiSourceHoroscopeWithRetry(pairs.map(p => p.nlpInput));
+
+      for (let i = 0; i < nlpResults.length; i++) {
+        await enqueueWeeklyUpsertJob(pairs[i].scraperOutput, nlpResults[i]);
+      }
+
+      status.status = 'completed';
+      status.completedAt = new Date();
+      console.log(`[JobQueue] Aggregated weekly NLP job ${jobId}: ${pairs.length} sources processed, upsert jobs enqueued`);
+
+    } catch (error) {
+      status.status = 'failed';
+      status.completedAt = new Date();
+      status.error = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`[JobQueue] Aggregated weekly NLP job ${jobId} failed:`, error);
+    }
+  });
+
+  return jobId;
 }
 
 // Cleanup old job statuses (older than 1 hour)

@@ -66,12 +66,6 @@ export const ZODIAC_SIGN_MAP: Record<string, string> = {
   'Pesci': 'pesci'
 } as const;
 
-// Sky TG24 card index (1-based, standard zodiac order)
-const SKYTG24_CARD_MAP: Record<string, number> = {
-  'Ariete': 1, 'Toro': 2, 'Gemelli': 3, 'Cancro': 4,
-  'Leone': 5, 'Vergine': 6, 'Bilancia': 7, 'Scorpione': 8,
-  'Sagittario': 9, 'Capricorno': 10, 'Acquario': 11, 'Pesci': 12,
-};
 
 // ============================================================================
 // HELPER FUNCTIONS FOR URL BUILDING
@@ -269,8 +263,7 @@ function buildSkyTG24Url(input: ScraperInput): string {
   const day = d.getDate().toString().padStart(2, '0');
   const dayNum = d.getDate();
   const monthName = ITALIAN_MONTHS[d.getMonth()];
-  const card = SKYTG24_CARD_MAP[input.signSlugIt] ?? 1;
-  return `https://tg24.sky.it/lifestyle/${year}/${month}/${day}/oroscopo-giorno-${dayNum}-${monthName}?card=${card}`;
+  return `https://tg24.sky.it/lifestyle/${year}/${month}/${day}/oroscopo-oggi-${dayNum}-${monthName}`;
 }
 
 function buildHoroscopeUrl(input: ScraperInput): string | string[] {
@@ -682,25 +675,36 @@ async function scrapeVirgilioHoroscopeText(url: string, input: ScraperInput): Pr
 
     let cleanHtml = cleanRawHtml(html);
 
-    // REGEX CORRETTA ✅
+    // Estrae TUTTI i paragrafi con classe txt-r-s1
     let extractedParagraphs: string[] = [];
     const pTagRegex = /<p[^>]*class="[^"]*txt-r-s1[^"]*"[^>]*>([\s\S]*?)<\/p>/gi;
     let match;
 
+    let paragraphOrder = 0;
+
     while ((match = pTagRegex.exec(cleanHtml)) !== null) {
       let paraContent = cleanExtractedText(match[1]);
 
+      // Scarta solo se è veramente vuoto
       if (paraContent.length > 10) {
+        // Il primo paragrafo è quello iniziale "In questo giorno"
+        if (paragraphOrder === 0) {
+          console.log('✓ Paragrafo iniziale trovato');
+        }
+        
         extractedParagraphs.push(paraContent);
+        paragraphOrder++;
       }
     }
+
+    console.log(`📝 Totale paragrafi estratti: ${extractedParagraphs.length}`);
 
     let finalExtractedText = extractedParagraphs.join('\n\n');
 
     if (!finalExtractedText || finalExtractedText.length < 50) {
       return {
         success: false,
-        error: `No sufficient horoscope content found for ${input.signSlugIt}`
+        error: `No sufficient horoscope content found using p.txt-r-s1 for ${input.signSlugIt} on Virgilio.it`
       };
     }
 
@@ -1223,63 +1227,45 @@ async function scrapeSkyTG24HoroscopeText(url: string, input: ScraperInput): Pro
     const zodiacNameLower = input.signSlugIt.toLowerCase();
     let extractedText = '';
 
-    // Strategy 1: card body containers (nuova struttura a card)
-    const cardSelectors = [
-      '.c-gallery-card__body', '.c-gallery-card__text',
-      '.c-card__body', '.card__body',
-      '[data-testid="card-body"]', '[data-testid="card-text"]',
-    ];
-    for (const sel of cardSelectors) {
-      const container = $(sel).first();
-      if (container.length > 0) {
-        const text = container.find('p').map((_, p) => $(p).text().trim()).get()
-          .filter(t => t.length > 20).join(' ');
-        if (text.length >= 50) {
-          extractedText = text;
-          console.log(`Sky TG24 - Strategy 1 (${sel}): ${text.length} chars`);
-          break;
-        }
+    // Strategy 1: struttura reale — div.c-extended-card con h2 figlio diretto che corrisponde al segno
+    // HTML: <div class="c-extended-card"><h2>PESCI</h2><div class="c-extended-card__body"><p>testo</p></div></div>
+    const signCard = $('.c-extended-card').filter((_, el) =>
+      $(el).children('h2').first().text().trim().toLowerCase() === zodiacNameLower
+    ).first();
+
+    if (signCard.length > 0) {
+      const paragraphs: string[] = [];
+      signCard.find('.c-extended-card__body p').each((_, p) => {
+        const $p = $(p);
+        const t = $p.text().trim();
+        // Salta paragrafi vuoti o che sono solo un link (es. "Leggi l'oroscopo del giorno")
+        const isOnlyLink = $p.find('a').length > 0 && t === $p.find('a').text().trim();
+        if (t.length > 20 && !isOnlyLink) paragraphs.push(t);
+      });
+      if (paragraphs.length > 0) {
+        extractedText = paragraphs.join(' ');
+        console.log(`Sky TG24 - Strategy 1 (c-extended-card): ${extractedText.length} chars`);
       }
     }
 
-    // Strategy 2: trova il titolo del segno come heading, estrai i paragrafi seguenti
+    // Strategy 2: fallback — h2 che include il nome del segno, poi cerca .c-extended-card__body nel parent
     if (!extractedText || extractedText.length < 50) {
-      const heading = $('h1, h2, h3, h4').filter((_, el) =>
-        $(el).text().trim().toLowerCase() === zodiacNameLower
+      const heading = $('h2').filter((_, el) =>
+        $(el).text().trim().toLowerCase().includes(zodiacNameLower)
       ).first();
       if (heading.length > 0) {
+        console.log(`Sky TG24 - Strategy 2 heading: "${heading.text().trim()}"`);
+        const body = heading.closest('.c-extended-card').find('.c-extended-card__body');
         const paragraphs: string[] = [];
-        heading.nextAll('p').each((_, p) => {
-          const t = $(p).text().trim();
-          if (t.length > 20) paragraphs.push(t);
+        (body.length > 0 ? body : heading.parent()).find('p').each((_, p) => {
+          const $p = $(p);
+          const t = $p.text().trim();
+          const isOnlyLink = $p.find('a').length > 0 && t === $p.find('a').text().trim();
+          if (t.length > 20 && !isOnlyLink) paragraphs.push(t);
         });
         if (paragraphs.length > 0) {
           extractedText = paragraphs.join(' ');
-          console.log(`Sky TG24 - Strategy 2 (heading "${input.signSlugIt}"): ${extractedText.length} chars`);
-        }
-      }
-    }
-
-    // Strategy 3: paragrafi nell'area articolo principale (pagina card server-rendered)
-    if (!extractedText || extractedText.length < 50) {
-      const contentSelectors = [
-        'article', 'main',
-        '.c-detail', '.c-detail__body',
-        '.c-article-body', '.article-body',
-        '[data-component="article-body"]',
-      ];
-      for (const sel of contentSelectors) {
-        const container = $(sel).first();
-        if (container.length > 0) {
-          const texts = container.find('p')
-            .map((_, p) => $(p).text().trim()).get()
-            .filter(t => t.length > 30);
-          const combined = texts.join(' ');
-          if (combined.length >= 50) {
-            extractedText = combined;
-            console.log(`Sky TG24 - Strategy 3 (${sel}): ${extractedText.length} chars`);
-            break;
-          }
+          console.log(`Sky TG24 - Strategy 2 (h2 + body): ${extractedText.length} chars`);
         }
       }
     }
@@ -1311,6 +1297,7 @@ async function scrapeSkyTG24HoroscopeText(url: string, input: ScraperInput): Pro
     };
 
   } catch (error) {
+    console.error(`Sky TG24 - Fetch/parse error for ${input.signSlugIt}:`, error instanceof Error ? error.message : error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown Sky TG24 scraping error'
@@ -1982,7 +1969,7 @@ async function scrapeHoroscopeText(url: string, input: ScraperInput): Promise<Sc
   try {
     console.log(`Starting scrape for ${input.signSlugIt} at URL: ${url}`);
 
-        // Special handling for Vogue.it
+    // Special handling for Vogue.it
     if (url.includes('vogue.it')) {
       return await scrapeVogueHoroscopeText(url, input);
     }
@@ -1990,6 +1977,11 @@ async function scrapeHoroscopeText(url: string, input: ScraperInput): Promise<Sc
     // Special handling for Virgilio.it
     if (url.includes('virgilio.it')) {
       return await scrapeVirgilioHoroscopeText(url, input);
+    }
+
+    // Special handling for Grazia.it
+    if (url.includes('grazia.it')) {
+      return await scrapeGraziaHoroscopeText(url, input);
     }
 
     // Special handling for OnlyOroscopo
@@ -2048,7 +2040,144 @@ async function scrapeHoroscopeText(url: string, input: ScraperInput): Promise<Sc
     if (url.includes('fanpage.it')) {
       return await scrapeFanpageHoroscopeText(url, input);
     }
+// ============================================================================
+// GRAZIA.IT — Handler dedicato
+// ============================================================================
+async function scrapeGraziaHoroscopeText(url: string, input: ScraperInput): Promise<ScrapeResult> {
+  try {
+    console.log('Grazia.it - Starting dedicated scraping for:', input.signSlugIt);
 
+    const html = await fetchHtml(url, input.userAgent);
+    const $ = cheerio.load(html);
+
+    // ── Rimuovi SUBITO elementi rumorosi prima di qualsiasi estrazione ──────
+    // Cookie policy, GDPR banner, overlay di consenso
+    $('[id*="cookie"], [class*="cookie"]').remove();
+    $('[id*="gdpr"], [class*="gdpr"]').remove();
+    $('[id*="privacy"], [class*="privacy"]').remove();
+    $('[id*="consent"], [class*="consent"]').remove();
+    $('[id*="didomi"], [class*="didomi"]').remove();
+    $('[id*="onetrust"], [class*="onetrust"]').remove();
+    $('[id*="cmp"], [class*="cmp"]').remove();
+    // Elementi strutturali non pertinenti
+    $('header, footer, nav, aside').remove();
+    $('[class*="header"], [class*="footer"], [class*="sidebar"]').remove();
+    $('[class*="related"], [class*="correlati"], [class*="suggest"]').remove();
+    $('[class*="newsletter"], [class*="subscribe"], [class*="social"]').remove();
+    $('[class*="ad-"], [class*="-ad"], [id*="adv"], [class*="adv"]').remove();
+
+    let extractedText = '';
+
+    // ── STRATEGIA 1: selettori semantici specifici di Grazia ────────────────
+    // Grazia usa WordPress/Condé Nast con classi tipo .entry-content, .article__body
+    const primarySelectors = [
+      '.article__body p',
+      '.entry-content p',
+      '.post-content p',
+      '[class*="article-body"] p',
+      '[class*="articleBody"] p',
+      '[class*="article__content"] p',
+      '.horoscope-content p',
+      '[class*="horoscope"] p',
+      '[class*="oroscopo"] p',
+    ];
+
+    for (const selector of primarySelectors) {
+      const paragraphs: string[] = [];
+
+      $(selector).each((_, el) => {
+        const text = $(el).text().trim();
+        // Salta paragrafi troppo corti o che contengono ancora riferimenti a policy
+        if (text.length < 30) return;
+        if (/cookie|privacy|consenso|gdpr|trattamento dei dati|acconsento/i.test(text)) return;
+        paragraphs.push(text);
+      });
+
+      if (paragraphs.length >= 2) {
+        extractedText = paragraphs.join('\n\n');
+        console.log(`Grazia.it - ✓ Strategy 1 (${selector}): ${extractedText.length} chars`);
+        break;
+      }
+    }
+
+    // ── STRATEGIA 2: JSON-LD (articleBody) ──────────────────────────────────
+    // Molti siti Condé Nast espongono il testo nell'articolo strutturato Schema.org
+    if (!extractedText || extractedText.length < 100) {
+      console.log('Grazia.it - Trying Strategy 2: JSON-LD...');
+
+      $('script[type="application/ld+json"]').each((_, el) => {
+        if (extractedText.length >= 100) return; // già trovato
+        try {
+          const json = JSON.parse($(el).html() || '{}');
+          const candidates = Array.isArray(json) ? json : [json];
+          for (const obj of candidates) {
+            const body = obj.articleBody || obj.description || '';
+            if (body.length >= 100) {
+              extractedText = body;
+              console.log(`Grazia.it - ✓ Strategy 2 JSON-LD: ${extractedText.length} chars`);
+              break;
+            }
+          }
+        } catch { /* malformed JSON, skip */ }
+      });
+    }
+
+    // ── STRATEGIA 3: Scoring su tutti i <p> rimasti dopo cleanup ────────────
+    if (!extractedText || extractedText.length < 100) {
+      console.log('Grazia.it - Trying Strategy 3: scored paragraph sweep...');
+
+      const zodiacName = input.signSlugIt.toLowerCase();
+      let bestScore = 0;
+      const candidates: string[] = [];
+
+      $('p').each((_, el) => {
+        const text = $(el).text().trim();
+        if (text.length < 40) return;
+        if (/cookie|privacy|consenso|gdpr|trattamento|acconsento|policy/i.test(text)) return;
+
+        const score = scoreHoroscopeContent(text, zodiacName, 'grazia.it');
+        if (score > bestScore) {
+          bestScore = score;
+          candidates.unshift(text); // metti il migliore in cima
+        } else if (score > 10) {
+          candidates.push(text);
+        }
+      });
+
+      if (candidates.length > 0 && bestScore >= 15) {
+        // Prendi al massimo i primi 6 paragrafi più rilevanti
+        extractedText = candidates.slice(0, 6).join('\n\n');
+        console.log(`Grazia.it - ✓ Strategy 3: ${extractedText.length} chars, best score: ${bestScore}`);
+      }
+    }
+
+    // ── Validazione finale ──────────────────────────────────────────────────
+    if (!extractedText || extractedText.length < 80) {
+      console.log('Grazia.it - ✗ FAILED: No valid content after all strategies');
+      return {
+        success: false,
+        error: `No horoscope content found for ${input.signSlugIt} on Grazia.it`
+      };
+    }
+
+    extractedText = normalizeWhitespace(decodeHtmlEntities(extractedText));
+
+    const finalScore = scoreHoroscopeContent(extractedText, input.signSlugIt.toLowerCase(), 'grazia.it');
+    console.log(`Grazia.it - ✅ FINAL: ${extractedText.length} chars, quality score: ${finalScore}`);
+
+    return {
+      success: true,
+      text: extractedText.substring(0, 3500),
+      url,
+      actualUrl: url,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown Grazia.it scraping error',
+    };
+  }
+}
     const html = await fetchHtml(url, input.userAgent);
 
     // Enhanced HTML cleaning
