@@ -254,23 +254,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const sign = zodiacSigns[i];
           console.log(`[Refresh All] Processing sign ${i + 1}/${zodiacSigns.length}: ${sign.name_italian}`);
 
-          const collected: Array<{ scraperOutput: ScraperOutput; sourceName: string }> = [];
+          const collected: Array<{ scraperOutput: ScraperOutput; nlpInput: OpenAIInput }> = [];
 
-          await new Promise<void>(resolve => {
+          await new Promise<void>((resolve, reject) => {
             let pending = sources.length;
             if (pending === 0) { resolve(); return; }
 
-            for (const source of sources) {
-              const sourceName = source.name;
-              enqueueScrapeJobWithCallback(
-                createScraperInput(source, sign, targetDate),
-                (result) => {
-                  if (result) collected.push({ scraperOutput: result, sourceName });
-                  pending--;
-                  if (pending === 0) resolve();
-                }
-              );
-            }
+            (async () => {
+              for (const source of sources) {
+                const sourceName = source.name;
+                await enqueueScrapeJob(
+                  createScraperInput(source, sign, targetDate),
+                  (result) => {
+                    if (result) collected.push({
+                      scraperOutput: result,
+                      nlpInput: {
+                        sourceId: result.sourceId,
+                        sourceName,
+                        signSlugIt: result.signSlugIt,
+                        dateISO: result.dateISO,
+                        extracted_text: result.extracted_text,
+                      },
+                    });
+                    pending--;
+                    if (pending === 0) resolve();
+                  }
+                );
+              }
+            })().catch(reject);
           });
 
           if (collected.length > 0) {

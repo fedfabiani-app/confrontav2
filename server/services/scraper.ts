@@ -256,14 +256,18 @@ export async function scrapeHoroscope(input: ScraperInput): Promise<ScraperOutpu
   }
 }
 
-function buildSkyTG24Url(input: ScraperInput): string {
+function buildSkyTG24Url(input: ScraperInput): string[] {
   const d = new Date(input.dateISO);
   const year = d.getFullYear();
   const month = (d.getMonth() + 1).toString().padStart(2, '0');
   const day = d.getDate().toString().padStart(2, '0');
   const dayNum = d.getDate();
   const monthName = ITALIAN_MONTHS[d.getMonth()];
-  return `https://tg24.sky.it/lifestyle/${year}/${month}/${day}/oroscopo-oggi-${dayNum}-${monthName}`;
+  const base = `https://tg24.sky.it/lifestyle/${year}/${month}/${day}`;
+  return [
+    `${base}/oroscopo-oggi-${dayNum}-${monthName}`,
+    `${base}/oroscopo-${dayNum}-${monthName}`,
+  ];
 }
 
 function buildHoroscopeUrl(input: ScraperInput): string | string[] {
@@ -1965,6 +1969,10 @@ async function scrapeVogueHoroscopeText(url: string, input: ScraperInput): Promi
   }
 }
 
+function isPaywallText(text: string): boolean {
+  return /altro dispositivo|piano di abbonamento|continuare a leggere|rimarrà collegato|questo account|utilizzandoli in momenti diversi/i.test(text);
+}
+
 async function scrapeHoroscopeText(url: string, input: ScraperInput): Promise<ScrapeResult> {
   try {
     console.log(`Starting scrape for ${input.signSlugIt} at URL: ${url}`);
@@ -2268,6 +2276,13 @@ async function scrapeGraziaHoroscopeText(url: string, input: ScraperInput): Prom
       return {
         success: false,
         error: `Extracted content quality too low (score: ${finalScore}) for ${input.signSlugIt} on ${domain}`
+      };
+    }
+
+    if (isPaywallText(extractedText)) {
+      return {
+        success: false,
+        error: 'Paywall or access restriction detected'
       };
     }
 
