@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { z } from "zod";
+import Stripe from "stripe";
 import prisma from "./services/database";
 import { enqueueScrapeJob, enqueueWeeklyScrapeJob, enqueueAggregatedNlpJob, enqueueAggregatedWeeklyNlpJob, getAllJobStatuses, getJobStatus } from "./jobs";
 import { ScraperInput, WeeklyScraperInput, ScraperOutput, WeeklyScraperOutput, OpenAIInput } from "@shared/schema";
@@ -17,6 +18,10 @@ import {
   findStaleExecutions,
   markStaleExecutionsAsTimeout,
 } from "./utils/weeklyScraperQueries";
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? '', {
+  apiVersion: '2026-04-22.dahlia',
+});
 
 export async function registerRoutes(app: Express): Promise<Server> {
 
@@ -1599,6 +1604,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
         details: error instanceof Error ? error.message : 'Unknown error'
       });
     }
+  });
+
+  // GET /api/user/me
+  app.get("/api/user/me", async (req, res) => {
+    const clerkId = req.headers['x-clerk-user-id'] as string | undefined;
+    if (!clerkId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    try {
+      let user = await prisma.user.findUnique({ where: { clerkId } });
+      if (!user) {
+        user = await prisma.user.create({
+          data: { clerkId, email: '', tier: 'free' },
+        });
+      }
+      return res.json({ id: user.id, clerkId: user.clerkId, tier: user.tier, email: user.email });
+    } catch (error) {
+      console.error('[User] Error in /api/user/me:', error);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // POST /api/stripe/webhook
+  app.post("/api/stripe/webhook", async (req, res) => {
+    const sig = req.headers['stripe-signature'] as string;
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+    if (!webhookSecret) {
+      console.error('[Stripe] STRIPE_WEBHOOK_SECRET not configured');
+      return res.status(500).json({ error: 'Webhook secret not configured' });
+    }
+
+    let event: Stripe.Event;
+    try {
+      event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+    } catch (err) {
+      console.error('[Stripe] Webhook signature verification failed:', err);
+      return res.status(400).json({ error: 'Webhook signature verification failed' });
+    }
+
+    try {
+      const obj = event.data.object as { metadata?: { clerkId?: string }; status?: string };
+      const clerkId = obj.metadata?.clerkId;
+
+      switch (event.type) {
+        case 'customer.subscription.created':
+        case 'checkout.session.completed':
+          if (clerkId) {
+            await prisma.user.update({ where: { clerkId }, data: { tier: 'premium' } });
+            console.log(`[Stripe] Upgraded user ${clerkId} to premium`);
+          }
+          break;
+
+        case 'customer.subscription.deleted':
+          if (clerkId) {
+            await prisma.user.update({ where: { clerkId }, data: { tier: 'free' } });
+            console.log(`[Stripe] Downgraded user ${clerkId} to free (subscription deleted)`);
+          }
+          break;
+
+        case 'customer.subscription.updated':
+          if (clerkId && (obj.status === 'canceled' || obj.status === 'past_due')) {
+            await prisma.user.update({ where: { clerkId }, data: { tier: 'free' } });
+            console.log(`[Stripe] Downgraded user ${clerkId} to free (status: ${obj.status})`);
+          }
+          break;
+      }
+    } catch (error) {
+      console.error('[Stripe] Error handling event:', error);
+      return res.status(500).json({ error: 'Failed to process webhook' });
+    }
+
+    return res.json({ received: true });
   });
 
   const httpServer = createServer(app);

@@ -15,6 +15,7 @@ import { setupVite, serveStatic, log } from "./vite";
 import { initializeScheduledTasks } from "./scheduler";
 
 const app = express();
+app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
