@@ -10,10 +10,7 @@ if (!process.env.ANTHROPIC_API_KEY) {
 }
 
 const SYSTEM_PROMPT = `Sei un redattore editoriale specializzato in contenuti astrologici.
-Il tuo compito è analizzare il testo di un oroscopo e restituire:
-1. L'incipit testuale dell'oroscopo originale
-2. Una superquote editoriale originale
-3. Le valutazioni per ambito e il tono generale
+Analizza il testo di un oroscopo e restituisci incipit, superquote, ratings e tone.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 CAMPO 1 — INCIPIT (summary)
