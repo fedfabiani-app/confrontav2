@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import Home from "@/pages/Home";
 import SignDetail from "@/pages/SignDetail";
 import InfoPage from "@/pages/Info";
+import Login from "@/pages/Login";
 import NotFound from "@/pages/not-found";
 
 function Footer() {
@@ -32,6 +33,7 @@ function Router() {
           {(params) => <SignDetail sign={params.sign} />}
         </Route>
         <Route path="/info" component={InfoPage} />
+        <Route path="/login" component={Login} />
         <Route component={NotFound} />
       </Switch>
       
