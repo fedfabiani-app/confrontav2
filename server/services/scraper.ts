@@ -1969,6 +1969,10 @@ async function scrapeVogueHoroscopeText(url: string, input: ScraperInput): Promi
   }
 }
 
+function isPaywallText(text: string): boolean {
+  return /altro dispositivo|piano di abbonamento|continuare a leggere|rimarrà collegato|questo account|utilizzandoli in momenti diversi/i.test(text);
+}
+
 async function scrapeHoroscopeText(url: string, input: ScraperInput): Promise<ScrapeResult> {
   try {
     console.log(`Starting scrape for ${input.signSlugIt} at URL: ${url}`);
@@ -2272,6 +2276,13 @@ async function scrapeGraziaHoroscopeText(url: string, input: ScraperInput): Prom
       return {
         success: false,
         error: `Extracted content quality too low (score: ${finalScore}) for ${input.signSlugIt} on ${domain}`
+      };
+    }
+
+    if (isPaywallText(extractedText)) {
+      return {
+        success: false,
+        error: 'Paywall or access restriction detected'
       };
     }
 
