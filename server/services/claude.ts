@@ -174,16 +174,17 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
       const hasAstrologicalContent = /\b(pianeta|congiunzione|quadratura|trigono|sestile|casa|cuspide|transiti?|aspetti?|influssi?|influenze?|configurazioni?|astri|cielo|combinazione|astrologica|energia|vitalità|serenità|nervosismo|ansia|felicità|tristezza|preoccupazioni|ottimismo|passione)\b/i.test(input.extracted_text);
 
       if (!hasHoroscopeKeywords && !hasAstrologicalContent &&
-          ((hasNavigationWords && input.extracted_text.length < 100) ||
-           (hasPaywallWords && input.extracted_text.length < 80))) {
-        console.log(`[Claude] Text appears to be navigation/paywall content, using neutral fallback`);
+          ((hasNavigationWords && input.extracted_text.length < 60) ||
+           (hasPaywallWords && input.extracted_text.length < 50))) {
+        const reason = hasNavigationWords && input.extracted_text.length < 60 ? 'navigazione' : 'paywall';
+        console.log(`[Claude] SCARTATO — motivo: ${reason} | preview: "${input.extracted_text.slice(0, 100)}"`);
         useNeutralFallback = true;
       }
     }
 
     if (useNeutralFallback) {
       return {
-        superquote: 'C\'è più equilibrio intorno a te di quanto percepisci. Usalo per costruire qualcosa che dura.',
+        superquote: getRandomFallbackSuperquote(),
         summary: 'Le previsioni di oggi non sono disponibili.',
         ratings: {
           relazioni: 0,
@@ -346,6 +347,18 @@ export async function processHoroscopeWithRetry(
   throw lastError!;
 }
 
+const FALLBACK_SUPERQUOTES = [
+  "C'è più equilibrio intorno a te di quanto percepisci. Usalo per costruire qualcosa che dura.",
+  "Qualcosa si muove in silenzio, anche quando tutto sembra fermo. Fidati del processo.",
+  "Non tutto è come appare: dentro di te c'è più chiarezza di quanta ne mostri fuori.",
+  "Il momento richiede pazienza, ma la direzione è quella giusta. Continua.",
+  "Anche nelle giornate neutre si costruisce qualcosa. Non sottovalutare ciò che stai seminando."
+];
+
+function getRandomFallbackSuperquote(): string {
+  return FALLBACK_SUPERQUOTES[Math.floor(Math.random() * FALLBACK_SUPERQUOTES.length)];
+}
+
 const NEUTRAL_FALLBACK: OpenAIOutput = {
   superquote: 'C\'è più equilibrio intorno a te di quanto percepisci. Usalo per costruire qualcosa che dura.',
   summary: 'Le previsioni di oggi non sono disponibili.',
@@ -354,13 +367,18 @@ const NEUTRAL_FALLBACK: OpenAIOutput = {
 };
 
 function isInvalidText(text: string): boolean {
-  if (text.length < 30) return true;
+  if (text.length < 30) {
+    console.log(`[isInvalidText] SCARTATO — motivo: testo troppo corto (${text.length} chars) | preview: "${text.slice(0, 100)}"`);
+    return true;
+  }
   const hasHoroscopeKeywords = /\b(oroscopo|previsioni|stelle|fortuna|amore|lavoro|salute|giornata|periodo|energia|voto|destino|luna|sole|pianeti|segno|zodiaco|oggi|domani|settimana|relazioni|carriera|benessere|marte|venere|saturno|giove|mercurio|plutone|nettuno|urano|ariete|toro|gemelli|cancro|leone|vergine|bilancia|scorpione|sagittario|capricorno|acquario|pesci)\b/i.test(text.toLowerCase());
   const hasAstrologicalContent = /\b(pianeta|congiunzione|quadratura|trigono|sestile|casa|cuspide|transiti?|aspetti?|influssi?|influenze?|configurazioni?|astri|cielo|combinazione|astrologica|energia|vitalità|serenità|nervosismo|ansia|felicità|tristezza|preoccupazioni|ottimismo|passione)\b/i.test(text);
   const hasNavigationWords = /\b(menu|naviga|accedi|iscriviti|abbonati|cookie|privacy|pubblicità|home|sezioni|login|registrati|newsletter|social)\b/i.test(text.toLowerCase());
   const hasPaywallWords = /\b(per leggere|abbonati|registrati|accesso|premium|paywall|login|iscriviti|wall|visualizzare|dispositivo|abbonamento|collegato a questo|continuare a leggere|piano di abbonamento|altro accesso)\b/i.test(text.toLowerCase());
   if (!hasHoroscopeKeywords && !hasAstrologicalContent &&
-      ((hasNavigationWords && text.length < 100) || (hasPaywallWords && text.length < 80))) {
+      ((hasNavigationWords && text.length < 60) || (hasPaywallWords && text.length < 50))) {
+    const reason = hasNavigationWords && text.length < 60 ? 'navigazione' : 'paywall';
+    console.log(`[isInvalidText] SCARTATO — motivo: ${reason} | preview: "${text.slice(0, 100)}"`);
     return true;
   }
   return false;
@@ -414,7 +432,7 @@ function postProcessOutput(parsed: Record<string, unknown>, originalLength?: num
 export async function processMultiSourceHoroscope(inputs: OpenAIInput[]): Promise<OpenAIOutput[]> {
   if (inputs.length === 0) return [];
 
-  const results: OpenAIOutput[] = inputs.map(() => ({ ...NEUTRAL_FALLBACK, ratings: { ...NEUTRAL_FALLBACK.ratings } }));
+  const results: OpenAIOutput[] = inputs.map(() => ({ ...NEUTRAL_FALLBACK, superquote: getRandomFallbackSuperquote(), ratings: { ...NEUTRAL_FALLBACK.ratings } }));
 
   const validEntries: { index: number; input: OpenAIInput }[] = [];
   for (let i = 0; i < inputs.length; i++) {
