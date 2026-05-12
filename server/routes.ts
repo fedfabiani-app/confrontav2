@@ -19,9 +19,11 @@ import {
   markStaleExecutionsAsTimeout,
 } from "./utils/weeklyScraperQueries";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? '', {
-  apiVersion: '2026-04-22.dahlia',
-});
+function getStripe(): Stripe {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) throw new Error('STRIPE_SECRET_KEY non configurata');
+  return new Stripe(key, { apiVersion: '2026-04-22.dahlia' as any });
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
 
@@ -1638,7 +1640,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     let event: Stripe.Event;
     try {
-      event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+      event = getStripe().webhooks.constructEvent(req.body, sig, webhookSecret);
     } catch (err) {
       console.error('[Stripe] Webhook signature verification failed:', err);
       return res.status(400).json({ error: 'Webhook signature verification failed' });
