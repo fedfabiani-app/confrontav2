@@ -13,6 +13,8 @@ import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { AppHeader } from "@/components/AppHeader";
 import { useToast } from "@/hooks/use-toast";
 import { useHomeFavorites } from "@/hooks/use-favorites";
+import { useAccess } from "@/hooks/use-access";
+import { UpgradeBanner } from "@/components/UpgradeBanner";
 import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import iconImage from "@assets/icon.png";
@@ -64,6 +66,8 @@ export default function Home() {
   // Initialize hook for favorites only
   const { homeFavorites, isHomeFavorite, toggleHomeFavorite, hasFavorites } =
     useHomeFavorites();
+
+  const { canAccessDate } = useAccess();
 
   // Get date string for API calls using local date (avoid timezone issues)
   const selectedDateString = selectedDate.toLocaleDateString("en-CA"); // YYYY-MM-DD format in local timezone
@@ -296,7 +300,7 @@ export default function Home() {
                   mode="single"
                   selected={selectedDate}
                   onSelect={handleDateSelect}
-                  disabled={(date) => date < earliestStart || date > todayStart}
+                  disabled={(date) => date < earliestStart || date > todayStart || !canAccessDate(date)}
                   toDate={todayStart}
                   defaultMonth={selectedDate}
                   className="border-0"
@@ -306,6 +310,8 @@ export default function Home() {
             </Popover>
           </div>
         </div>
+
+        <UpgradeBanner context="history" />
 
         {/* Favorites Section */}
         {hasFavorites && (
@@ -340,6 +346,8 @@ export default function Home() {
             </div>
           </div>
         )}
+
+        <UpgradeBanner context="sync" />
 
         {/* Loading State */}
         {isLoading && (

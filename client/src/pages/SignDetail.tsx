@@ -24,6 +24,10 @@ import { useLocation } from "wouter";
 import { useFavorites } from "@/hooks/use-favorites";
 import { apiRequest } from "@/lib/queryClient";
 import { ZODIAC_SIGNS_EN_IT } from "@shared/constants";
+import { useAccess } from '../hooks/use-access';
+import { WeekNavigator } from '@/components/WeekNavigator';
+import { CompatibilityWidget } from '@/components/CompatibilityWidget';
+import { UpgradeBanner } from '@/components/UpgradeBanner';
 
 interface SignDetailProps {
   sign: string;
@@ -193,6 +197,8 @@ function SignDetail({ sign }: SignDetailProps) {
 
   // Daily/Weekly view state
   const [viewType, setViewType] = useState<"daily" | "weekly">("daily");
+  const [weekOffset, setWeekOffset] = useState(0);
+  const { canAccessDate, canAccessWeeksBack, maxWeeksBack } = useAccess();
 
   // Initialize date from URL parameter or use today
   const getInitialDate = (): Date => {
@@ -252,7 +258,9 @@ function SignDetail({ sign }: SignDetailProps) {
   };
 
   const today = selectedDate.toLocaleDateString('en-CA'); // YYYY-MM-DD format in local timezone
-  const currentWeekMonday = getMondayOfWeek(selectedDate);
+  const weeklyBaseDate = new Date();
+  weeklyBaseDate.setDate(weeklyBaseDate.getDate() - weekOffset * 7);
+  const currentWeekMonday = getMondayOfWeek(weeklyBaseDate);
   // Use local date string to avoid timezone conversion issues
   const weekStartDate = `${currentWeekMonday.getFullYear()}-${String(currentWeekMonday.getMonth() + 1).padStart(2, '0')}-${String(currentWeekMonday.getDate()).padStart(2, '0')}`;
   const weekRangeText = formatWeekRange(currentWeekMonday);
@@ -692,7 +700,7 @@ function SignDetail({ sign }: SignDetailProps) {
                       mode="single"
                       selected={selectedDate}
                       onSelect={handleDateSelect}
-                      disabled={(date) => date < earliestStart || date > todayStart}
+                      disabled={(date) => date < earliestStart || date > todayStart || !canAccessDate(date)}
                       toDate={todayStart}
                       defaultMonth={selectedDate}
                       className="border-0"
@@ -703,38 +711,15 @@ function SignDetail({ sign }: SignDetailProps) {
               </div>
             )}
 
-            {/* Week Range Display for Weekly View */}
+            {/* Week Navigator for Weekly View */}
             {viewType === "weekly" && (
-              <div className="w-full max-w-md">
-                <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-                  <PopoverTrigger asChild>
-                    <button
-                      className="w-full bg-white dark:bg-gray-800 rounded-full px-6 py-3 flex items-center justify-center gap-3 shadow-md hover:shadow-lg transition-shadow border border-gray-200 dark:border-gray-700"
-                      data-testid="date-selector-weekly"
-                    >
-                      <CalendarDays className="w-5 h-5 text-[#E1B64E]" />
-                      <span className="font-medium text-gray-900 dark:text-gray-100 truncate">
-                        Settimana: {weekRangeText}
-                      </span>
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="center">
-                    <div className="p-3 border-b border-border">
-                      <h4 className="text-sm font-medium">Seleziona Settimana</h4>
-                      <p className="text-xs text-muted-foreground">Seleziona un giorno, verrà usata la sua settimana</p>
-                    </div>
-                    <Calendar
-                      mode="single"
-                      selected={selectedDate}
-                      onSelect={handleDateSelect}
-                      disabled={(date) => date < earliestStart || date > todayStart}
-                      toDate={todayStart}
-                      defaultMonth={selectedDate}
-                      className="border-0"
-                      data-testid="date-calendar-weekly"
-                    />
-                  </PopoverContent>
-                </Popover>
+              <div className="w-full max-w-md space-y-3">
+                <WeekNavigator
+                  weekOffset={weekOffset}
+                  onOffsetChange={setWeekOffset}
+                  maxWeeksBack={maxWeeksBack}
+                />
+                <UpgradeBanner context="weeks" />
               </div>
             )}
           </div>
@@ -814,6 +799,8 @@ function SignDetail({ sign }: SignDetailProps) {
             </Card>
           </div>
         )}
+
+        <CompatibilityWidget currentSign={sign} />
 
         {/* Individual Source Cards */}
         {!((viewType === "daily" ? horoscopesLoading : weeklyHoroscopesLoading)) &&
