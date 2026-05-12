@@ -8,6 +8,7 @@ import SignDetail from "@/pages/SignDetail";
 import InfoPage from "@/pages/Info";
 import Login from "@/pages/Login";
 import Account from "@/pages/Account";
+import Pricing from "@/pages/Pricing";
 import NotFound from "@/pages/not-found";
 
 function Footer() {
@@ -36,6 +37,7 @@ function Router() {
         <Route path="/info" component={InfoPage} />
         <Route path="/login" component={Login} />
         <Route path="/account" component={Account} />
+        <Route path="/pricing" component={Pricing} />
         <Route component={NotFound} />
       </Switch>
       
