@@ -9,16 +9,16 @@ const FREE_FEATURES = [
   'Oroscopo giornaliero (oggi + ieri)',
   'Oroscopo settimanale (settimana corrente)',
   'Notifiche push',
-  'Preferiti locali',
+  'Sync preferiti su tutti i tuoi device',
 ];
 
 const PREMIUM_FEATURES = [
   ...FREE_FEATURES,
-  'Storico 30 giorni',
-  'Ultime 4 settimane',
-  'Compatibilità tra segni (AI)',
+  'Storico ultimi 30 giorni',
+  'Storico ultime 4 settimane',
+  'Affinità tra segni per giorno e settimana',
   'Nessuna pubblicità',
-  'Sync preferiti cross-device',
+  
 ];
 
 const CARD_BASE = 'rounded-2xl p-6 flex flex-col gap-5';
