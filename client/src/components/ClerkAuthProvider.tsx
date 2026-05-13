@@ -67,14 +67,20 @@ function ClerkAuthSync({ children }: { children: ReactNode }) {
             if (!prefs) return;
             if (prefs.favoriteSigns?.length > 0) {
               localStorage.setItem('horoscope:home-favorites:v1', JSON.stringify(prefs.favoriteSigns));
-              window.dispatchEvent(new Event('storage'));
+              window.dispatchEvent(new StorageEvent('storage', {
+                key: 'horoscope:home-favorites:v1',
+                newValue: JSON.stringify(prefs.favoriteSigns),
+              }));
             }
             if (prefs.favoriteSources?.length > 0) {
               localStorage.setItem(
                 'horoscope:favorites:v1',
                 JSON.stringify(prefs.favoriteSources.map(Number))
               );
-              window.dispatchEvent(new Event('storage'));
+              window.dispatchEvent(new StorageEvent('storage', {
+                key: 'horoscope:favorites:v1',
+                newValue: JSON.stringify(prefs.favoriteSources),
+              }));
             }
           })
           .catch(() => {});
