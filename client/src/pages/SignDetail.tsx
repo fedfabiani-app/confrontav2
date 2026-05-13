@@ -925,7 +925,7 @@ function SignDetail({ sign }: SignDetailProps) {
                         className="inline-flex items-center text-sm font-semibold text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
                         data-testid={`link-read-more-${horoscope.source.id}`}
                       >
-                        Leggi tutto
+                        Leggi tutto su {horoscope.source.name}
                         <ExternalLink className="w-3 h-3 ml-1" />
                       </a>
                     </div>
