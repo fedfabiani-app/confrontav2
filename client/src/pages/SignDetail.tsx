@@ -83,15 +83,13 @@ const signColors = {
   pesci: "from-blue-500 to-purple-500",
 };
 
-function truncateAtMidWord(text: string, charLimit: number): string {
-  if (text.length <= charLimit) return text;
-  const lastSpace = text.lastIndexOf(' ', charLimit);
-  const wordStart = lastSpace + 1;
-  const nextSpace = text.indexOf(' ', charLimit);
-  const wordEnd = nextSpace === -1 ? text.length : nextSpace;
-  const word = text.slice(wordStart, wordEnd);
-  const half = Math.ceil(word.length / 2);
-  return text.slice(0, wordStart) + word.slice(0, half) + '...';
+function truncateAtMidWord(text: string): string {
+  const trimmed = text.trimEnd();
+  const lastSpace = trimmed.lastIndexOf(' ');
+  if (lastSpace === -1) return trimmed.slice(0, Math.ceil(trimmed.length / 2)) + '...';
+  const lastWord = trimmed.slice(lastSpace + 1).replace(/[.,!?;:]+$/, '');
+  const half = Math.ceil(lastWord.length / 2);
+  return trimmed.slice(0, lastSpace + 1) + lastWord.slice(0, half) + '...';
 }
 
 interface SourceIconProps {
@@ -907,13 +905,6 @@ function SignDetail({ sign }: SignDetailProps) {
                     </>
                   )}
 
-                  {/* Incipit preview — visible only when collapsed */}
-                  {isCollapsed && horoscope.summary && (
-                    <p className="text-muted-foreground text-sm leading-relaxed">
-                      {truncateAtMidWord(horoscope.summary, 120)}
-                    </p>
-                  )}
-
                   {/* Collapsible Content */}
                   <div
                     className={`overflow-hidden transition-all duration-300 ease-in-out ${
@@ -922,7 +913,7 @@ function SignDetail({ sign }: SignDetailProps) {
                   >
                     {/* Horoscope Content */}
                     <p className="text-card-foreground leading-relaxed mb-4">
-                      {horoscope.summary}
+                      {truncateAtMidWord(horoscope.summary)}
                     </p>
 
                     {/* Read More Link */}
