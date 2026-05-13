@@ -101,7 +101,7 @@ export function CompatibilityWidget({ currentSign }: CompatibilityWidgetProps) {
   );
 
   return (
-    <PremiumGate locked={!canAccessCompatibility()} message="Affinità tra due segnidisponibile con Premium">
+    <PremiumGate locked={!canAccessCompatibility()} message="Affinità tra due segni disponibile con Premium">
       {inner}
     </PremiumGate>
   );
