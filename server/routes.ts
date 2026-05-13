@@ -1694,7 +1694,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       return res.json({
         favoriteSigns: user.preferences?.favorite_signs ?? [],
-        favoriteSources: user.preferences?.favorite_sources ?? [],
+        favoriteSources: (user.preferences?.favorite_sources ?? []).map(Number),
       });
     } catch (error) {
       console.error('[Preferences GET] Error:', error);

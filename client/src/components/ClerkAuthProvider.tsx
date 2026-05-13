@@ -35,7 +35,7 @@ function ClerkAuthSync({ children }: { children: ReactNode }) {
 
         // Migrate favorites from localStorage to DB (fire-and-forget)
         const localSigns = JSON.parse(localStorage.getItem('horoscope:home-favorites:v1') || '[]');
-        const localSources = JSON.parse(localStorage.getItem('horoscope:favorites:v1') || '[]');
+        const localSources = JSON.parse(localStorage.getItem('horoscope:favorites:v1') || '[]').map(Number);
         console.log('[Prefs] localSigns:', localSigns, 'localSources:', localSources);
         if (localSigns.length > 0 || localSources.length > 0) {
           fetch('/api/user/preferences', {
