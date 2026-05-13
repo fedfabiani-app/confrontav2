@@ -1,4 +1,4 @@
-const CACHE_NAME = 'oroscopo-italiano-v1';
+const CACHE_NAME = 'oroscopo-italiano-v2';
 const CACHE_URLS = [
   '/',
   '/manifest.json',
@@ -21,6 +21,7 @@ self.addEventListener('install', (event) => {
       return cache.addAll(CACHE_URLS);
     })
   );
+  self.skipWaiting();
 });
 
 self.addEventListener('fetch', (event) => {
@@ -60,9 +61,11 @@ self.addEventListener('fetch', (event) => {
     } else {
       // Network-first for other API requests
       event.respondWith(
-        fetch(request).catch(() => {
-          return caches.match(request);
-        })
+        fetch(request).catch(() =>
+          caches.match(request).then(
+            (cached) => cached || new Response('', { status: 503, statusText: 'Service Unavailable' })
+          )
+        )
       );
     }
     return;
@@ -94,12 +97,15 @@ self.addEventListener('fetch', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames
-          .filter((cacheName) => cacheName !== CACHE_NAME)
-          .map((cacheName) => caches.delete(cacheName))
-      );
-    })
+    Promise.all([
+      caches.keys().then((cacheNames) =>
+        Promise.all(
+          cacheNames
+            .filter((cacheName) => cacheName !== CACHE_NAME)
+            .map((cacheName) => caches.delete(cacheName))
+        )
+      ),
+      self.clients.claim(),
+    ])
   );
 });
