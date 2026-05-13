@@ -83,6 +83,17 @@ const signColors = {
   pesci: "from-blue-500 to-purple-500",
 };
 
+function truncateAtMidWord(text: string, charLimit: number): string {
+  if (text.length <= charLimit) return text;
+  const lastSpace = text.lastIndexOf(' ', charLimit);
+  const wordStart = lastSpace + 1;
+  const nextSpace = text.indexOf(' ', charLimit);
+  const wordEnd = nextSpace === -1 ? text.length : nextSpace;
+  const word = text.slice(wordStart, wordEnd);
+  const half = Math.ceil(word.length / 2);
+  return text.slice(0, wordStart) + word.slice(0, half) + '...';
+}
+
 interface SourceIconProps {
   source: {
     id: number;
@@ -894,6 +905,13 @@ function SignDetail({ sign }: SignDetailProps) {
                       </div>
                       <div className="border-t border-gray-200 dark:border-gray-700 my-3"></div>
                     </>
+                  )}
+
+                  {/* Incipit preview — visible only when collapsed */}
+                  {isCollapsed && horoscope.summary && (
+                    <p className="text-muted-foreground text-sm leading-relaxed">
+                      {truncateAtMidWord(horoscope.summary, 120)}
+                    </p>
                   )}
 
                   {/* Collapsible Content */}
