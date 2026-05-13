@@ -49,6 +49,22 @@ function ClerkAuthSync({ children }: { children: ReactNode }) {
             }),
           }).catch(() => {});
         }
+
+        // Restore favorites from DB into localStorage
+        fetch('/api/user/preferences', {
+          headers: { 'x-clerk-user-id': userId },
+        })
+          .then((res) => (res.ok ? res.json() : null))
+          .then((prefs) => {
+            if (!prefs) return;
+            if (prefs.favoriteSigns?.length > 0) {
+              localStorage.setItem('horoscope:home-favorites:v1', JSON.stringify(prefs.favoriteSigns));
+            }
+            if (prefs.favoriteSources?.length > 0) {
+              localStorage.setItem('horoscope:favorites:v1', JSON.stringify(prefs.favoriteSources));
+            }
+          })
+          .catch(() => {});
       })
       .catch(() => {
         if (!cancelled)

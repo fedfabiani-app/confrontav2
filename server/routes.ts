@@ -1681,6 +1681,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return res.json({ received: true });
   });
 
+  app.get("/api/user/preferences", async (req, res) => {
+    const clerkId = req.headers['x-clerk-user-id'] as string;
+    if (!clerkId) return res.status(401).json({ error: 'Unauthorized' });
+
+    try {
+      const user = await prisma.user.findUnique({
+        where: { clerkId },
+        include: { preferences: true },
+      });
+      if (!user) return res.status(404).json({ error: 'User not found' });
+
+      return res.json({
+        favoriteSigns: user.preferences?.favorite_signs ?? [],
+        favoriteSources: user.preferences?.favorite_sources ?? [],
+      });
+    } catch (error) {
+      console.error('[Preferences GET] Error:', error);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
   app.post("/api/user/preferences", async (req, res) => {
     const clerkId = req.headers['x-clerk-user-id'] as string;
     if (!clerkId) return res.status(401).json({ error: 'Unauthorized' });
