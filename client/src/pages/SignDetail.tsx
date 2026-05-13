@@ -790,9 +790,9 @@ function SignDetail({ sign }: SignDetailProps) {
             </Card>
           </div>
         )}
-
-        <CompatibilityWidget currentSign={sign} />
-
+       <div className="mb-8">
+  <CompatibilityWidget currentSign={sign} />
+        </div>
         {/* Individual Source Cards */}
         {!((viewType === "daily" ? horoscopesLoading : weeklyHoroscopesLoading)) &&
          (viewType === "daily" ? horoscopes : weeklyHoroscopes).length > 0 && (
