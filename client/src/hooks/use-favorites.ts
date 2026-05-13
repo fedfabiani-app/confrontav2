@@ -108,8 +108,8 @@ export function useFavorites(signEnglish?: string) {
             localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(migratedFavorites));
             setFavorites(migratedFavorites);
           } else if (Array.isArray(data)) {
-            // New format - already an array of source IDs
-            setFavorites(data);
+            // New format - already an array of source IDs (normalize to numbers)
+            setFavorites(data.map(Number));
           }
         }
       } catch (error) {

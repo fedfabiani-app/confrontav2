@@ -46,7 +46,7 @@ function ClerkAuthSync({ children }: { children: ReactNode }) {
             },
             body: JSON.stringify({
               favoriteSigns: localSigns,
-              favoriteSources: localSources,
+              favoriteSources: localSources.map(String),
             }),
           })
             .then((res) => {
@@ -69,7 +69,10 @@ function ClerkAuthSync({ children }: { children: ReactNode }) {
               localStorage.setItem('horoscope:home-favorites:v1', JSON.stringify(prefs.favoriteSigns));
             }
             if (prefs.favoriteSources?.length > 0) {
-              localStorage.setItem('horoscope:favorites:v1', JSON.stringify(prefs.favoriteSources));
+              localStorage.setItem(
+                'horoscope:favorites:v1',
+                JSON.stringify(prefs.favoriteSources.map(Number))
+              );
             }
           })
           .catch(() => {});
