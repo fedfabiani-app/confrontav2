@@ -107,8 +107,8 @@ function SourceIcon({ source, "data-testid": dataTestId }: SourceIconProps) {
         // Invalid logo_url, fallback to domain favicon
       }
     }
-    // No logo_url or invalid, try domain favicon
-    return `https://${source.domain}/favicon.ico`;
+    // No logo_url or invalid: use Google favicon service (always HTTPS, no redirects)
+    return `https://www.google.com/s2/favicons?sz=64&domain=${source.domain}`;
   };
 
   const initialSrc = currentSrc || getInitialSrc();
@@ -117,25 +117,16 @@ function SourceIcon({ source, "data-testid": dataTestId }: SourceIconProps) {
     const img = e.target as HTMLImageElement;
     const currentUrl = img.src;
 
-    // Remove error handler to prevent loops
     img.onerror = null;
 
-    if (currentUrl.includes("favicon.ico")) {
-      // If favicon also failed, try Google's favicon service
-      const googleFaviconUrl = `https://www.google.com/s2/favicons?sz=64&domain=${source.domain}`;
-      if (currentUrl !== googleFaviconUrl) {
-        img.src = googleFaviconUrl;
-        img.onerror = () => setImgFailed(true);
-        return;
-      }
-    } else if (currentUrl !== `https://${source.domain}/favicon.ico`) {
-      // First fallback: try domain favicon
+    // Google favicon failed → last resort: direct favicon.ico
+    if (currentUrl.includes('google.com/s2/favicons')) {
       img.src = `https://${source.domain}/favicon.ico`;
       img.onerror = () => setImgFailed(true);
       return;
     }
 
-    // All image sources failed
+    // All sources failed
     setImgFailed(true);
   };
 

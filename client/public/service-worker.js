@@ -2,8 +2,6 @@ const CACHE_NAME = 'oroscopo-italiano-v1';
 const CACHE_URLS = [
   '/',
   '/manifest.json',
-  'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap',
-  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css'
 ];
 
 // Cache API routes that are safe to cache (read-only GET requests)
@@ -28,6 +26,11 @@ self.addEventListener('install', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
+
+  // Only intercept same-origin requests
+  if (url.origin !== self.location.origin) {
+    return;
+  }
 
   // Never cache refresh endpoints
   if (NEVER_CACHE_ROUTES.some(route => url.pathname.includes(route))) {
@@ -80,10 +83,10 @@ self.addEventListener('fetch', (event) => {
         }
         return response;
       }).catch(() => {
-        // Fallback to cached index.html for navigation requests
         if (request.mode === 'navigate') {
           return caches.match('/');
         }
+        return new Response('', { status: 503, statusText: 'Service Unavailable' });
       });
     })
   );
