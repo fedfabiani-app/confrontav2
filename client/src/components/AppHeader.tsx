@@ -8,7 +8,7 @@ interface AppHeaderProps {
 export function AppHeader({ children }: AppHeaderProps) {
   return (
     <header
-      className="app-header sticky top-0 z-40 border-b relative overflow-hidden"
+      className="app-header sticky top-0 z-40 border-b relative"
     >
       {/* Decorative stars layer */}
       <div className="app-header-stars absolute inset-0 pointer-events-none" />
