@@ -9,6 +9,7 @@ function ClerkAuthSync({ children }: { children: ReactNode }) {
   const userId = user?.id;
 
   useEffect(() => {
+    console.log('[useAuth] effect triggered, userId:', userId);
     if (!isLoaded) return;
     if (!isSignedIn || !userId) {
       setState(defaultAuthState);

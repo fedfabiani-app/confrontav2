@@ -18,9 +18,9 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4">
       <SignIn
-        routing="hash"
-        afterSignInUrl="/"
-        afterSignUpUrl="/"
+        routing="virtual"
+        fallbackRedirectUrl="/"
+        signUpFallbackRedirectUrl="/"
         appearance={{
           variables: {
             colorPrimary: '#E1B64E',
