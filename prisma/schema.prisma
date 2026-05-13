@@ -131,7 +131,8 @@ model WeeklyHoroscopeData {
 model UserPreferences {
   id                Int      @id @default(autoincrement())
   user_id           Int      @unique
-  favorite_signs    String[] // Array of zodiac sign IDs
+  favorite_signs    String[] // Array of zodiac sign slugs
+  favorite_sources  String[] // Array of source IDs (as strings)
   notifications_enabled Boolean @default(true)
   created_at        DateTime @default(now())
   updated_at        DateTime @updatedAt
