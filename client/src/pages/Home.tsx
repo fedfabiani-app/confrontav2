@@ -311,7 +311,7 @@ export default function Home() {
           </div>
         </div>
 
-         <UpgradeBanner context="history" style={{ marginBottom: 5 }} />
+         <UpgradeBanner context="history" style={{ marginBottom: 10 }} />
 
         {/* Favorites Section */}
         {hasFavorites && (
