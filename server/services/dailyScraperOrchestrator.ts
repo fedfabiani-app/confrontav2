@@ -3,6 +3,9 @@ import { enqueueScrapeJob } from '../jobs';
 import { ScraperInput } from '@shared/schema';
 import { ITALIAN_WEEKDAYS } from '@shared/constants';
 
+const FALLBACK_DELAY_MS =
+  parseInt(process.env.SCRAPER_FALLBACK_DELAY_MS || '', 10) || 30 * 60 * 1000;
+
 export interface DailyScraperOptions {
   targetDate: string;
   forceRescrape?: boolean;
@@ -164,6 +167,30 @@ async function createSourceStatusRecord(
   }
 }
 
+async function findMissingSourcesForDate(
+  targetDate: string
+): Promise<Array<{ id: number; name: string }>> {
+  const targetDateObj = new Date(targetDate + 'T00:00:00.000Z');
+
+  const [activeSources, coveredGroups] = await Promise.all([
+    prisma.source.findMany({
+      where: { is_active: true },
+      select: { id: true, name: true },
+      orderBy: { id: 'asc' },
+    }),
+    prisma.horoscopeData.groupBy({
+      by: ['source_id'],
+      where: {
+        date: targetDateObj,
+        summary: { not: '' },
+      },
+    }),
+  ]);
+
+  const coveredIds = new Set(coveredGroups.map((r) => r.source_id));
+  return activeSources.filter((s) => !coveredIds.has(s.id));
+}
+
 export async function runDailyScraperCycle(
   options: DailyScraperOptions
 ): Promise<DailyScraperStats> {
@@ -301,7 +328,28 @@ export async function runDailyScraperCycle(
     console.log(`Skipped: ${stats.skipped}`);
     console.log(`Failed: ${stats.failed}`);
     console.log('==========================================================\n');
-    
+
+    // Step 6: Fallback cycle — retry sources with zero coverage (main cycle only)
+    if (!options.dryRun && options.triggerType !== 'fallback') {
+      console.log('[Orchestrator] Checking coverage after main cycle...');
+      const missingSources = await findMissingSourcesForDate(options.targetDate);
+      if (missingSources.length > 0) {
+        const missingDesc = missingSources.map((s) => `${s.name} (${s.id})`).join(', ');
+        const delayMin = (FALLBACK_DELAY_MS / 60_000).toFixed(0);
+        console.log(`[Orchestrator] Missing sources for ${options.targetDate}: ${missingDesc}`);
+        console.log(`[Orchestrator] Scheduling fallback cycle in ${delayMin} minutes...`);
+        await new Promise((resolve) => setTimeout(resolve, FALLBACK_DELAY_MS));
+        const missingIds = missingSources.map((s) => s.id);
+        console.log(`[Orchestrator] Starting fallback cycle for sources: [${missingIds.join(', ')}]`);
+        await runDailyScraperCycle({
+          targetDate: options.targetDate,
+          forceRescrape: false,
+          specificSources: missingIds,
+          triggerType: 'fallback',
+        });
+      }
+    }
+
     return {
       executionId,
       duration,

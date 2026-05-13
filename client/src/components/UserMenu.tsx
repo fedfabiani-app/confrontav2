@@ -23,9 +23,7 @@ export function UserMenu() {
     return () => document.removeEventListener('mousedown', onMouseDown);
   }, [open]);
 
-  console.log('[UserMenu] isLoggedIn:', isLoggedIn, 'isLoading:', isLoading, 'tier:', userTier);
-
-  if (!isLoggedIn) {
+  if (isLoading || !isLoggedIn) {
     return (
       <button
         onClick={() => navigate('/login')}
