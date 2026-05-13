@@ -36,6 +36,7 @@ function ClerkAuthSync({ children }: { children: ReactNode }) {
         // Migrate favorites from localStorage to DB (fire-and-forget)
         const localSigns = JSON.parse(localStorage.getItem('horoscope:home-favorites:v1') || '[]');
         const localSources = JSON.parse(localStorage.getItem('horoscope:favorites:v1') || '[]');
+        console.log('[Prefs] localSigns:', localSigns, 'localSources:', localSources);
         if (localSigns.length > 0 || localSources.length > 0) {
           fetch('/api/user/preferences', {
             method: 'POST',
@@ -47,7 +48,13 @@ function ClerkAuthSync({ children }: { children: ReactNode }) {
               favoriteSigns: localSigns,
               favoriteSources: localSources,
             }),
-          }).catch(() => {});
+          })
+            .then((res) => {
+              console.log('[Prefs] POST response status:', res.status);
+              return res.ok ? res.json() : null;
+            })
+            .then((data) => console.log('[Prefs] POST result:', data))
+            .catch(() => {});
         }
 
         // Restore favorites from DB into localStorage
@@ -56,6 +63,7 @@ function ClerkAuthSync({ children }: { children: ReactNode }) {
         })
           .then((res) => (res.ok ? res.json() : null))
           .then((prefs) => {
+            console.log('[Prefs] GET result:', prefs);
             if (!prefs) return;
             if (prefs.favoriteSigns?.length > 0) {
               localStorage.setItem('horoscope:home-favorites:v1', JSON.stringify(prefs.favoriteSigns));
