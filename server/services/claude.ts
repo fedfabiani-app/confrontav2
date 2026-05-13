@@ -22,7 +22,7 @@ non modificare nemmeno una parola.
 
 REGOLE:
 - Estrai le prime due frasi dell'originale, verbatim
-- Limite: min(200 caratteri, 50% della lunghezza del testo originale)
+- Limite: min(200 caratteri, 35% della lunghezza del testo originale)
   es. testo di 200 caratteri → incipit max 100 caratteri
   es. testo di 600+ caratteri → incipit max 200 caratteri
 - Se entrambe le frasi rientrano nel limite → includi entrambe
@@ -36,7 +36,7 @@ REGOLE:
 VERIFICA INCIPIT:
 □ È riproduzione testuale fedele?
 □ Sono al massimo due frasi?
-□ È entro min(200 caratteri, 50% del testo originale)?
+□ È entro min(200 caratteri, 35% del testo originale)?
 □ Termina con "…" (obbligatorio, sempre)?
 □ Zero modifiche al testo originale?
 
