@@ -9,7 +9,7 @@ import { useHomeFavorites } from '../hooks/use-favorites';
 import { useFavorites } from '../hooks/use-favorites';
 
 export default function Account() {
-  const { isLoggedIn, isLoading, user } = useAuth();
+  const { isLoggedIn, isLoading, user, clerkUserId } = useAuth();
   const { userTier } = useAccess();
   const { signOut } = useClerk();
   const { homeFavorites } = useHomeFavorites();
@@ -86,7 +86,14 @@ export default function Account() {
               </span>
               <p className="text-white/80 text-sm">Hai accesso a tutte le funzionalità</p>
               <button
-                onClick={() => navigate('/pricing')}
+                onClick={async () => {
+                  const res = await fetch('/api/stripe/portal', {
+                    method: 'POST',
+                    headers: { 'x-clerk-user-id': clerkUserId || '' }
+                  });
+                  const { portalUrl } = await res.json();
+                  window.location.href = portalUrl;
+                }}
                 className="text-sm text-[#E1B64E] hover:underline"
               >
                 Gestisci abbonamento
