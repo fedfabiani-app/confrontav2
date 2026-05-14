@@ -1259,7 +1259,9 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
 
       // {start_month}/{end_month}/{month}/{mm} fallbacks
       url = url.replace(/{month}/g, crossMonth ? `${startMonthName}-${endMonthName}` : startMonthName);
-      url = url.replace(/{mm}/g, crossMonth ? endMonthName : startMonthName);
+      // {mm} uses input.month directly: it's already formatted correctly (numeric "05" for
+      // Repubblica, Italian name "maggio" for others) by formatWeekUrlParams.
+      url = url.replace(/{mm}/g, input.month);
 
       // Common day placeholders:
       // - {start_day}/{end_day} -> unpadded (2 not 02)
@@ -1274,6 +1276,17 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
       // Validate URL - ensure no placeholders remain
       if (url.includes('{') || url.includes('}')) {
         throw new Error(`URL contains unreplaced placeholders: ${url}`);
+      }
+
+      // Italian elision: "dal 1/8/11" → "dall 1/8/11" (vowel-starting numbers)
+      // Sites like SuperGuidaTV, alFemminile, Simon use "dall-11" not "dal-11" in their slugs.
+      const startDayInt = parseInt(startDayNumber, 10);
+      if (startDayInt === 1 || startDayInt === 8 || startDayInt === 11) {
+        url = url.replace(/-dal-(\d+)/g, '-dall-$1');
+      }
+      const endDayInt = parseInt(endDayNumber, 10);
+      if (endDayInt === 1 || endDayInt === 8 || endDayInt === 11) {
+        url = url.replace(/-al-(\d+)/g, '-all-$1');
       }
 
       // Validate URL format

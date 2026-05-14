@@ -23,11 +23,11 @@ export class WeeklyScraperWorker {
 
         if (resolvedUrl) {
           console.log(`[WeeklyScraperWorker] Resolved URL: ${resolvedUrl}`);
-          // Sostituisci baseUrl con l'URL completo dell'articolo
-          modifiedInput = { 
-            ...input, 
+          modifiedInput = {
+            ...input,
             baseUrl: resolvedUrl,
-            urlPattern: '' // Pattern vuoto perché abbiamo già l'URL completo
+            urlPattern: '',
+            scrapeStrategy: 'pattern' // Prevent re-entering archive logic with the article URL
           };
         } else {
           console.warn('[WeeklyScraperWorker] Could not resolve URL from archive, trying fallback...');
@@ -35,10 +35,11 @@ export class WeeklyScraperWorker {
 
           if (fallbackUrl) {
             console.log(`[WeeklyScraperWorker] Found fallback URL: ${fallbackUrl}`);
-            modifiedInput = { 
-              ...input, 
+            modifiedInput = {
+              ...input,
               baseUrl: fallbackUrl,
-              urlPattern: ''
+              urlPattern: '',
+              scrapeStrategy: 'pattern'
             };
           } else {
             throw new Error('Could not find valid Marie Claire horoscope URL');
