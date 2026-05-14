@@ -6,6 +6,7 @@ import prisma from "./services/database";
 import { enqueueScrapeJob, enqueueWeeklyScrapeJob, enqueueAggregatedNlpJob, enqueueAggregatedWeeklyNlpJob, getAllJobStatuses, getJobStatus } from "./jobs";
 import { ScraperInput, WeeklyScraperInput, ScraperOutput, WeeklyScraperOutput, OpenAIInput } from "@shared/schema";
 import { ZODIAC_SIGNS_IT_EN, ITALIAN_WEEKDAYS, ITALIAN_MONTHS } from "@shared/constants";
+import { format } from 'date-fns';
 import { getMondayOfWeek, formatWeekUrlParams, getCurrentWeekStart } from "./utils/weekUtils";
 import { runWeeklyScraperCycle, type SourceGroup } from "./services/weeklyScraperOrchestrator";
 import {
@@ -650,7 +651,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         weekStart = getCurrentWeekStart();
       }
       
-      console.log(`[API Weekly Refresh Sign] Triggering for ${zodiacSign.name_italian}, week ${weekStart.toISOString().split('T')[0]}`);
+      console.log(`[API Weekly Refresh Sign] Triggering for ${zodiacSign.name_italian}, week ${format(weekStart, 'yyyy-MM-dd')}`);
       
       // Trigger weekly scrape for all sources but only this sign
       // We'll do this by enqueueing jobs directly for this sign
@@ -720,7 +721,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             urlPattern: source.url_pattern,
             scrapeStrategy: source.scrape_strategy,
             signSlugIt: zodiacSign.name_italian,
-            weekStartDate: weekStart.toISOString().split('T')[0],
+            weekStartDate: format(weekStart, 'yyyy-MM-dd'),
             startDay,
             endDay,
             month,
@@ -739,7 +740,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         success: true,
         sign: zodiacSign.name_italian,
-        weekStart: weekStart.toISOString().split('T')[0],
+        weekStart: format(weekStart, 'yyyy-MM-dd'),
         stats: {
           total: sources.length,
           enqueued,

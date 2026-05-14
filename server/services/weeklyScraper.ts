@@ -1496,11 +1496,12 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
         console.log(`  H2[${i}]: id="${id || 'none'}" class="${classes || 'none'}" text="${text}"`);
       });
 
-      // Strategy 0: Extract from Next.js __NEXT_DATA__ JSON (paragraphs may not be in SSR HTML)
-      const nextDataScript = $('script#__NEXT_DATA__').first();
-      if (nextDataScript.length > 0) {
+      // Strategy 0: Extract from Next.js __NEXT_DATA__ JSON using raw HTML
+      // (scripts are stripped at line 1478, so we must use the raw html string here)
+      const nextDataRawMatch = html.match(/<script[^>]+id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i);
+      if (nextDataRawMatch) {
         try {
-          const nextData = JSON.parse(nextDataScript.html() || '{}');
+          const nextData = JSON.parse(nextDataRawMatch[1]);
           const pageProps = nextData?.props?.pageProps;
           if (pageProps) {
             console.log(`Marie Claire - __NEXT_DATA__ pageProps keys: ${Object.keys(pageProps).join(', ')}`);
@@ -1558,7 +1559,13 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
           console.log(`Marie Claire - Strategy 0 failed: ${e}`);
         }
       } else {
-        console.log(`Marie Claire - Strategy 0: no __NEXT_DATA__ script found`);
+        console.log(`Marie Claire - Strategy 0: no __NEXT_DATA__ in raw HTML`);
+        // Diagnostic: log raw HTML around the sign heading
+        const signLower = input.signSlugIt.toLowerCase();
+        const rawIdx = html.toLowerCase().indexOf(`>${signLower}<`);
+        if (rawIdx >= 0) {
+          console.log(`Marie Claire - Raw HTML around sign: ...${html.substring(Math.max(0, rawIdx - 60), rawIdx + 500).replace(/\s+/g, ' ')}...`);
+        }
       }
 
       let signHeading = $();
@@ -1655,6 +1662,30 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
 
         if (extractedContent.trim().length > 50) {
           console.log(`Marie Claire - ✓ Extracted ${paragraphCount} paragraphs, ${extractedContent.length} chars`);
+          return {
+            success: true,
+            text: extractedContent.trim().substring(0, 3500),
+            url: url
+          };
+        }
+
+        // Parent-level traversal: H2 may be wrapped in a container div
+        // Try siblings of the H2's parent element
+        console.log(`Marie Claire - Direct siblings empty. H2 parent: <${(signHeading.parent().prop('tagName') || '').toUpperCase()}>, trying parent.next()...`);
+        let $pSibling = signHeading.parent().next();
+        while ($pSibling.length > 0) {
+          const pTag = ($pSibling.prop('tagName') as string || '').toUpperCase();
+          // Stop if we hit another zodiac sign (either as H2 or nested H2)
+          if (['H2', 'H3'].includes(pTag) && zodiacSigns.some(s => $pSibling.text().trim().toLowerCase() === s)) break;
+          const nestedH2Text = $pSibling.find('h2').first().text().trim().toLowerCase();
+          if (nestedH2Text && zodiacSigns.some(s => nestedH2Text === s)) break;
+          if (pTag === 'P') extractParagraph($pSibling[0]);
+          else $pSibling.find('p').each((_, p) => extractParagraph(p));
+          $pSibling = $pSibling.next();
+        }
+
+        if (extractedContent.trim().length > 50) {
+          console.log(`Marie Claire - ✓ Parent traversal extracted ${paragraphCount} paragraphs`);
           return {
             success: true,
             text: extractedContent.trim().substring(0, 3500),
