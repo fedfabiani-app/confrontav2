@@ -1106,6 +1106,19 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
 
       // ==================== END ELLE.COM/IT FUNCTIONS ====================
 
+      // COSMOPOLITAN.COM SPECIFIC: Use archive resolution (article URLs are not pattern-constructable)
+      if (input.domain.includes('cosmopolitan.com') || input.baseUrl.includes('cosmopolitan.com')) {
+        console.log(`Detected Cosmopolitan.com - using archive resolution`);
+        try {
+          const url = await resolveWeeklyUrlFromArchive(input);
+          console.log(`Cosmopolitan.com - Archive resolution successful: ${url}`);
+          return url;
+        } catch (error) {
+          console.error(`Cosmopolitan.com - Archive resolution failed:`, error);
+          throw new Error(`Cannot resolve Cosmopolitan.com URL: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+      }
+
       // SORRISI.COM SPECIFIC: Try archive strategy first, with proper fallback
       if (input.domain.includes('sorrisi.com') || input.baseUrl.includes('sorrisi.com')) {
         console.log(`Detected Sorrisi.com - trying archive strategy first`);
@@ -1482,6 +1495,94 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
     const $ = cheerio.load(html);
 
     $('script, style, nav, header, footer, iframe, noscript').remove();
+
+    // Special handling for Cosmopolitan - single article with all signs
+    if (url.includes('cosmopolitan.com') && url.includes('/oroscopo-settimana/a')) {
+      console.log(`Cosmopolitan - Extracting content for ${input.signSlugIt} from URL: ${url}`);
+
+      const signId = SIGN_MAP[input.signSlugIt] || input.signSlugIt.toLowerCase();
+      const zodiacSigns = ['ariete', 'toro', 'gemelli', 'cancro', 'leone', 'vergine',
+                           'bilancia', 'scorpione', 'sagittario', 'capricorno', 'acquario', 'pesci'];
+
+      let signHeading = $();
+
+      // Strategy 1: h2/h3 with exact sign name text (most common for Cosmo articles)
+      $('h2, h3').each((_, el) => {
+        const text = $(el).text().trim().toLowerCase();
+        if (text === signId) {
+          signHeading = $(el);
+          console.log(`Cosmopolitan - Strategy 1: found <${el.tagName}> for ${signId}`);
+          return false;
+        }
+      });
+
+      // Strategy 2: h2/h3 containing sign name as id or class attribute
+      if (signHeading.length === 0) {
+        $('h2, h3').each((_, el) => {
+          const id = $(el).attr('id') || '';
+          const cls = $(el).attr('class') || '';
+          if (id.toLowerCase() === signId || cls.toLowerCase().includes(signId)) {
+            signHeading = $(el);
+            console.log(`Cosmopolitan - Strategy 2: found heading with id/class for ${signId}`);
+            return false;
+          }
+        });
+      }
+
+      if (signHeading.length > 0) {
+        let extractedContent = '';
+        let pCount = 0;
+
+        const addParagraph = (el: any) => {
+          const text = $(el).text().trim();
+          const lower = text.toLowerCase();
+          if (text.length < 20) return;
+          if (/^(leggi anche|pubblicità|advertisement|condividi|scopri|continua)/i.test(lower)) return;
+          extractedContent += text + '\n\n';
+          pCount++;
+        };
+
+        let current = signHeading.next();
+        while (current.length > 0) {
+          const tag = (current.prop('tagName') as string || '').toUpperCase();
+          if (['H2', 'H3'].includes(tag)) {
+            const headingText = current.text().trim().toLowerCase();
+            if (zodiacSigns.some(s => headingText === s)) break;
+          }
+          if (tag === 'P') addParagraph(current[0]);
+          else if (['DIV', 'SECTION', 'ARTICLE'].includes(tag)) {
+            current.find('p').each((_, p) => addParagraph(p));
+          }
+          current = current.next();
+        }
+
+        if (extractedContent.trim().length > 50) {
+          console.log(`Cosmopolitan - Extracted ${pCount} paragraphs for ${signId}`);
+          return { success: true, text: extractedContent.trim().substring(0, 3500), url };
+        }
+      }
+
+      // Fallback: body text search between sign sections
+      console.log(`Cosmopolitan - Heading strategy failed, trying body text search`);
+      const bodyText = ($('body').length > 0 ? $('body') : $('html')).text();
+      const signIdx = bodyText.toLowerCase().indexOf(signId);
+      if (signIdx !== -1) {
+        let nextIdx = bodyText.length;
+        for (const s of zodiacSigns) {
+          if (s === signId) continue;
+          const i = bodyText.toLowerCase().indexOf(s, signIdx + signId.length);
+          if (i !== -1 && i < nextIdx) nextIdx = i;
+        }
+        const snippet = bodyText.substring(signIdx, nextIdx).trim();
+        if (snippet.length > 100) {
+          console.log(`Cosmopolitan - Body text fallback: ${snippet.length} chars`);
+          return { success: true, text: snippet.substring(0, 3500), url };
+        }
+      }
+
+      console.log(`Cosmopolitan - All extraction strategies failed for ${input.signSlugIt}`);
+      return { success: false, error: `Could not extract content for ${input.signSlugIt} from Cosmopolitan page` };
+    }
 
     // Special handling for Marie Claire - single page with all signs
     if (url.includes('marieclaire.it')) {
