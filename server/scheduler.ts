@@ -10,7 +10,7 @@ import {
   getFailedWeeklySources,
   type SourceGroup 
 } from './services/weeklyScraperOrchestrator';
-import { getCurrentWeekStart } from './utils/weekUtils';
+import { getCurrentWeekStart, getNextWeekStart } from './utils/weekUtils';
 
 // ============================================================================
 // HELPER FUNCTIONS - DAILY SCRAPER
@@ -581,6 +581,82 @@ async function executeSaturdayWeeklyScraper() {
 }
 
 // ============================================================================
+// SUNDAY WEEKLY SCRAPER (SuperGuida TV / Branko)
+// ============================================================================
+
+async function executeSundayWeeklyScraper() {
+  console.log('\n========== [SundayWeekly] Cron Triggered ==========');
+
+  try {
+    // CRITICAL: on Sunday we store content under NEXT Monday's week,
+    // because the article covers the upcoming Mon-Sun period.
+    const weekStart = getNextWeekStart();
+    const now = new Date();
+    const italyTime = now.toLocaleString('it-IT', {
+      timeZone: 'Europe/Rome',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+
+    console.log(`[SundayWeekly] Current time (Italy): ${italyTime}`);
+    console.log(`[SundayWeekly] Target week (next Monday): ${weekStart.toISOString().split('T')[0]}`);
+
+    // Guard 1: Check enabled flag
+    const config = await getWeeklyScraperConfig();
+    if (!config.enabled) {
+      console.log('[SundayWeekly] ⊘ Skipped - Weekly scraping is disabled in configuration');
+      console.log('=====================================================\n');
+      return;
+    }
+    console.log('[SundayWeekly] ✓ Weekly config check passed');
+
+    // Guard 2: Sanity check - is it actually Sunday?
+    const italyNow = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Rome' }));
+    if (italyNow.getDay() !== 0) {
+      console.log('[SundayWeekly] ⊘ Skipped - Not Sunday in Italy timezone');
+      console.log('=====================================================\n');
+      return;
+    }
+    console.log('[SundayWeekly] ✓ Day check passed - It is Sunday');
+
+    // Guard 3: Check if sunday_group update already ran for next week
+    if (await hasCompletedGroupScrapeForWeek(weekStart, 'sunday_group')) {
+      console.log('[SundayWeekly] ⊘ Skipped - Sunday update already completed for this week');
+      console.log('=====================================================\n');
+      return;
+    }
+    console.log('[SundayWeekly] ✓ No sunday_group run yet for next week');
+
+    // Guard 4: No Monday prerequisite (Sunday runs before Monday)
+
+    const sundaySourceIds = await getWeeklySourceIdsByDomain(['superguidatv.it']);
+    if (sundaySourceIds.length === 0) {
+      console.log('[SundayWeekly] ⊘ Skipped - No Sunday sources found (superguidatv.it not active)');
+      console.log('=====================================================\n');
+      return;
+    }
+
+    console.log(`[SundayWeekly] → Starting weekly orchestrator (${sundaySourceIds.length} Sunday source(s))...`);
+    const result = await runWeeklyScraperCycle({
+      weekStart,
+      specificSources: sundaySourceIds,
+      sourceGroup: 'sunday_group',
+      forceRescrape: false,
+      triggerType: 'scheduled'
+    });
+
+    console.log('[SundayWeekly] ✓ Orchestrator completed successfully');
+    console.log(`[SundayWeekly] Results: ${result.stats.enqueued} enqueued, ${result.stats.skipped} skipped, ${result.stats.failed} failed`);
+    console.log('=====================================================\n');
+
+  } catch (error) {
+    console.error('[SundayWeekly] ✗ Error:', error);
+    console.log('=====================================================\n');
+  }
+}
+
+// ============================================================================
 // WEEKLY FALLBACK RETRY SYSTEM
 // ============================================================================
 
@@ -717,6 +793,15 @@ export async function initializeScheduledTasks() {
   cron.schedule('0 12 * * 6', executeSaturdayWeeklyScraper, {
     timezone: 'Europe/Rome'
   });
+
+  // ============================================================================
+  // SUNDAY WEEKLY SCRAPER (SuperGuida TV / Branko)
+  // Runs at 18:00 on Sundays — article is live by early afternoon
+  // Stores content under NEXT Monday's week key
+  // ============================================================================
+  cron.schedule('0 18 * * 0', executeSundayWeeklyScraper, {
+    timezone: 'Europe/Rome'
+  });
   
   // ============================================================================
   // WEEKLY FALLBACK RETRY
@@ -757,6 +842,7 @@ export async function initializeScheduledTasks() {
   console.log(`  - Monday Weekly: Every 20 min on Mondays (5:30-8:00 AM) ${weeklyConfig.enabled ? '✓' : '✗'}`);
   console.log(`  - Thursday Weekly: Thursdays at 12:00 PM (Elle.com update) ${weeklyConfig.enabled ? '✓' : '✗'}`);
   console.log(`  - Saturday Weekly: Saturdays at 12:00 PM (3 sources update) ${weeklyConfig.enabled ? '✓' : '✗'}`);
+  console.log(`  - Sunday Weekly: Sundays at 18:00 (SuperGuida TV / Branko) ${weeklyConfig.enabled ? '✓' : '✗'}`);
   console.log('  - Weekly Fallback: Mondays at 9:00 AM (retry failed sources)');
   console.log('  - Cleanup: Daily at 3 AM (31-day interval)');
   if (lastCleanup) {

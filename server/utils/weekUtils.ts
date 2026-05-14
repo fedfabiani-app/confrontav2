@@ -14,16 +14,19 @@ const TIMEZONE = 'Europe/Rome';
  * Extensible: add more days or sources as needed
  */
 const SOURCE_SCHEDULE = {
+  // Sunday sources (publish Sunday, stored under next Monday's week)
+  sunday: ['superguidatv'] as const,
+
   // Thursday sources
   thursday: ['elle'] as const,
-  
-  // Saturday sources  
+
+  // Saturday sources
   saturday: ['d-repubblica', 'iodonna', 'sorrisi'] as const,
-  
+
   // All other sources scrape on Monday (default)
 };
 
-export type SourceGroup = 'all' | 'elle_only' | 'saturday_group';
+export type SourceGroup = 'all' | 'elle_only' | 'saturday_group' | 'sunday_group';
 
 /**
  * Get current date/time in Europe/Rome timezone
@@ -134,20 +137,20 @@ export function isSameWeek(date1: Date, date2: Date): boolean {
  * @returns Source group classification
  */
 export function getSourceGroup(sourceSlug: string): SourceGroup {
-  // Normalize slug for comparison
   const normalizedSlug = sourceSlug.toLowerCase();
-  
-  // Check Thursday sources
+
+  if (SOURCE_SCHEDULE.sunday.some(slug => normalizedSlug.includes(slug))) {
+    return 'sunday_group';
+  }
+
   if (SOURCE_SCHEDULE.thursday.some(slug => normalizedSlug.includes(slug))) {
     return 'elle_only';
   }
-  
-  // Check Saturday sources
+
   if (SOURCE_SCHEDULE.saturday.some(slug => normalizedSlug.includes(slug))) {
     return 'saturday_group';
   }
-  
-  // Default: all sources (Monday scrape)
+
   return 'all';
 }
 
@@ -161,26 +164,26 @@ export function getSourceGroup(sourceSlug: string): SourceGroup {
 export function shouldSourceBeScrapedToday(sourceSlug: string): boolean {
   const now = getNowInRome();
   const dayOfWeek = now.getDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
-  
+
   const sourceGroup = getSourceGroup(sourceSlug);
-  
-  // Monday (1): All sources should be scraped
-  if (dayOfWeek === 1) {
-    return true;
-  }
-  
-  // Thursday (4): Only elle.com
-  if (dayOfWeek === 4) {
-    return sourceGroup === 'elle_only';
-  }
-  
-  // Saturday (6): Only saturday_group sources
-  if (dayOfWeek === 6) {
-    return sourceGroup === 'saturday_group';
-  }
-  
-  // Any other day: no sources should be scraped
+
+  if (dayOfWeek === 0) return sourceGroup === 'sunday_group';
+  if (dayOfWeek === 1) return true;
+  if (dayOfWeek === 4) return sourceGroup === 'elle_only';
+  if (dayOfWeek === 6) return sourceGroup === 'saturday_group';
+
   return false;
+}
+
+/**
+ * Get the Monday of the NEXT ISO week (used by Sunday scrapers to store
+ * content under the correct upcoming week key)
+ */
+export function getNextWeekStart(): Date {
+  const now = getNowInRome();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(now.getDate() + 1);
+  return getMondayOfWeek(tomorrow);
 }
 
 /**

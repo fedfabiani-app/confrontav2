@@ -9,7 +9,7 @@ import {
   formatWeekUrlParams
 } from '../utils/weekUtils';
 
-export type SourceGroup = 'all' | 'elle_only' | 'saturday_group';
+export type SourceGroup = 'all' | 'elle_only' | 'saturday_group' | 'sunday_group';
 
 export interface WeeklyScraperOptions {
   weekStart?: Date;
