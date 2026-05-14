@@ -1584,6 +1584,60 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
       return { success: false, error: `Could not extract content for ${input.signSlugIt} from Cosmopolitan page` };
     }
 
+    // Special handling for alFemminile - single article with all signs separated by <h2><b>SIGN: oroscopo settimanale</b></h2>
+    if (url.includes('alfemminile.com')) {
+      console.log(`alFemminile - Extracting content for ${input.signSlugIt} from URL: ${url}`);
+
+      const signId = (SIGN_MAP[input.signSlugIt] || input.signSlugIt).toLowerCase();
+      const zodiacSigns = ['ariete', 'toro', 'gemelli', 'cancro', 'leone', 'vergine',
+                           'bilancia', 'scorpione', 'sagittario', 'capricorno', 'acquario', 'pesci'];
+
+      // Find <h2> whose text starts with SIGNNAME: (case-insensitive)
+      let signHeading = $();
+      $('h2').each((_, el) => {
+        const text = $(el).text().trim().toLowerCase();
+        // Matches "ariete: oroscopo settimanale" or "ariete:" at start
+        if (text.startsWith(signId + ':')) {
+          signHeading = $(el);
+          console.log(`alFemminile - Found H2: "${$(el).text().trim()}"`);
+          return false;
+        }
+      });
+
+      if (signHeading.length > 0) {
+        let extractedContent = '';
+
+        let current = signHeading.next();
+        while (current.length > 0) {
+          const tag = (current.prop('tagName') as string || '').toUpperCase();
+          // Stop at the next sign's <h2>
+          if (tag === 'H2') {
+            const headingText = current.text().trim().toLowerCase();
+            if (zodiacSigns.some(s => headingText.startsWith(s + ':'))) break;
+          }
+          // Skip <ul> (star ratings block)
+          if (tag === 'P') {
+            const text = current.text().trim();
+            if (text.length >= 20) extractedContent += text + '\n\n';
+          } else if (['DIV', 'SECTION', 'ARTICLE'].includes(tag)) {
+            current.find('p').each((_, p) => {
+              const text = $(p).text().trim();
+              if (text.length >= 20) extractedContent += text + '\n\n';
+            });
+          }
+          current = current.next();
+        }
+
+        if (extractedContent.trim().length > 50) {
+          console.log(`alFemminile - Extracted content for ${signId}`);
+          return { success: true, text: extractedContent.trim().substring(0, 3500), url };
+        }
+      }
+
+      console.log(`alFemminile - Could not find heading for ${signId}`);
+      return { success: false, error: `Could not extract content for ${input.signSlugIt} from alFemminile page` };
+    }
+
     // Special handling for Marie Claire - single page with all signs
     if (url.includes('marieclaire.it')) {
       console.log(`Marie Claire - Extracting content for ${input.signSlugIt} from URL: ${url}`);
