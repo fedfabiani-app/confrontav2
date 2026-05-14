@@ -1507,6 +1507,8 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
             console.log(`Marie Claire - __NEXT_DATA__ pageProps keys: ${Object.keys(pageProps).join(', ')}`);
           }
           const candidateBodies = [
+            pageProps?.bodyDom,
+            pageProps?.introductoryTextDom,
             pageProps?.article?.body,
             pageProps?.data?.body,
             pageProps?.post?.body,
