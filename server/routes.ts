@@ -1733,6 +1733,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // POST /api/compatibility
+  app.post("/api/compatibility", async (req, res) => {
+    const clerkId = req.headers['x-clerk-user-id'] as string;
+    if (!clerkId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { sign1, sign2 } = req.body;
+    if (!sign1 || !sign2) return res.status(400).json({ error: 'Both signs required' });
+
+    try {
+      const today = new Date().toISOString().split('T')[0];
+
+      const [horo1, horo2] = await Promise.all([
+        prisma.horoscopeData.findMany({
+          where: { zodiac_sign: { name_english: sign1 }, date: new Date(today) },
+          select: { summary: true, source: { select: { name: true } } }
+        }),
+        prisma.horoscopeData.findMany({
+          where: { zodiac_sign: { name_english: sign2 }, date: new Date(today) },
+          select: { summary: true, source: { select: { name: true } } }
+        })
+      ]);
+
+      if (horo1.length === 0 || horo2.length === 0) {
+        return res.status(404).json({ error: 'Horoscope data not available for one or both signs' });
+      }
+
+      const { Anthropic } = await import('@anthropic-ai/sdk');
+      const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+      const compatibility = await client.messages.create({
+        model: 'claude-opus-4-6',
+        max_tokens: 500,
+        messages: [{
+          role: 'user',
+          content: `Analizza la compatibilità astrologica tra ${sign1} e ${sign2} basandoti su questi oroscopi di oggi:\n\n${sign1}:\n${horo1.map(h => h.summary).join('\n')}\n\n${sign2}:\n${horo2.map(h => h.summary).join('\n')}\n\nDa una valutazione da 1-10 e spiega perché.`
+        }]
+      });
+
+      const analysisText = compatibility.content[0].type === 'text' ? compatibility.content[0].text : '';
+
+      return res.json({
+        sign1,
+        sign2,
+        analysis: analysisText,
+        date: today
+      });
+    } catch (error) {
+      console.error('[Compatibility] Error:', error);
+      return res.status(500).json({ error: 'Failed to analyze compatibility' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
