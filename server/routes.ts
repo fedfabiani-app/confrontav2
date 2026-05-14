@@ -1733,6 +1733,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // POST /api/stripe/checkout
+  app.post("/api/stripe/checkout", async (req, res) => {
+    const clerkId = req.headers['x-clerk-user-id'] as string;
+    if (!clerkId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { priceId } = req.body;
+    if (!priceId) return res.status(400).json({ error: 'Price ID required' });
+
+    try {
+      const session = await getStripe().checkout.sessions.create({
+        mode: 'subscription',
+        payment_method_types: ['card'],
+        line_items: [{ price: priceId, quantity: 1 }],
+        success_url: `${req.headers.origin}/`,
+        cancel_url: `${req.headers.origin}/pricing`,
+        customer_email: (await prisma.user.findUnique({ where: { clerkId } }))?.email || undefined,
+        metadata: { clerkId }
+      });
+
+      return res.json({ sessionId: session.id, url: session.url });
+    } catch (error) {
+      console.error('[Stripe Checkout] Error:', error);
+      return res.status(500).json({ error: 'Failed to create checkout session' });
+    }
+  });
+
   // POST /api/compatibility
   app.post("/api/compatibility", async (req, res) => {
     const clerkId = req.headers['x-clerk-user-id'] as string;

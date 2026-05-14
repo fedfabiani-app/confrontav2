@@ -2,6 +2,7 @@ import { useLocation } from 'wouter';
 import { ArrowLeft, Check } from 'lucide-react';
 import { AppHeader } from '@/components/AppHeader';
 import { useAccess } from '../hooks/use-access';
+import { useToast } from '@/hooks/use-toast';
 
 const FREE_FEATURES = [
   'Tutti i 12 segni',
@@ -28,6 +29,22 @@ const CARD_PREMIUM = `${CARD_BASE}`;
 export default function Pricing() {
   const [, navigate] = useLocation();
   const { userTier } = useAccess();
+  const { toast } = useToast();
+
+  const handleCheckout = async (priceId: string) => {
+    try {
+      const response = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priceId })
+      });
+      const { url } = await response.json();
+      if (url) window.location.href = url;
+    } catch (error) {
+      console.error('Checkout error:', error);
+      toast({ title: 'Errore', description: 'Impossibile avviare il pagamento' });
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -118,13 +135,22 @@ export default function Pricing() {
               ))}
             </ul>
 
-            <button
-              onClick={() => { /* TODO: Stripe checkout */ }}
-              className="w-full py-2.5 rounded-xl text-sm font-semibold"
-              style={{ background: '#E1B64E', color: '#1a1a1a' }}
-            >
-              Passa a Premium
-            </button>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => handleCheckout('price_1TX0IzLi2fBiRYknuJxfS0Pi')}
+                className="w-full py-2.5 rounded-xl text-sm font-semibold"
+                style={{ background: '#E1B64E', color: '#1a1a1a' }}
+              >
+                Passa a Premium — €2,99/mese
+              </button>
+              <button
+                onClick={() => handleCheckout('price_1TX0IyLi2fBiRYknTy3zbGVF')}
+                className="w-full py-2.5 rounded-xl text-sm font-semibold text-white/80"
+                style={{ border: '1px solid #E1B64E', background: 'transparent' }}
+              >
+                Annuale — €19,99/anno
+              </button>
+            </div>
           </div>
 
         </div>
