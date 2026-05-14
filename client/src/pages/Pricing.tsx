@@ -3,6 +3,7 @@ import { ArrowLeft, Check } from 'lucide-react';
 import { AppHeader } from '@/components/AppHeader';
 import { useAccess } from '../hooks/use-access';
 import { useToast } from '@/hooks/use-toast';
+import { useUser } from '@clerk/clerk-react';
 
 const FREE_FEATURES = [
   'Tutti i 12 segni',
@@ -30,12 +31,16 @@ export default function Pricing() {
   const [, navigate] = useLocation();
   const { userTier } = useAccess();
   const { toast } = useToast();
+  const { user } = useUser();
 
   const handleCheckout = async (priceId: string) => {
     try {
       const response = await fetch('/api/stripe/checkout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-clerk-user-id': user?.id || ''
+        },
         body: JSON.stringify({ priceId })
       });
       const { url } = await response.json();
