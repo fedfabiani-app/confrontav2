@@ -1279,14 +1279,20 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
       }
 
       // Italian elision: "dal 1/8/11" → "dall 1/8/11" (vowel-starting numbers)
-      // Sites like SuperGuidaTV, alFemminile, Simon use "dall-11" not "dal-11" in their slugs.
       const startDayInt = parseInt(startDayNumber, 10);
       if (startDayInt === 1 || startDayInt === 8 || startDayInt === 11) {
         url = url.replace(/-dal-(\d+)/g, '-dall-$1');
+        // Simon and the Stars uses compact form: dall11 (no hyphen after dall)
+        if (input.domain.includes('simonandthestars')) {
+          url = url.replace(/-dall-(\d+)/g, '-dall$1');
+        }
       }
       const endDayInt = parseInt(endDayNumber, 10);
       if (endDayInt === 1 || endDayInt === 8 || endDayInt === 11) {
         url = url.replace(/-al-(\d+)/g, '-all-$1');
+        if (input.domain.includes('simonandthestars')) {
+          url = url.replace(/-all-(\d+)/g, '-all$1');
+        }
       }
 
       // Validate URL format

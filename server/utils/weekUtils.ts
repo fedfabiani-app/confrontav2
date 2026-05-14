@@ -209,9 +209,10 @@ export function getSaturdayOfWeek(date: Date): Date {
  * @returns Object with formatted date components for URL construction
  */
 export function formatWeekUrlParams(
-  weekStartDate: Date, 
-  isSaturdayBased: boolean = false, 
-  useNumericMonth: boolean = false
+  weekStartDate: Date,
+  isSaturdayBased: boolean = false,
+  useNumericMonth: boolean = false,
+  isThursdayBased: boolean = false
 ): {
   startDay: string;
   endDay: string;
@@ -223,10 +224,17 @@ export function formatWeekUrlParams(
     'gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno',
     'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'
   ];
-  
+
   let start: Date, end: Date;
-  
-  if (isSaturdayBased) {
+
+  if (isThursdayBased) {
+    // Thursday-to-Wednesday weeks (e.g. SuperGuida TV / Branko)
+    // From the Monday weekStartDate, go back 4 days to get the previous Thursday
+    start = new Date(weekStartDate);
+    start.setDate(weekStartDate.getDate() - 4);
+    end = new Date(start);
+    end.setDate(start.getDate() + 6); // Wednesday
+  } else if (isSaturdayBased) {
     // Some sources (Repubblica, Sorrisi) use Saturday-Friday weeks
     start = getSaturdayOfWeek(weekStartDate);
     end = new Date(start);
