@@ -1653,12 +1653,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       switch (event.type) {
         case 'customer.subscription.created':
-        case 'checkout.session.completed':
           if (clerkId) {
             await prisma.user.update({ where: { clerkId }, data: { tier: 'premium' } });
             console.log(`[Stripe] Upgraded user ${clerkId} to premium`);
           }
           break;
+
+        case 'checkout.session.completed': {
+          const session = event.data.object as Stripe.Checkout.Session;
+          const sessionClerkId = session.metadata?.clerkId;
+          if (sessionClerkId) {
+            await prisma.user.update({
+              where: { clerkId: sessionClerkId },
+              data: {
+                tier: 'premium',
+                stripe_customer_id: session.customer as string
+              }
+            });
+            console.log(`[Stripe] Upgraded user ${sessionClerkId} to premium, customer: ${session.customer}`);
+          }
+          break;
+        }
 
         case 'customer.subscription.deleted':
           if (clerkId) {
