@@ -1748,6 +1748,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // POST /api/stripe/portal
+  app.post("/api/stripe/portal", async (req, res) => {
+    const clerkId = req.headers['x-clerk-user-id'] as string;
+    if (!clerkId) return res.status(401).json({ error: 'Unauthorized' });
+
+    try {
+      const user = await prisma.user.findUnique({ where: { clerkId } });
+      if (!user) return res.status(404).json({ error: 'User not found' });
+      if (!user.stripe_customer_id) return res.status(400).json({ error: 'No Stripe customer found' });
+
+      const session = await getStripe().billingPortal.sessions.create({
+        customer: user.stripe_customer_id,
+        return_url: `${req.headers.origin}/account`
+      });
+
+      return res.json({ portalUrl: session.url });
+    } catch (error) {
+      console.error('[Stripe Portal] Error:', error);
+      return res.status(500).json({ error: 'Failed to create portal session' });
+    }
+  });
+
   // POST /api/stripe/checkout
   app.post("/api/stripe/checkout", async (req, res) => {
     const clerkId = req.headers['x-clerk-user-id'] as string;
