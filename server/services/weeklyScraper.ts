@@ -1496,6 +1496,71 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
         console.log(`  H2[${i}]: id="${id || 'none'}" class="${classes || 'none'}" text="${text}"`);
       });
 
+      // Strategy 0: Extract from Next.js __NEXT_DATA__ JSON (paragraphs may not be in SSR HTML)
+      const nextDataScript = $('script#__NEXT_DATA__').first();
+      if (nextDataScript.length > 0) {
+        try {
+          const nextData = JSON.parse(nextDataScript.html() || '{}');
+          const pageProps = nextData?.props?.pageProps;
+          if (pageProps) {
+            console.log(`Marie Claire - __NEXT_DATA__ pageProps keys: ${Object.keys(pageProps).join(', ')}`);
+          }
+          const candidateBodies = [
+            pageProps?.article?.body,
+            pageProps?.data?.body,
+            pageProps?.post?.body,
+            pageProps?.content,
+          ].filter((v): v is string => typeof v === 'string' && v.length > 100);
+
+          for (const bodyHtml of candidateBodies) {
+            const $inner = cheerio.load(bodyHtml);
+            let innerContent = '';
+            let innerPCount = 0;
+            let foundHeading = false;
+
+            $inner('h2').each((_, h2) => {
+              if (foundHeading) return;
+              const text = $inner(h2).text().trim().toLowerCase();
+              if (text !== input.signSlugIt.toLowerCase()) return;
+
+              console.log(`Marie Claire - Strategy 0 SUCCESS: Found in __NEXT_DATA__ H2 "${$inner(h2).text().trim()}"`);
+              foundHeading = true;
+
+              let current = $inner(h2).next();
+              while (current.length > 0) {
+                const tag = (current.prop('tagName') as string || '').toUpperCase();
+                if (tag === 'H2') break;
+                if (tag === 'P') {
+                  const t = current.text().trim();
+                  if (t.length > 20) { innerContent += t + '\n\n'; innerPCount++; }
+                } else if (['DIV', 'SECTION', 'ARTICLE'].includes(tag)) {
+                  current.find('p').each((_, p) => {
+                    const t = $inner(p).text().trim();
+                    if (t.length > 20) { innerContent += t + '\n\n'; innerPCount++; }
+                  });
+                }
+                current = current.next();
+              }
+            });
+
+            if (innerContent.trim().length > 50) {
+              console.log(`Marie Claire - Strategy 0: extracted ${innerPCount} paragraphs`);
+              return { success: true, text: innerContent.trim().substring(0, 3500), url };
+            }
+          }
+
+          if (candidateBodies.length === 0) {
+            console.log(`Marie Claire - Strategy 0: no body paths found in __NEXT_DATA__`);
+          } else {
+            console.log(`Marie Claire - Strategy 0: sign not found in __NEXT_DATA__ body`);
+          }
+        } catch (e) {
+          console.log(`Marie Claire - Strategy 0 failed: ${e}`);
+        }
+      } else {
+        console.log(`Marie Claire - Strategy 0: no __NEXT_DATA__ script found`);
+      }
+
       let signHeading = $();
       let extractedContent = '';
 

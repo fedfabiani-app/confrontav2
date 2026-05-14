@@ -1,11 +1,12 @@
 import { prisma } from './database';
 import { enqueueWeeklyScrapeJob } from '../jobs';
 import { WeeklyScraperInput } from '@shared/schema';
-import { 
-  getCurrentWeekStart, 
-  getMondayOfWeek, 
+import { format } from 'date-fns';
+import {
+  getCurrentWeekStart,
+  getMondayOfWeek,
   getSourceGroup,
-  formatWeekUrlParams 
+  formatWeekUrlParams
 } from '../utils/weekUtils';
 
 export type SourceGroup = 'all' | 'elle_only' | 'saturday_group';
@@ -98,7 +99,7 @@ function createWeeklyScraperInput(source: any, zodiacSign: any, weekStart: Date)
     urlPattern: source.url_pattern,
     scrapeStrategy: source.scrape_strategy,
     signSlugIt: zodiacSign.name_italian,
-    weekStartDate: weekStart.toISOString().split('T')[0], // ISO format YYYY-MM-DD
+    weekStartDate: format(weekStart, 'yyyy-MM-dd'),
     startDay,
     endDay,
     month,
@@ -236,7 +237,7 @@ export async function runWeeklyScraperCycle(
   const sourceGroup = options.sourceGroup || 'all';
   
   console.log('\n========== [Weekly Scraper Orchestrator] Starting ==========');
-  console.log(`[Weekly Orchestrator] Target week: ${weekStart.toISOString().split('T')[0]}`);
+  console.log(`[Weekly Orchestrator] Target week: ${format(weekStart, 'yyyy-MM-dd')}`);
   console.log(`[Weekly Orchestrator] Source group: ${sourceGroup}`);
   console.log(`[Weekly Orchestrator] Force rescrape: ${options.forceRescrape || false}`);
   console.log(`[Weekly Orchestrator] Specific sources: ${options.specificSources || 'all'}`);
