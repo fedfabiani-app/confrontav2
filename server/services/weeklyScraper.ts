@@ -1543,13 +1543,33 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
 
       // If we found a heading, extract content
       if (signHeading.length > 0) {
-        let currentElement = signHeading.next();
         let paragraphCount = 0;
 
-        while (currentElement.length > 0) {
-          const tagName = currentElement.prop('tagName');
+        const extractParagraph = (p: any) => {
+          const text = $(p).text().trim();
+          const textLower = text.toLowerCase();
+          const isNoise = textLower.startsWith('leggi anche') ||
+                         textLower.startsWith('advertisement') ||
+                         textLower.startsWith('pubblicità') ||
+                         textLower.startsWith('scopri') ||
+                         textLower.startsWith('continua') ||
+                         textLower.startsWith('condividi') ||
+                         textLower.includes('pubblicità - continua') ||
+                         /^la tip karmica/i.test(textLower) ||
+                         /^\[.*\]$/.test(textLower) ||
+                         text.length < 20;
+          if (!isNoise) {
+            extractedContent += text + '\n\n';
+            paragraphCount++;
+          }
+        };
 
-          // Stop at next zodiac sign heading
+        // Walk siblings of the sign H2; also descend into div/section wrappers
+        // (handles both flat: H2,P,P,H2 and wrapped: H2,<div><P></div>,H2 structures)
+        let currentElement = signHeading.next();
+        while (currentElement.length > 0) {
+          const tagName = (currentElement.prop('tagName') as string || '').toUpperCase();
+
           if (tagName === 'H2' || tagName === 'H3') {
             const headingText = currentElement.text().trim().toLowerCase();
             if (zodiacSigns.some(sign => headingText === sign || headingText.includes(sign))) {
@@ -1558,27 +1578,11 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
             }
           }
 
-          // Extract paragraph content
-          if (currentElement.is('p')) {
-            const text = currentElement.text().trim();
-            const textLower = text.toLowerCase();
-
-            // Enhanced filtering
-            const isNoise = textLower.startsWith('leggi anche') ||
-                           textLower.startsWith('advertisement') ||
-                           textLower.startsWith('pubblicità') ||
-                           textLower.startsWith('scopri') ||
-                           textLower.startsWith('continua') ||
-                           textLower.startsWith('condividi') ||
-                           textLower.includes('pubblicità - continua') ||
-                           textLower.match(/^la tip karmica/i) ||
-                           textLower.match(/^\[.*\]$/) ||
-                           text.length < 20;
-
-            if (!isNoise) {
-              extractedContent += text + '\n\n';
-              paragraphCount++;
-            }
+          if (tagName === 'P') {
+            extractParagraph(currentElement[0]);
+          } else if (['DIV', 'SECTION', 'ARTICLE'].includes(tagName)) {
+            // Descend into wrapper elements to find nested <p>
+            currentElement.find('p').each((_, p) => extractParagraph(p));
           }
 
           currentElement = currentElement.next();
@@ -1586,7 +1590,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
 
         if (extractedContent.trim().length > 50) {
           console.log(`Marie Claire - ✓ Extracted ${paragraphCount} paragraphs, ${extractedContent.length} chars`);
-          console.log(`Marie Claire - ✓ Returning URL: ${url}`);
           return {
             success: true,
             text: extractedContent.trim().substring(0, 3500),
@@ -1598,7 +1601,8 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
       // Advanced fallback: DOM traversal with context awareness
       console.log(`Marie Claire - Trying advanced DOM analysis...`);
 
-      const allText = $('body').text();
+      // Use $.root() text as fallback in case <body> is absent in SSR/Next.js HTML
+      const allText = ($('body').length > 0 ? $('body') : $('html')).text();
       const signRegex = new RegExp(`\\b${input.signSlugIt}\\b`, 'gi');
       const matches = Array.from(allText.matchAll(signRegex));
 
