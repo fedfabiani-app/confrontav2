@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useHomeFavorites } from "@/hooks/use-favorites";
 import { useAccess } from "@/hooks/use-access";
 import { UpgradeBanner } from "@/components/UpgradeBanner";
+import { PremiumGateOverlay } from "@/components/PremiumGateOverlay";
 import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import iconImage from "@assets/icon.png";
@@ -67,7 +68,8 @@ export default function Home() {
   const { homeFavorites, isHomeFavorite, toggleHomeFavorite, hasFavorites } =
     useHomeFavorites();
 
-  const { canAccessDate } = useAccess();
+  const { canAccessDate, canAccessDateWithOverlay } = useAccess();
+  const [premiumOverlay, setPremiumOverlay] = useState<{ date: string } | null>(null);
 
   // Get date string for API calls using local date (avoid timezone issues)
   const selectedDateString = selectedDate.toLocaleDateString("en-CA"); // YYYY-MM-DD format in local timezone
@@ -211,18 +213,21 @@ export default function Home() {
   };
 
   const handleDateSelect = (date: Date | undefined) => {
-    if (date) {
+    if (!date) return;
+    const access = canAccessDateWithOverlay(date);
+    if (access.canAccess) {
       setSelectedDate(date);
       setCalendarOpen(false);
-      
-      // Update URL with selected date
       const dateParam = date.toLocaleDateString('en-CA');
       navigate(`/?date=${dateParam}`, { replace: true });
-      
-      // Invalidate queries to fetch new data for selected date
-      queryClient.invalidateQueries({
-        queryKey: ["/api/horoscopes/aggregates"],
+      queryClient.invalidateQueries({ queryKey: ["/api/horoscopes/aggregates"] });
+    } else if (access.showOverlay) {
+      setCalendarOpen(false);
+      setPremiumOverlay({
+        date: date.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' }),
       });
+    } else {
+      setCalendarOpen(false);
     }
   };
 
@@ -300,7 +305,11 @@ export default function Home() {
                   mode="single"
                   selected={selectedDate}
                   onSelect={handleDateSelect}
-                  disabled={(date) => date < earliestStart || date > todayStart || !canAccessDate(date)}
+                  disabled={(date) => {
+                    const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+                    const diffDays = Math.round((todayStart.getTime() - d.getTime()) / 86_400_000);
+                    return date > todayStart || diffDays > 29;
+                  }}
                   toDate={todayStart}
                   defaultMonth={selectedDate}
                   className="border-0"
@@ -420,6 +429,14 @@ export default function Home() {
 
       {/* Bottom spacing for mobile navigation */}
       <div className="h-5 md:h-0"></div>
+
+      {premiumOverlay && (
+        <PremiumGateOverlay
+          type="daily"
+          date={premiumOverlay.date}
+          onClose={() => setPremiumOverlay(null)}
+        />
+      )}
     </div>
   );
 }

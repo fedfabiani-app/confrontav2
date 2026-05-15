@@ -25,6 +25,7 @@ import { useFavorites } from "@/hooks/use-favorites";
 import { apiRequest } from "@/lib/queryClient";
 import { ZODIAC_SIGNS_EN_IT } from "@shared/constants";
 import { useAccess } from '../hooks/use-access';
+import { PremiumGateOverlay } from '@/components/PremiumGateOverlay';
 import { WeekNavigator } from '@/components/WeekNavigator';
 import { CompatibilityWidget } from '@/components/CompatibilityWidget';
 import { UpgradeBanner } from '@/components/UpgradeBanner';
@@ -198,7 +199,8 @@ function SignDetail({ sign }: SignDetailProps) {
   // Daily/Weekly view state
   const [viewType, setViewType] = useState<"daily" | "weekly">("daily");
   const [weekOffset, setWeekOffset] = useState(0);
-  const { canAccessDate, canAccessWeeksBack, maxWeeksBack } = useAccess();
+  const { canAccessDateWithOverlay, canAccessWeekWithOverlay } = useAccess();
+  const [premiumOverlay, setPremiumOverlay] = useState<{ type: 'daily' | 'weekly'; date: string } | null>(null);
 
   // Initialize date from URL parameter or use today
   const getInitialDate = (): Date => {
@@ -318,22 +320,38 @@ function SignDetail({ sign }: SignDetailProps) {
   };
 
   const handleDateSelect = (date: Date | undefined) => {
-    if (date) {
+    if (!date) return;
+    const access = canAccessDateWithOverlay(date);
+    if (access.canAccess) {
       setSelectedDate(date);
       setCalendarOpen(false);
-
-      // Update URL with selected date
       const dateParam = date.toLocaleDateString('en-CA');
       navigate(`/sign/${sign}?date=${dateParam}`, { replace: true });
+      queryClient.invalidateQueries({ queryKey: ["/api/horoscopes", today, sign] });
+      queryClient.invalidateQueries({ queryKey: ["/api/horoscopes/aggregate", today, sign] });
+    } else if (access.showOverlay) {
+      setCalendarOpen(false);
+      setPremiumOverlay({
+        type: 'daily',
+        date: date.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' }),
+      });
+    } else {
+      setCalendarOpen(false);
+    }
+  };
 
-      // Invalidate queries to fetch new data for selected date
-      if (viewType === "daily") {
-        queryClient.invalidateQueries({ queryKey: ["/api/horoscopes", today, sign] });
-        queryClient.invalidateQueries({ queryKey: ["/api/horoscopes/aggregate", today, sign] });
-      } else {
-        queryClient.invalidateQueries({ queryKey: ["/api/weekly-horoscopes", weekStartDate, sign] });
-        queryClient.invalidateQueries({ queryKey: ["/api/weekly-horoscopes/aggregate", weekStartDate, sign] });
-      }
+  const handleWeekOffsetChange = (n: number) => {
+    const access = canAccessWeekWithOverlay(n);
+    if (access.canAccess) {
+      setWeekOffset(n);
+    } else if (access.showOverlay) {
+      const monday = new Date();
+      const day = monday.getDay();
+      monday.setDate(monday.getDate() - (day === 0 ? 6 : day - 1) - n * 7);
+      setPremiumOverlay({
+        type: 'weekly',
+        date: monday.toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' }),
+      });
     }
   };
 
@@ -700,7 +718,11 @@ function SignDetail({ sign }: SignDetailProps) {
                       mode="single"
                       selected={selectedDate}
                       onSelect={handleDateSelect}
-                      disabled={(date) => date < earliestStart || date > todayStart || !canAccessDate(date)}
+                      disabled={(date) => {
+                        const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+                        const diffDays = Math.round((todayStart.getTime() - d.getTime()) / 86_400_000);
+                        return date > todayStart || diffDays > 29;
+                      }}
                       toDate={todayStart}
                       defaultMonth={selectedDate}
                       className="border-0"
@@ -716,8 +738,8 @@ function SignDetail({ sign }: SignDetailProps) {
               <div className="w-full max-w-md space-y-3">
                 <WeekNavigator
                   weekOffset={weekOffset}
-                  onOffsetChange={setWeekOffset}
-                  maxWeeksBack={maxWeeksBack}
+                  onOffsetChange={handleWeekOffsetChange}
+                  maxWeeksBack={3}
                 />
                 <UpgradeBanner context="weeks" />
               </div>
@@ -1022,6 +1044,14 @@ function SignDetail({ sign }: SignDetailProps) {
 
     {/* Bottom spacing for mobile navigation */}
     <div className="h-5 md:h-0"></div>
+
+    {premiumOverlay && (
+      <PremiumGateOverlay
+        type={premiumOverlay.type}
+        date={premiumOverlay.date}
+        onClose={() => setPremiumOverlay(null)}
+      />
+    )}
   </div>
 );
 }
