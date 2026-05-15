@@ -1,0 +1,112 @@
+import { useQuery } from "@tanstack/react-query";
+import { AppHeader } from "@/components/AppHeader";
+import { Card, CardContent } from "@/components/ui/card";
+import { ExternalLink } from "lucide-react";
+
+interface Source {
+  id: number;
+  name: string;
+  domain: string;
+  logo_url: string | null;
+}
+
+export default function Editoriale() {
+  const { data: dailySources = [] } = useQuery<Source[]>({
+    queryKey: ["/api/sources"],
+    queryFn: async () => {
+      const res = await fetch("/api/sources");
+      return res.json();
+    },
+  });
+
+  const { data: weeklySources = [] } = useQuery<Source[]>({
+    queryKey: ["/api/weekly-sources"],
+    queryFn: async () => {
+      const res = await fetch("/api/weekly-sources");
+      return res.json();
+    },
+  });
+
+  return (
+    <div className="min-h-screen bg-background text-foreground">
+      <AppHeader>
+        <h1 className="text-2xl font-bold">Editori e Fonti</h1>
+      </AppHeader>
+
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-12">
+        <section>
+          <h2 className="text-xl font-bold mb-6">Oroscopi Giornalieri</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {dailySources.map((source) => (
+              <Card key={source.id} className="hover:shadow-lg transition-shadow">
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    {source.logo_url && (
+                      <img
+                        src={source.logo_url}
+                        alt={source.name}
+                        className="w-10 h-10 rounded object-contain flex-shrink-0"
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-foreground">{source.name}</h3>
+                      
+                        href={`https://${source.domain}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-blue-500 hover:text-blue-600 flex items-center gap-1 mt-1"
+                      >
+                        {source.domain}
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-bold mb-6">Oroscopi Settimanali</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {weeklySources.map((source) => (
+              <Card key={source.id} className="hover:shadow-lg transition-shadow">
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    {source.logo_url && (
+                      <img
+                        src={source.logo_url}
+                        alt={source.name}
+                        className="w-10 h-10 rounded object-contain flex-shrink-0"
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-foreground">{source.name}</h3>
+                      
+                        href={`https://${source.domain}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-blue-500 hover:text-blue-600 flex items-center gap-1 mt-1"
+                      >
+                        {source.domain}
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-12 p-6 bg-foreground/5 rounded-lg border border-border">
+          <h3 className="font-semibold mb-3">Attributions e Disclaimer</h3>
+          <p className="text-sm text-foreground/80 leading-relaxed">
+            Confronta Oroscopo aggrega oroscopi da fonti pubbliche per fornire un servizio comparativo. I diritti d'autore dei contenuti degli oroscopi rimangono presso gli editori originali. Questa App non rivendica la proprietà intellettuale dei testi degli oroscopi, ma esclusivamente del sistema di aggregazione e confronto. Se un editore desidera richiedere la rimozione dei propri contenuti, contatta fed.fabiani@gmail.com.
+          </p>
+        </section>
+      </main>
+    </div>
+  );
+}
