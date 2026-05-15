@@ -1,4 +1,6 @@
-import { AppHeader } from "@/components/AppHeader";
+import { useLocation } from "wouter";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 
 export default function Privacy() {
     const [, navigate] = useLocation();
