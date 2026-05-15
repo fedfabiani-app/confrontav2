@@ -81,7 +81,7 @@ return (
   <h2 className="text-xl font-bold mb-6">Oroscopi Giornalieri</h2>
   <div className="space-y-2">
     {dailySources.map((source) => (
-      
+      <a
         key={source.id}
         href={`https://${source.domain}`}
         target="_blank"
@@ -99,7 +99,7 @@ return (
   <h2 className="text-xl font-bold mb-6">Oroscopi Settimanali</h2>
   <div className="space-y-2">
     {weeklySources.map((source) => (
-      
+      <a
         key={source.id}
         href={`https://${source.domain}`}
         target="_blank"
