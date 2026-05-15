@@ -16,14 +16,34 @@ import NotFound from "@/pages/not-found";
 function Footer() {
   return (
     <footer className="w-full py-3 mt-4 text-center">
-      <Link href="/info">
-        <a 
-          className="text-white hover:text-gray-300 transition-colors text-sm"
-          data-testid="link-footer-info"
-        >
-          About • Info
-        </a>
-      </Link>
+      <div className="flex justify-center items-center gap-4">
+        <Link href="/info">
+          <a 
+            className="text-white hover:text-gray-300 transition-colors text-sm"
+            data-testid="link-footer-info"
+          >
+            About
+          </a>
+        </Link>
+        <span className="text-white text-sm">-</span>
+        <Link href="/privacy">
+          <a 
+            className="text-white hover:text-gray-300 transition-colors text-sm"
+            data-testid="link-footer-privacy"
+          >
+            Privacy
+          </a>
+        </Link>
+        <span className="text-white text-sm">-</span>
+        <Link href="/terms">
+          <a 
+            className="text-white hover:text-gray-300 transition-colors text-sm"
+            data-testid="link-footer-terms"
+          >
+            Termini
+          </a>
+        </Link>
+      </div>
     </footer>
   );
 }
