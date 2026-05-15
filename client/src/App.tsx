@@ -9,9 +9,9 @@ import InfoPage from "@/pages/Info";
 import Login from "@/pages/Login";
 import Account from "@/pages/Account";
 import Pricing from "@/pages/Pricing";
-import Privacy from './pages/Privacy';
-import Terms from './pages/Terms';
-import Editoriale from './pages/Editoriale';
+import Privacy from '@/pages/Privacy';
+import Terms from '@/pages/Terms';
+import Editoriale from '@/pages/Editoriale';
 import NotFound from "@/pages/not-found";
 
 function Footer() {
