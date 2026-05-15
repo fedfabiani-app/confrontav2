@@ -21,7 +21,7 @@ function Footer() {
       <div className="flex justify-center items-center gap-2">
         <Link href="/info">
           <a 
-            className="text-white hover:text-gray-300 transition-colors text-sm"
+            className="text-white hover:text-gray-300 transition-colors text-xs"
             data-testid="link-footer-info"
           >
             About
@@ -30,7 +30,7 @@ function Footer() {
         <span className="text-white text-sm">-</span>
         <Link href="/privacy">
           <a 
-            className="text-white hover:text-gray-300 transition-colors text-sm"
+            className="text-white hover:text-gray-300 transition-colors text-xs"
             data-testid="link-footer-privacy"
           >
             Privacy
@@ -39,7 +39,7 @@ function Footer() {
         <span className="text-white text-sm">-</span>
         <Link href="/terms">
           <a 
-            className="text-white hover:text-gray-300 transition-colors text-sm"
+            className="text-white hover:text-gray-300 transition-colors text-xs"
             data-testid="link-footer-terms"
           >
             Termini
@@ -47,13 +47,13 @@ function Footer() {
         </Link>
         <span className="text-white text-sm">-</span>
 <Link href="/editoriale">
-  <a className="text-white hover:text-gray-300 transition-colors text-sm">
-    Editoriale
+  <a className="text-white hover:text-gray-300 transition-colors text-xs">
+    Editori
   </a>
 </Link>
 <span className="text-white text-sm">-</span>
 <Link href="/contact">
-  <a className="text-white hover:text-gray-300 transition-colors text-sm">
+  <a className="text-white hover:text-gray-300 transition-colors text-xs">
     Contatti
   </a>
 </Link>
