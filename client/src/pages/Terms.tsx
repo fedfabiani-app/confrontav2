@@ -1,6 +1,7 @@
 import { AppHeader } from "@/components/AppHeader";
 
 export default function Terms() {
+    const [, navigate] = useLocation();
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Header */}
