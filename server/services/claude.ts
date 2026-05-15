@@ -16,36 +16,78 @@ Analizza il testo di un oroscopo e restituisci incipit, superquote, ratings e to
 CAMPO 1 — INCIPIT (summary)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-L'incipit è la riproduzione testuale e fedele dell'inizio
-dell'oroscopo originale. Non rielaborare, non parafrasare,
-non modificare nemmeno una parola.
+OBIETTIVO:
+Generare uno snippet stile anteprima editoriale: le prime parole 
+dell'oroscopo, troncate prima che venga rivelata qualsiasi previsione 
+concreta. Deve sembrare un estratto interrotto dal sistema, non una 
+frase volutamente abbreviata.
 
-REGOLE:
-- Estrai la PRIMA frase dell'originale, verbatim — UNA SOLA frase
-- Limite: min(150 caratteri, 25% della lunghezza del testo originale)
-  es. testo di 200 caratteri → incipit max 50 caratteri
-  es. testo di 600+ caratteri → incipit max 150 caratteri
-- Se la prima frase rientra nel limite → includila per intero
-- Se supera il limite → tronca all'ultima virgola o pausa naturale
-  prima del limite (mai a metà di una previsione concreta)
-- Rimuovi la punteggiatura finale (., !, ?) e aggiungi sempre "…"
-  L'incipit è un teaser: termina SEMPRE con "…", senza eccezioni
-- Non aggiungere mai una seconda frase
-- Non modificare il resto del testo (maiuscole, stile, parole)
+PRINCIPIO LEGALE — "ESTRATTO MOLTO BREVE":
+Conforme alla direttiva UE 2019/790 art. 15, legge 633/1941 art. 43-bis 
+e delibera AGCOM 3/23/CONS. L'incipit NON deve dispensare dalla 
+consultazione dell'articolo originale.
 
-NOTA LEGALE (AGCOM):
-Ai sensi dell'art. 43-bis L. 633/1941 e della delibera AGCOM 3/23/CONS
-(recepimento dir. UE 2019/790 art. 15), l'estratto non può superare
-il 25% del testo originale né i 150 caratteri — rispetta sempre
-il limite più restrittivo tra i due.
+LUNGHEZZA — SISTEMA A TRE LIVELLI:
+Calcola la lunghezza massima in base al testo originale ricevuto:
+- Testo originale ≤ 400 caratteri  → max 60 caratteri
+- Testo originale 401–1500 caratteri → max 120 caratteri
+- Testo originale > 1500 caratteri  → max 150 caratteri
 
-VERIFICA INCIPIT:
-□ È riproduzione testuale fedele?
-□ È UNA SOLA frase?
-□ È entro min(150 caratteri, 25% del testo originale)?
-□ Termina con "…" (obbligatorio, sempre)?
-□ Zero modifiche al testo originale?
-□ Non include previsioni concrete oltre il limite?
+REGOLE TECNICHE:
+1. RIPRODUZIONE VERBATIM: zero modifiche a parole, ortografia,
+   punteggiatura interna o maiuscole.
+2. UNA SOLA FRASE: mai due, mai concatenate con punto fermo.
+3. TRONCAMENTO STILE SNIPPET: l'incipit deve terminare in modo che 
+   sembri tagliato dal sistema, NON a una pausa grammaticale pulita. 
+   Idealmente subito dopo una parola che lascia il pensiero incompleto, 
+   come se il testo continuasse oltre.
+4. CHIUSURA: rimuovi sempre punto/esclamativo/interrogativo finale 
+   e aggiungi "…" (obbligatorio, senza eccezioni).
+5. MAI TAGLIARE A METÀ PAROLA — la parola finale deve essere intera, 
+   ma il senso della frase deve restare aperto.
+
+TRONCA SEMPRE PRIMA DI:
+- Verbi che annunciano eventi ("porterà", "succederà", "arriverà",
+  "ti aspetta", "incontrerai")
+- Ambiti specifici rivelati ("nel lavoro", "in amore", "in famiglia",
+  "con il partner", "sul fronte economico")
+- Consigli operativi ("dovrai", "evita", "approfitta", "attento a")
+- Esiti o conseguenze ("ti permetterà di…", "rischi di…", "potrai…")
+
+ESEMPI DI TRONCATURA STILE SNIPPET:
+
+Originale (310 char, tier ≤400 → max 60): "Cara Ariete, oggi le 
+stelle ti sorridono. Una nuova opportunità lavorativa…"
+✓ "Cara Ariete, oggi le stelle ti sorri…" (37 char, frase aperta)
+✗ "Cara Ariete, oggi le stelle ti sorridono…" (chiusura grammaticale, 
+  troppo pulita)
+
+Originale (240 char, tier ≤400 → max 60): "Giornata complessa per 
+voi del Toro, con Marte in opposizione…"
+✓ "Giornata complessa per voi del Toro, con Marte…" (45 char)
+✗ "Giornata complessa per voi del Toro…" (chiude troppo pulito)
+
+Originale (900 char, tier ≤1500 → max 120): "La Luna nel segno ti 
+porta un'energia inaspettata e ti spinge a uscire dalla zona di 
+comfort, ma attento al…"
+✓ "La Luna nel segno ti porta un'energia inaspettata e ti spinge a 
+   uscire dalla zona di…" (87 char, parola "comfort" tagliata via)
+✗ "La Luna nel segno ti porta un'energia inaspettata…" (troppo pulito)
+
+Originale (3500 char, tier >1500 → max 150): "Mercoledì spartiacque 
+della settimana e voi vi sentite sullo stesso piano, al centro 
+della scena planetaria, energetici…"
+✓ "Mercoledì spartiacque della settimana e voi vi sentite sullo 
+   stesso piano, al centro della scena planetaria…" (108 char)
+
+VERIFICA FINALE INCIPIT:
+□ Una sola frase entro il limite del tier corretto?
+□ Termina con "…"?
+□ Verbatim al 100% (zero modifiche)?
+□ Il taglio sembra fatto dal sistema, non grammaticalmente pulito?
+□ L'ultima parola è intera ma il pensiero resta aperto?
+□ Dopo la lettura, il lettore ancora NON sa cosa succederà?
+Se anche una sola risposta è NO → riformula la troncatura.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 CAMPO 2 — SUPERQUOTE
@@ -157,7 +199,7 @@ TONE:
 VERIFICA FINALE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-□ Incipit: testuale, UNA SOLA frase, entro min(150 char, 25% del testo originale), termina con "…"?
+□ Incipit: testuale, stile snippet, entro il limite del tier corretto, termina con "…"?
 □ Superquote: 1-2 frasi, 70-160 caratteri, tono fedele?
 □ Ratings: 0 per ambiti non menzionati?
 □ Tone: coerente con superquote e ratings?
@@ -215,7 +257,7 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
       messages: [
         {
           role: 'user',
-          content: `Testo da analizzare:\n${input.extracted_text}`
+          content: `Testo da analizzare (${input.extracted_text.length} caratteri):\n${input.extracted_text}`
         }
       ],
       tools: [
@@ -231,7 +273,7 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
               },
               summary: {
                 type: 'string',
-                description: 'Riproduzione testuale fedele della PRIMA frase dell\'oroscopo originale — UNA SOLA frase. Massimo 150 caratteri E mai più del 25% della lunghezza del testo originale. Termina SEMPRE con "…" (rimuovi la punteggiatura finale e aggiungi "…") — l\'incipit è sempre un teaser. Non modificare nulla del resto del testo.'
+                description: 'Snippet stile anteprima editoriale: riproduzione verbatim delle prime parole dell\'oroscopo, troncate PRIMA della prima previsione concreta. Deve sembrare un testo tagliato dal sistema (non una pausa grammaticale pulita). Termina SEMPRE con "…". Limiti tier-based: testo ≤400 char orig→max 60; 401-1500→max 120; >1500→max 150. Zero modifiche al testo originale.'
               },
               relazioni: {
                 type: 'integer',
@@ -274,17 +316,30 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
     console.log(`[Claude] Cache usage — creation: ${response.usage.cache_creation_input_tokens ?? 0}, read: ${response.usage.cache_read_input_tokens ?? 0}, input: ${response.usage.input_tokens}`);
     const parsed = toolBlock.input as Record<string, unknown>;
 
-    // Process summary (incipit) — enforce min(150 chars, 25% of original text) + always "…"
+    // Process summary (incipit) — enforce tier-based limits with snippet truncation
     let summary = (parsed.summary as string) || '';
-    const maxIncipitLength = Math.min(150, Math.floor(input.extracted_text.length * 0.25));
-    if (summary.length > maxIncipitLength) {
-      const truncated = summary.slice(0, maxIncipitLength);
-      const pauseMatch = truncated.search(/[,;](?=[^,;]*$)/);
-      summary = pauseMatch > 0
-        ? truncated.slice(0, pauseMatch)
-        : truncated.trimEnd();
+    const originalLength = input.extracted_text.length;
+    let summaryLimit = 150; // default for >1500
+    
+    if (originalLength <= 400) {
+      summaryLimit = 60;
+    } else if (originalLength <= 1500) {
+      summaryLimit = 120;
     }
-    summary = summary.replace(/[.!?…]+$/, '') + '…';
+    
+    if (summary.length > summaryLimit) {
+      // Trim to limit, attempting snippet-style truncation
+      summary = summary.substring(0, summaryLimit);
+      // Ensure it ends with … if it doesn't already
+      if (!summary.endsWith('…')) {
+        summary = summary.trimEnd() + '…';
+      }
+    } else {
+      // Even if within limit, ensure it ends with …
+      summary = summary.replace(/[.!?…]*$/, '') + '…';
+    }
+    
+    console.log(`[Claude] Summary tier: orig=${originalLength} → limit=${summaryLimit} → actual=${summary.length}`);
 
     // Process superquote — enforce 70-160 char limits
     let superquote = (parsed.superquote as string) || '';
@@ -319,7 +374,7 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
     };
 
     console.log(`[Claude] Final superquote length: ${result.superquote.length} characters`);
-    console.log(`[Claude] Final summary (incipit) length: ${result.summary.length} characters`);
+    console.log(`[Claude] Final summary (incipit) length: ${result.summary.length} characters (tier limit: ${summaryLimit})`);
     console.log(`[Claude] Processed result: Relazioni=${result.ratings.relazioni}, Lavoro=${result.ratings.lavoro}, Benessere=${result.ratings.benessere}, Tone=${result.tone}`);
 
     return openaiOutputSchema.parse(result);
@@ -393,17 +448,25 @@ function isInvalidText(text: string): boolean {
 
 function postProcessOutput(parsed: Record<string, unknown>, originalLength?: number): OpenAIOutput {
   let summary = (parsed.summary as string) || '';
-  const maxIncipitLength = originalLength != null
-    ? Math.min(150, Math.floor(originalLength * 0.25))
-    : 150;
-  if (summary.length > maxIncipitLength) {
-    const truncated = summary.slice(0, maxIncipitLength);
-    const pauseMatch = truncated.search(/[,;](?=[^,;]*$)/);
-    summary = pauseMatch > 0
-      ? truncated.slice(0, pauseMatch)
-      : truncated.trimEnd();
+  
+  // Calculate tier-based summary limit
+  let summaryLimit = 150; // default for >1500
+  if (originalLength != null) {
+    if (originalLength <= 400) {
+      summaryLimit = 60;
+    } else if (originalLength <= 1500) {
+      summaryLimit = 120;
+    }
   }
-  summary = summary.replace(/[.!?…]+$/, '') + '…';
+  
+  if (summary.length > summaryLimit) {
+    summary = summary.substring(0, summaryLimit);
+    if (!summary.endsWith('…')) {
+      summary = summary.trimEnd() + '…';
+    }
+  } else {
+    summary = summary.replace(/[.!?…]*$/, '') + '…';
+  }
 
   let superquote = (parsed.superquote as string) || '';
   if (superquote.length > 160) {
@@ -481,8 +544,8 @@ export async function processMultiSourceHoroscope(inputs: OpenAIInput[]): Promis
                 type: 'object' as const,
                 properties: {
                   source_index: { type: 'integer' as const, description: 'Indice 1-based della fonte (1 = prima fonte)' },
-                  superquote: { type: 'string' as const, description: 'Testo ORIGINALE che esprime il clima emotivo dal punto di vista del lettore. Una o due frasi con punto finale. Lettore sempre soggetto. 70-160 caratteri totali. Zero astrologico, zero condizionali, zero aperture con "La giornata".' },
-                  summary: { type: 'string' as const, description: 'Riproduzione testuale fedele della PRIMA frase originale — UNA SOLA frase. Massimo 150 caratteri e mai più del 25% della lunghezza del testo originale. Termina SEMPRE con "…" (l\'incipit è un teaser, non testo completo).' },
+                  superquote: { type: 'string' as const, description: 'Testo ORIGINALE che esprime il clima emotivo dal punto di vista del lettore. Una o due frasi con punto finale. Lettore sempre soggetto. 70-160 caratteri totali. Zero astrologico, zero condizionali.' },
+                  summary: { type: 'string' as const, description: 'Snippet stile anteprima: riproduzione verbatim delle prime parole originali, troncate PRIMA della prima previsione, stile testo tagliato dal sistema. Termina con "…". Limiti tier-based: ≤400 orig→60 char; 401-1500→120; >1500→150.' },
                   relazioni: { type: 'integer' as const, minimum: 0, maximum: 5 },
                   lavoro: { type: 'integer' as const, minimum: 0, maximum: 5 },
                   benessere: { type: 'integer' as const, minimum: 0, maximum: 5 },
@@ -517,7 +580,7 @@ export async function processMultiSourceHoroscope(inputs: OpenAIInput[]): Promis
     }
     try {
       results[entry.index] = postProcessOutput(parsed, entry.input.extracted_text.length);
-      console.log(`[Claude Batch] Source ${entry.input.sourceName}: superquote=${results[entry.index].superquote.length}ch, tone=${results[entry.index].tone}`);
+      console.log(`[Claude Batch] Source ${entry.input.sourceName}: superquote=${results[entry.index].superquote.length}ch, summary=${results[entry.index].summary.length}ch, tone=${results[entry.index].tone}`);
     } catch (err) {
       console.error(`[Claude Batch] Post-processing failed for source ${entry.input.sourceName}:`, err);
     }
