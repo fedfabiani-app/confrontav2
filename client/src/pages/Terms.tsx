@@ -9,7 +9,7 @@ export default function Terms() {
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-8">
         <section>
-          <h2 className="text-xl font-bold mb-4">Accettazione dei Termini</h2>
+          <h2 className="text-xl text-white font-bold mb-4">Accettazione dei Termini</h2>
           <p className="text-foreground/80 leading-relaxed">
             Utilizzando Confronta Oroscopo ("l'App"), accetti questi Termini e Condizioni. Se non sei d'accordo con qualsiasi parte di questi termini, non utilizzare l'App. Ci riserviamo il diritto di modificare questi termini in qualsiasi momento — le modifiche entreranno in vigore immediatamente. Il tuo uso continuato dell'App costituisce accettazione dei termini modificati.
           </p>
