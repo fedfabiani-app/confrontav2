@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { z } from "zod";
 import Stripe from "stripe";
-import { Resend } from "resend";
+import { createClerkClient } from "@clerk/backend";
 import prisma from "./services/database";
 import { enqueueScrapeJob, enqueueWeeklyScrapeJob, enqueueAggregatedNlpJob, enqueueAggregatedWeeklyNlpJob, getAllJobStatuses, getJobStatus } from "./jobs";
 import { ScraperInput, WeeklyScraperInput, ScraperOutput, WeeklyScraperOutput, OpenAIInput } from "@shared/schema";
@@ -1838,14 +1838,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      const resend = new Resend(process.env.RESEND_API_KEY);
+      const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
 
-      await resend.emails.send({
-        from: "Confronta Oroscopo <onboarding@resend.dev>",
-        to: "fed.fabiani@gmail.com",
-        reply_to: email,
+      // Trova l'email address ID dell'admin nell'istanza Clerk
+      const { data: users } = await clerk.users.getUserList({
+        emailAddress: ["fed.fabiani@gmail.com"],
+      });
+      if (!users.length || !users[0].emailAddresses.length) {
+        throw new Error("Admin email address not found in Clerk");
+      }
+      const emailAddressId = users[0].emailAddresses[0].id;
+
+      await clerk.emails.createEmail({
+        fromEmailName: "noreply",
+        emailAddressId,
         subject: `[Contatto] ${subject}`,
-        html: `<p><strong>Da:</strong> ${name} &lt;${email}&gt;</p><p><strong>Oggetto:</strong> ${subject}</p><hr/><p>${message.replace(/\n/g, "<br/>")}</p>`,
+        body: `Da: ${name} <${email}>\nOggetto: ${subject}\n\n${message}`,
       });
 
       return res.json({ success: true });
