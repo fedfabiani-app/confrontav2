@@ -47,7 +47,7 @@ function Footer() {
         <span className="text-white text-sm">-</span>
 <Link href="/editoriale">
   <a className="text-white hover:text-gray-300 transition-colors text-sm">
-    Editori
+    Editoriale
   </a>
 </Link>
 <span className="text-white text-sm">-</span>
