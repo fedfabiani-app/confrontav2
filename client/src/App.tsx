@@ -17,8 +17,8 @@ import NotFound from "@/pages/not-found";
 
 function Footer() {
   return (
-    <footer className="w-80% py-3 mt-4 text-center">
-      <div className="flex justify-center items-center gap-4">
+    <footer className="w-full py-3 mt-4 text-center px-2">
+      <div className="flex justify-center items-center gap-2">
         <Link href="/info">
           <a 
             className="text-white hover:text-gray-300 transition-colors text-sm"
