@@ -2,6 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import { AppHeader } from "@/components/AppHeader";
 import { Card, CardContent } from "@/components/ui/card";
 import { ExternalLink } from "lucide-react";
+import { useLocation } from "wouter";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 
 interface Source {
   id: number;
@@ -11,6 +14,7 @@ interface Source {
 }
 
 export default function Editoriale() {
+  
   const { data: dailySources = [] } = useQuery<Source[]>({
     queryKey: ["/api/sources"],
     queryFn: async () => {
@@ -27,11 +31,43 @@ export default function Editoriale() {
     },
   });
 
-  return (
-    <div className="min-h-screen bg-background text-foreground">
-      <AppHeader>
-        <h1 className="text-2xl font-bold">Editori e Fonti</h1>
-      </AppHeader>
+  const [, navigate] = useLocation();
+
+return (
+  <div className="min-h-screen bg-background text-foreground">
+    {/* Header */}
+    <header className="sticky top-0 z-40 border-b" 
+      style={{
+        background: 'rgba(30, 20, 64, 0.6)',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+      }}
+    >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16">
+          <div className="flex items-center space-x-3">
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => navigate('/')}
+              data-testid="button-back-editoriale"
+              className="text-white hover:bg-white/20 border border-white/30"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
+            <div>
+              <h1 className="text-xl font-bold text-white">
+                Editori e Fonti
+              </h1>
+              <p className="text-xs text-gray-300">
+                Le fonti dei nostri oroscopi
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-12">
         <section>
@@ -50,7 +86,7 @@ export default function Editoriale() {
                     )}
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-foreground">{source.name}</h3>
-                      
+                      <a
                         href={`https://${source.domain}`}
                         target="_blank"
                         rel="noopener noreferrer"
@@ -83,7 +119,7 @@ export default function Editoriale() {
                     )}
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-foreground">{source.name}</h3>
-                      
+                      <a
                         href={`https://${source.domain}`}
                         target="_blank"
                         rel="noopener noreferrer"
