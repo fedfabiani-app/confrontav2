@@ -50,7 +50,6 @@ function createScraperInput(source: any, zodiacSign: any, dateISO: string): Scra
 }
 
 async function buildProcessedCache(targetDate: string): Promise<ProcessedCache> {
-  console.log('[Orchestrator] Building processed cache for skip logic...');
   
   const cache: ProcessedCache = {};
   const targetDateObj = new Date(targetDate + 'T00:00:00.000Z');
@@ -75,7 +74,6 @@ async function buildProcessedCache(targetDate: string): Promise<ProcessedCache> 
     cache[key] = true;
   }
   
-  console.log(`[Orchestrator] Cached ${Object.keys(cache).length} already-processed entries`);
   return cache;
 }
 
@@ -103,7 +101,6 @@ async function createExecutionRecord(
     },
   });
   
-  console.log(`[Orchestrator] Created execution record: ID ${execution.id} (trigger: ${triggerType})`);
   return execution.id;
 }
 
@@ -123,7 +120,6 @@ async function updateExecutionRecord(
     },
   });
   
-  console.log(`[Orchestrator] Updated execution ${executionId}: status=${status}, enqueued=${stats.enqueued}, failed=${stats.failed}`);
 }
 
 async function createSourceStatusRecord(
@@ -196,11 +192,6 @@ export async function runDailyScraperCycle(
 ): Promise<DailyScraperStats> {
   const startTime = Date.now();
   
-  console.log('\n========== [Daily Scraper Orchestrator] Starting ==========');
-  console.log(`[Orchestrator] Target date: ${options.targetDate}`);
-  console.log(`[Orchestrator] Force rescrape: ${options.forceRescrape || false}`);
-  console.log(`[Orchestrator] Specific sources: ${options.specificSources || 'all'}`);
-  console.log(`[Orchestrator] Dry run: ${options.dryRun || false}`);
   
   const stats: DailyScraperStats['stats'] = {
     total: 0,
@@ -238,12 +229,10 @@ export async function runDailyScraperCycle(
       orderBy: { id: 'asc' },
     });
     
-    console.log(`[Orchestrator] Processing ${sources.length} sources × ${zodiacSigns.length} signs = ${sources.length * zodiacSigns.length} total combinations`);
     
     // Step 4: Process each sign sequentially
     for (let i = 0; i < zodiacSigns.length; i++) {
       const sign = zodiacSigns[i];
-      console.log(`\n[Orchestrator] Processing sign ${i + 1}/${zodiacSigns.length}: ${sign.name_italian}`);
       
       // Process all sources for this sign
       for (const source of sources) {
@@ -252,7 +241,6 @@ export async function runDailyScraperCycle(
         // Skip logic: check if already processed
         if (!options.forceRescrape && isAlreadyProcessed(processedCache, source.id, sign.id)) {
           stats.skipped++;
-          console.log(`  ⊘ Skipped: ${source.name} (already processed)`);
           
           if (!options.dryRun && executionId) {
             await createSourceStatusRecord(
@@ -269,7 +257,6 @@ export async function runDailyScraperCycle(
         // Dry run mode: just count, don't enqueue
         if (options.dryRun) {
           stats.enqueued++;
-          console.log(`  [DRY RUN] Would enqueue: ${source.name}`);
           continue;
         }
         
@@ -278,7 +265,6 @@ export async function runDailyScraperCycle(
           const scraperInput = createScraperInput(source, sign, options.targetDate);
           const jobId = await enqueueScrapeJob(scraperInput);
           stats.enqueued++;
-          console.log(`  ✓ Enqueued: ${source.name} (job ${jobId})`);
           
           if (executionId) {
             await createSourceStatusRecord(
@@ -309,7 +295,6 @@ export async function runDailyScraperCycle(
       
       // Add 5-second delay between signs (except after the last one)
       if (i < zodiacSigns.length - 1 && !options.dryRun) {
-        console.log(`[Orchestrator] Waiting 5 seconds before processing next sign...`);
         await new Promise(resolve => setTimeout(resolve, 5000));
       }
     }
@@ -321,26 +306,15 @@ export async function runDailyScraperCycle(
     
     const duration = Date.now() - startTime;
     
-    console.log('\n========== [Daily Scraper Orchestrator] Complete ==========');
-    console.log(`Duration: ${(duration / 1000).toFixed(2)}s`);
-    console.log(`Total combinations: ${stats.total}`);
-    console.log(`Enqueued: ${stats.enqueued}`);
-    console.log(`Skipped: ${stats.skipped}`);
-    console.log(`Failed: ${stats.failed}`);
-    console.log('==========================================================\n');
 
     // Step 6: Fallback cycle — retry sources with zero coverage (main cycle only)
     if (!options.dryRun && options.triggerType !== 'fallback') {
-      console.log('[Orchestrator] Checking coverage after main cycle...');
       const missingSources = await findMissingSourcesForDate(options.targetDate);
       if (missingSources.length > 0) {
         const missingDesc = missingSources.map((s) => `${s.name} (${s.id})`).join(', ');
         const delayMin = (FALLBACK_DELAY_MS / 60_000).toFixed(0);
-        console.log(`[Orchestrator] Missing sources for ${options.targetDate}: ${missingDesc}`);
-        console.log(`[Orchestrator] Scheduling fallback cycle in ${delayMin} minutes...`);
         await new Promise((resolve) => setTimeout(resolve, FALLBACK_DELAY_MS));
         const missingIds = missingSources.map((s) => s.id);
-        console.log(`[Orchestrator] Starting fallback cycle for sources: [${missingIds.join(', ')}]`);
         await runDailyScraperCycle({
           targetDate: options.targetDate,
           forceRescrape: false,

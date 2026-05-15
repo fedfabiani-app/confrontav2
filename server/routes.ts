@@ -248,7 +248,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           },
         });
         executionId = execution.id;
-        console.log(`[Refresh All] Created execution record ID ${executionId}`);
 
         const [sources, zodiacSigns] = await Promise.all([
           prisma.source.findMany({ where: { is_active: true } }),
@@ -260,7 +259,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         for (let i = 0; i < zodiacSigns.length; i++) {
           const sign = zodiacSigns[i];
-          console.log(`[Refresh All] Processing sign ${i + 1}/${zodiacSigns.length}: ${sign.name_italian}`);
 
           const collected: Array<{ scraperOutput: ScraperOutput; nlpInput: OpenAIInput }> = [];
 
@@ -313,7 +311,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             failed_jobs: totalFailed,
           },
         });
-        console.log(`[Refresh All] Completed. Enqueued: ${totalEnqueued}, Failed: ${totalFailed}`);
 
       } catch (error) {
         console.error('[Refresh All] Critical error:', error);
@@ -514,7 +511,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           },
         });
         executionId = execution.id;
-        console.log(`[Weekly Refresh All] Created execution record ID ${executionId}`);
 
         const [sources, zodiacSigns] = await Promise.all([
           prisma.weeklySource.findMany({ where: { is_active: true } }),
@@ -527,7 +523,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         for (let i = 0; i < zodiacSigns.length; i++) {
           const sign = zodiacSigns[i];
-          console.log(`[Weekly Refresh All] Processing sign ${i + 1}/${zodiacSigns.length}: ${sign.name_italian}`);
 
           // Apply skip logic: exclude sources already scraped with non-empty summary
           const sourcesToProcess: typeof sources = [];
@@ -550,7 +545,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
 
           if (sourcesToProcess.length === 0) {
-            console.log(`[Weekly Refresh All] All sources skipped for ${sign.name_italian}`);
             if (i < zodiacSigns.length - 1) await new Promise(r => setTimeout(r, 3000));
             continue;
           }
@@ -595,7 +589,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             failed_jobs: totalFailed,
           },
         });
-        console.log(`[Weekly Refresh All] Completed. Enqueued: ${totalEnqueued}, Skipped: ${totalSkipped}, Failed: ${totalFailed}`);
 
       } catch (error) {
         console.error('[Weekly Refresh All] Critical error:', error);
@@ -651,7 +644,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         weekStart = getCurrentWeekStart();
       }
       
-      console.log(`[API Weekly Refresh Sign] Triggering for ${zodiacSign.name_italian}, week ${format(weekStart, 'yyyy-MM-dd')}`);
       
       // Trigger weekly scrape for all sources but only this sign
       // We'll do this by enqueueing jobs directly for this sign
@@ -981,7 +973,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      console.log(`[Retry Failed] Found ${failedEntries.length} failed entries for ${targetDate}`);
 
       const jobIds: string[] = [];
       const errors: string[] = [];
@@ -1006,7 +997,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const entries = entriesBySign[signId];
           const signName = entries[0].zodiac_sign.name_italian;
           
-          console.log(`[Retry Failed] Processing sign ${i + 1}/${signIds.length}: ${signName} (${entries.length} failed sources)`);
           
           // Enqueue all failed sources for this sign
           for (const entry of entries) {
@@ -1022,11 +1012,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Wait 5 seconds before processing the next sign (except after the last one)
           if (i < signIds.length - 1) {
-            console.log(`[Retry Failed] Waiting 5 seconds before processing next sign...`);
             await new Promise(resolve => setTimeout(resolve, 5000));
           }
         }
-        console.log(`[Retry Failed] All failed sources enqueued. Total jobs: ${jobIds.length}, Errors: ${errors.length}`);
       })();
 
       res.json({
@@ -1073,7 +1061,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      console.log(`[Retry Failed Weekly] Found ${failedEntries.length} failed entries for week starting ${targetWeekStart}`);
 
       const jobIds: string[] = [];
       const errors: string[] = [];
@@ -1098,7 +1085,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const entries = entriesBySign[signId];
           const signName = entries[0].zodiac_sign.name_italian;
           
-          console.log(`[Retry Failed Weekly] Processing sign ${i + 1}/${signIds.length}: ${signName} (${entries.length} failed sources)`);
           
           // Enqueue all failed sources for this sign
           for (const entry of entries) {
@@ -1114,11 +1100,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Wait 5 seconds before processing the next sign (except after the last one)
           if (i < signIds.length - 1) {
-            console.log(`[Retry Failed Weekly] Waiting 5 seconds before processing next sign...`);
             await new Promise(resolve => setTimeout(resolve, 5000));
           }
         }
-        console.log(`[Retry Failed Weekly] All failed sources enqueued. Total jobs: ${jobIds.length}, Errors: ${errors.length}`);
       })();
 
       res.json({
@@ -1293,13 +1277,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { cleanupTracker } = await import('./services/cleanupTracker');
       
       const statsBefore = await cleanupService.getDataStats();
-      console.log('[API] Data stats before cleanup:', statsBefore);
       
       await cleanupService.cleanupHoroscopeData();
       await cleanupTracker.setLastCleanupDate(new Date());
       
       const statsAfter = await cleanupService.getDataStats();
-      console.log('[API] Data stats after cleanup:', statsAfter);
       
       res.json({
         success: true,
@@ -1582,7 +1564,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
       }
       
-      console.log('[Test] Running daily orchestrator with options:', {
         targetDate: dateToUse,
         forceRescrape: forceRescrape || false,
         specificSources: specificSources || 'all',
@@ -1655,7 +1636,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         case 'customer.subscription.created':
           if (clerkId) {
             await prisma.user.update({ where: { clerkId }, data: { tier: 'premium' } });
-            console.log(`[Stripe] Upgraded user ${clerkId} to premium`);
           }
           break;
 
@@ -1670,7 +1650,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 stripe_customer_id: session.customer as string
               }
             });
-            console.log(`[Stripe] Upgraded user ${sessionClerkId} to premium, customer: ${session.customer}`);
           }
           break;
         }
@@ -1678,14 +1657,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         case 'customer.subscription.deleted':
           if (clerkId) {
             await prisma.user.update({ where: { clerkId }, data: { tier: 'free' } });
-            console.log(`[Stripe] Downgraded user ${clerkId} to free (subscription deleted)`);
           }
           break;
 
         case 'customer.subscription.updated':
           if (clerkId && (obj.status === 'canceled' || obj.status === 'past_due')) {
             await prisma.user.update({ where: { clerkId }, data: { tier: 'free' } });
-            console.log(`[Stripe] Downgraded user ${clerkId} to free (status: ${obj.status})`);
           }
           break;
       }

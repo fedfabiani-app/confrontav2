@@ -68,7 +68,6 @@ export async function enqueueScrapeJob(
       status.status = 'running';
       status.startedAt = new Date();
 
-      console.log(`[JobQueue] Starting scrape job ${jobId}`);
       const result = await scraperWorker.process(input);
 
       status.status = 'completed';
@@ -76,7 +75,6 @@ export async function enqueueScrapeJob(
 
       if (onComplete) {
         onComplete(result);
-        console.log(`[JobQueue] Scrape job ${jobId} completed, callback invoked`);
       } else {
         const nlpInput: OpenAIInput = {
           sourceId: result.sourceId,
@@ -86,7 +84,6 @@ export async function enqueueScrapeJob(
           extracted_text: result.extracted_text,
         };
         await enqueueNlpJob(nlpInput, result);
-        console.log(`[JobQueue] Scrape job ${jobId} completed, NLP job enqueued`);
       }
 
     } catch (error) {
@@ -120,7 +117,6 @@ export async function enqueueNlpJob(input: OpenAIInput, scraperOutput: ScraperOu
       status.status = 'running';
       status.startedAt = new Date();
       
-      console.log(`[JobQueue] Starting NLP job ${jobId}`);
       const nlpResult = await openaiWorker.process(input);
       
       // Enqueue database upsert
@@ -128,7 +124,6 @@ export async function enqueueNlpJob(input: OpenAIInput, scraperOutput: ScraperOu
       
       status.status = 'completed';
       status.completedAt = new Date();
-      console.log(`[JobQueue] NLP job ${jobId} completed, upsert job enqueued`);
       
     } catch (error) {
       status.status = 'failed';
@@ -161,7 +156,6 @@ export async function enqueueUpsertJob(scraperOutput: ScraperOutput, nlpOutput: 
       status.status = 'running';
       status.startedAt = new Date();
       
-      console.log(`[JobQueue] Starting upsert job ${jobId}`);
       
       // Find zodiac sign ID by Italian name (signSlugIt contains Italian name)
       const zodiacSign = await prisma.zodiacSign.findFirst({
@@ -172,7 +166,6 @@ export async function enqueueUpsertJob(scraperOutput: ScraperOutput, nlpOutput: 
         throw new Error(`Zodiac sign not found: ${scraperOutput.signSlugIt}`);
       }
       
-      console.log(`[JobQueue] Upserting data for ${zodiacSign.name_italian} (ID: ${zodiacSign.id}) from source ${scraperOutput.sourceId}`);
       
       // Upsert horoscope data
       const upsertResult = await prisma.horoscopeData.upsert({
@@ -211,11 +204,9 @@ export async function enqueueUpsertJob(scraperOutput: ScraperOutput, nlpOutput: 
         },
       });
       
-      console.log(`[JobQueue] Successfully upserted horoscope data with ID: ${upsertResult.id}`);
       
       status.status = 'completed';
       status.completedAt = new Date();
-      console.log(`[JobQueue] Upsert job ${jobId} completed`);
       
     } catch (error) {
       status.status = 'failed';
@@ -254,7 +245,6 @@ export async function enqueueWeeklyScrapeJob(
       status.status = 'running';
       status.startedAt = new Date();
 
-      console.log(`[JobQueue] Starting weekly scrape job ${jobId}`);
       const result = await weeklyScraperWorker.process(input);
 
       status.status = 'completed';
@@ -262,7 +252,6 @@ export async function enqueueWeeklyScrapeJob(
 
       if (onComplete) {
         onComplete(result);
-        console.log(`[JobQueue] Weekly scrape job ${jobId} completed, callback invoked`);
       } else {
         const nlpInput: OpenAIInput = {
           sourceId: result.sourceId,
@@ -272,7 +261,6 @@ export async function enqueueWeeklyScrapeJob(
           extracted_text: result.extracted_text,
         };
         await enqueueWeeklyNlpJob(nlpInput, result);
-        console.log(`[JobQueue] Weekly scrape job ${jobId} completed, NLP job enqueued`);
       }
 
     } catch (error) {
@@ -306,14 +294,12 @@ export async function enqueueWeeklyNlpJob(input: OpenAIInput, scraperOutput: Wee
       status.status = 'running';
       status.startedAt = new Date();
       
-      console.log(`[JobQueue] Starting weekly NLP job ${jobId}`);
       const nlpResult = await openaiWorker.process(input);
       
       await enqueueWeeklyUpsertJob(scraperOutput, nlpResult);
       
       status.status = 'completed';
       status.completedAt = new Date();
-      console.log(`[JobQueue] Weekly NLP job ${jobId} completed, upsert job enqueued`);
       
     } catch (error) {
       status.status = 'failed';
@@ -345,7 +331,6 @@ export async function enqueueWeeklyUpsertJob(scraperOutput: WeeklyScraperOutput,
       status.status = 'running';
       status.startedAt = new Date();
       
-      console.log(`[JobQueue] Starting weekly upsert job ${jobId}`);
       
       const zodiacSign = await prisma.zodiacSign.findFirst({
         where: { name_italian: scraperOutput.signSlugIt }
@@ -355,7 +340,6 @@ export async function enqueueWeeklyUpsertJob(scraperOutput: WeeklyScraperOutput,
         throw new Error(`Zodiac sign not found: ${scraperOutput.signSlugIt}`);
       }
       
-      console.log(`[JobQueue] Upserting weekly data for ${zodiacSign.name_italian} (ID: ${zodiacSign.id}) from source ${scraperOutput.sourceId}`);
       
       const upsertResult = await prisma.weeklyHoroscopeData.upsert({
         where: {
@@ -393,11 +377,9 @@ export async function enqueueWeeklyUpsertJob(scraperOutput: WeeklyScraperOutput,
         },
       });
       
-      console.log(`[JobQueue] Successfully upserted weekly horoscope data with ID: ${upsertResult.id}`);
       
       status.status = 'completed';
       status.completedAt = new Date();
-      console.log(`[JobQueue] Weekly upsert job ${jobId} completed`);
       
     } catch (error) {
       status.status = 'failed';
@@ -432,7 +414,6 @@ export async function enqueueAggregatedNlpJob(
       status.status = 'running';
       status.startedAt = new Date();
 
-      console.log(`[JobQueue] Starting aggregated NLP job ${jobId} for ${pairs.length} sources (${firstPair.scraperOutput.signSlugIt})`);
       const nlpResults = await processMultiSourceHoroscopeWithRetry(pairs.map(p => p.nlpInput));
 
       for (let i = 0; i < nlpResults.length; i++) {
@@ -441,7 +422,6 @@ export async function enqueueAggregatedNlpJob(
 
       status.status = 'completed';
       status.completedAt = new Date();
-      console.log(`[JobQueue] Aggregated NLP job ${jobId}: ${pairs.length} sources processed, upsert jobs enqueued`);
 
     } catch (error) {
       status.status = 'failed';
@@ -476,7 +456,6 @@ export async function enqueueAggregatedWeeklyNlpJob(
       status.status = 'running';
       status.startedAt = new Date();
 
-      console.log(`[JobQueue] Starting aggregated weekly NLP job ${jobId} for ${pairs.length} sources (${firstPair.scraperOutput.signSlugIt})`);
       const nlpResults = await processMultiSourceHoroscopeWithRetry(pairs.map(p => p.nlpInput));
 
       for (let i = 0; i < nlpResults.length; i++) {
@@ -485,7 +464,6 @@ export async function enqueueAggregatedWeeklyNlpJob(
 
       status.status = 'completed';
       status.completedAt = new Date();
-      console.log(`[JobQueue] Aggregated weekly NLP job ${jobId}: ${pairs.length} sources processed, upsert jobs enqueued`);
 
     } catch (error) {
       status.status = 'failed';

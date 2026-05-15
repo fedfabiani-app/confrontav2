@@ -109,7 +109,6 @@ function createWeeklyScraperInput(source: any, zodiacSign: any, weekStart: Date)
 }
 
 async function buildProcessedCache(weekStart: Date): Promise<ProcessedCache> {
-  console.log('[Weekly Orchestrator] Building processed cache for skip logic...');
   
   const cache: ProcessedCache = {};
   
@@ -133,7 +132,6 @@ async function buildProcessedCache(weekStart: Date): Promise<ProcessedCache> {
     cache[key] = true;
   }
   
-  console.log(`[Weekly Orchestrator] Cached ${Object.keys(cache).length} already-processed entries`);
   return cache;
 }
 
@@ -161,7 +159,6 @@ async function createExecutionRecord(
     },
   });
   
-  console.log(`[Weekly Orchestrator] Created execution record: ID ${execution.id} (group: ${sourceGroup}, trigger: ${triggerType})`);
   return execution.id;
 }
 
@@ -181,7 +178,6 @@ async function updateExecutionRecord(
     },
   });
   
-  console.log(`[Weekly Orchestrator] Updated execution ${executionId}: status=${status}, enqueued=${stats.enqueued}, failed=${stats.failed}`);
 }
 
 async function createSourceStatusRecord(
@@ -236,12 +232,6 @@ export async function runWeeklyScraperCycle(
   // Default to 'all' source group if not specified
   const sourceGroup = options.sourceGroup || 'all';
   
-  console.log('\n========== [Weekly Scraper Orchestrator] Starting ==========');
-  console.log(`[Weekly Orchestrator] Target week: ${format(weekStart, 'yyyy-MM-dd')}`);
-  console.log(`[Weekly Orchestrator] Source group: ${sourceGroup}`);
-  console.log(`[Weekly Orchestrator] Force rescrape: ${options.forceRescrape || false}`);
-  console.log(`[Weekly Orchestrator] Specific sources: ${options.specificSources || 'all'}`);
-  console.log(`[Weekly Orchestrator] Dry run: ${options.dryRun || false}`);
   
   const stats: WeeklyScraperStats['stats'] = {
     total: 0,
@@ -283,19 +273,16 @@ export async function runWeeklyScraperCycle(
         const group = getSourceGroup(slug);
         return group === sourceGroup;
       });
-      console.log(`[Weekly Orchestrator] Filtered to ${sources.length} sources in group '${sourceGroup}'`);
     }
     
     const zodiacSigns = await prisma.zodiacSign.findMany({
       orderBy: { id: 'asc' },
     });
     
-    console.log(`[Weekly Orchestrator] Processing ${sources.length} sources × ${zodiacSigns.length} signs = ${sources.length * zodiacSigns.length} total combinations`);
     
     // Step 4: Process each sign sequentially
     for (let i = 0; i < zodiacSigns.length; i++) {
       const sign = zodiacSigns[i];
-      console.log(`\n[Weekly Orchestrator] Processing sign ${i + 1}/${zodiacSigns.length}: ${sign.name_italian}`);
       
       // Process all sources for this sign
       for (const source of sources) {
@@ -304,7 +291,6 @@ export async function runWeeklyScraperCycle(
         // Skip logic: check if already processed
         if (!options.forceRescrape && isAlreadyProcessed(processedCache, source.id, sign.id)) {
           stats.skipped++;
-          console.log(`  ⊘ Skipped: ${source.name} (already processed)`);
           
           if (!options.dryRun && executionId) {
             await createSourceStatusRecord(
@@ -321,7 +307,6 @@ export async function runWeeklyScraperCycle(
         // Dry run mode: just count, don't enqueue
         if (options.dryRun) {
           stats.enqueued++;
-          console.log(`  [DRY RUN] Would enqueue: ${source.name}`);
           continue;
         }
         
@@ -330,7 +315,6 @@ export async function runWeeklyScraperCycle(
           const scraperInput = createWeeklyScraperInput(source, sign, weekStart);
           const jobId = await enqueueWeeklyScrapeJob(scraperInput);
           stats.enqueued++;
-          console.log(`  ✓ Enqueued: ${source.name} (job ${jobId})`);
           
           if (executionId) {
             await createSourceStatusRecord(
@@ -361,7 +345,6 @@ export async function runWeeklyScraperCycle(
       
       // Add 5-second delay between signs (except after the last one)
       if (i < zodiacSigns.length - 1 && !options.dryRun) {
-        console.log(`[Weekly Orchestrator] Waiting 5 seconds before processing next sign...`);
         await new Promise(resolve => setTimeout(resolve, 5000));
       }
     }
@@ -373,13 +356,6 @@ export async function runWeeklyScraperCycle(
     
     const duration = Date.now() - startTime;
     
-    console.log('\n========== [Weekly Scraper Orchestrator] Complete ==========');
-    console.log(`Duration: ${(duration / 1000).toFixed(2)}s`);
-    console.log(`Total combinations: ${stats.total}`);
-    console.log(`Enqueued: ${stats.enqueued}`);
-    console.log(`Skipped: ${stats.skipped}`);
-    console.log(`Failed: ${stats.failed}`);
-    console.log('============================================================\n');
     
     return {
       executionId,

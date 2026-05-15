@@ -120,7 +120,6 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
 
   const cached = archiveUrlCache.get(cacheKey);
   if (cached) {
-    console.log(`Using cached archive URL for ${input.sourceName}`);
     return cached;
   }
 
@@ -130,17 +129,14 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
     if (input.domain.includes('sorrisi.com')) {
     // For Sorrisi, the archive is just the base URL (no pattern with placeholders)
     archiveUrl = input.baseUrl.endsWith('/') ? input.baseUrl : input.baseUrl + '/';
-    console.log(`Sorrisi.com - Using base URL as archive: ${archiveUrl}`);
   } else if (input.domain.includes('gazzetta.it')) {
     // For Gazzetta, the archive is also just the base URL
     archiveUrl = input.baseUrl.endsWith('/') ? input.baseUrl : input.baseUrl + '/';
-    console.log(`Gazzetta.it - Using base URL as archive: ${archiveUrl}`);
   } else {
     // For other sources, use baseUrl + urlPattern (if it makes sense)
     archiveUrl = input.baseUrl + input.urlPattern;
   }
 
-  console.log(`Fetching archive page: ${archiveUrl}`);
 
   await respectDomainRateLimit(input.domain);
 
@@ -154,7 +150,6 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
 
   // Special handling for Repubblica
   if (input.domain.includes('repubblica.it')) {
-    console.log('Repubblica archive - Extracting weekly URLs with enhanced pattern matching');
 
     const urlPattern = /oroscopo[-_](?:della[-_])?settimana/i;
 
@@ -206,7 +201,6 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
         const absoluteUrl = href.startsWith('http') ? href : 'https://d.repubblica.it' + href;
         candidates.push({ url: absoluteUrl, dateRange, score });
 
-        console.log(`Found Repubblica URL (score: ${score}): ${absoluteUrl} => ${urlDate.toISOString().split('T')[0]}`);
       }
     });
 
@@ -215,8 +209,6 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
 
   // Special handling for Sorrisi.com
   else if (input.domain.includes('sorrisi.com')) {
-    console.log('Sorrisi.com archive - Extracting weekly URLs with Saturday-based weeks');
-    console.log(`Archive URL: ${archiveUrl}`);
 
     const urlPattern = /\/lifestyle\/oroscopo\/oroscopo[-_]della[-_]settimana/i;
 
@@ -232,7 +224,6 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
 
       const fullText = href + ' ' + linkText;
 
-      console.log(`Sorrisi.com - Checking link: ${href}`);
 
       const dateRange = parseItalianWeekRange(fullText, currentYear);
 
@@ -253,19 +244,14 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
         }
 
         candidates.push({ url: absoluteUrl, dateRange, score });
-        console.log(`Found Sorrisi.com URL (score: ${score}): ${absoluteUrl} => ${dateRange.startDate.toISOString().split('T')[0]}`);
       } else {
-        console.log(`Sorrisi.com - Could not parse date from: ${fullText}`);
       }
     });
 
     candidates.sort((a, b) => b.score - a.score);
-    console.log(`Sorrisi.com - Total candidates found: ${candidates.length}`);
   }
   // Special handling for Gazzetta.it
   else if (input.domain.includes('gazzetta.it')) {
-    console.log('Gazzetta.it archive - Extracting weekly URLs');
-    console.log(`Archive URL: ${archiveUrl}`);
 
     const urlPattern = /\/oroscopo\/storie\/.*?\/oroscopo-settimanale/i;
 
@@ -281,7 +267,6 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
 
       const fullText = href + ' ' + linkText;
 
-      console.log(`Gazzetta.it - Checking link: ${href}`);
 
       // Parse dates from URL slug with multiple slug variations
       // Possible patterns:
@@ -328,7 +313,6 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
           dateRange = { startDate, endDate };
           score += 20;
 
-          console.log(`Gazzetta.it - Parsed date range: ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`);
         }
       } else {
         // Fallback to generic parser
@@ -360,18 +344,14 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
         }
 
         candidates.push({ url: absoluteUrl, dateRange, score });
-        console.log(`Found Gazzetta.it URL (score: ${score}): ${absoluteUrl} => ${dateRange.startDate.toISOString().split('T')[0]}`);
       } else {
-        console.log(`Gazzetta.it - Could not parse date from: ${fullText}`);
       }
     });
 
     candidates.sort((a, b) => b.score - a.score);
-    console.log(`Gazzetta.it - Total candidates found: ${candidates.length}`);
   }
   // Special handling for Marie Claire
   else if (input.domain.includes('marieclaire.it')) {
-    console.log('Marie Claire archive - Extracting weekly URLs');
 
     const urlPattern = /\/lifestyle\/coolmix\/a\d+\/oroscopo[-_]settimana/i;
 
@@ -434,7 +414,6 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
         }
 
         candidates.push({ url: absoluteUrl, dateRange, score });
-        console.log(`Found Marie Claire URL (score: ${score}): ${absoluteUrl} => ${dateRange.startDate.toISOString().split('T')[0]}`);
       }
     });
 
@@ -443,7 +422,6 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
 
     // Special handling for Cosmopolitan
     else if (input.domain.includes('cosmopolitan.com')) {
-      console.log('Cosmopolitan archive - Extracting weekly URLs with cross-month support');
 
       const urlPattern = /\/oroscopo\/oroscopo-settimana\/a\d+\/oroscopo-settimana/i;
 
@@ -458,7 +436,6 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
         let score = 0;
         const fullText = href + ' ' + linkText;
 
-        console.log(`Cosmopolitan - Checking link: ${href}`);
 
         // Pattern 1: Single month format
         // oroscopo-settimana-20-26-ottobre-2025
@@ -490,7 +467,6 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
             dateRange = { startDate, endDate };
             score += 25;
 
-            console.log(`Cosmopolitan - Parsed cross-month range: ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`);
           }
         } 
         // Try single month pattern
@@ -515,7 +491,6 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
               dateRange = { startDate, endDate };
               score += 20;
 
-              console.log(`Cosmopolitan - Parsed single-month range: ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`);
             }
           }
         }
@@ -538,14 +513,11 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
           }
 
           candidates.push({ url: absoluteUrl, dateRange, score });
-          console.log(`Found Cosmopolitan URL (score: ${score}): ${absoluteUrl} => ${dateRange.startDate.toISOString().split('T')[0]}`);
         } else {
-          console.log(`Cosmopolitan - Could not parse date from: ${fullText}`);
         }
       });
 
       candidates.sort((a, b) => b.score - a.score);
-      console.log(`Cosmopolitan - Total candidates found: ${candidates.length}`);
     }
     
     // Generic archive handling
@@ -566,17 +538,14 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
     });
   }
 
-  console.log(`Found ${candidates.length} candidate URLs in archive`);
 
   const targetDateStr = targetDate.toISOString().split('T')[0];
 
   // First try: exact date match
   for (const candidate of candidates) {
     const candidateDateStr = candidate.dateRange.startDate.toISOString().split('T')[0];
-    console.log(`Candidate: ${candidate.url} => ${candidateDateStr} (target: ${targetDateStr}, score: ${candidate.score})`);
 
     if (candidateDateStr === targetDateStr) {
-      console.log(`✓ Matched archive URL (exact match): ${candidate.url}`);
       archiveUrlCache.set(cacheKey, candidate.url);
       return candidate.url;
     }
@@ -588,7 +557,6 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
     const endDate = candidate.dateRange.endDate;
 
     if (targetDate >= startDate && targetDate <= endDate) {
-      console.log(`✓ Matched archive URL (within range): ${candidate.url}`);
       archiveUrlCache.set(cacheKey, candidate.url);
       return candidate.url;
     }
@@ -604,7 +572,6 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
     .sort((a, b) => a.daysDiff - b.daysDiff || b.score - a.score)[0];
 
   if (closestCandidate) {
-    console.log(`✓ Using closest match (${closestCandidate.daysDiff} days diff): ${closestCandidate.url}`);
     archiveUrlCache.set(cacheKey, closestCandidate.url);
     return closestCandidate.url;
   }
@@ -623,7 +590,6 @@ const COMPREHENSIVE_HOROSCOPE_KEYWORDS = [
 export async function scrapeWeeklyHoroscope(input: WeeklyScraperInput): Promise<WeeklyScraperOutput> {
   try {
     const resolvedUrl = await buildWeeklyHoroscopeUrl(input);
-    console.log(`[WeeklyScraper] Resolved URL: ${resolvedUrl}`);
 
     await respectDomainRateLimit(input.domain);
 
@@ -634,7 +600,6 @@ export async function scrapeWeeklyHoroscope(input: WeeklyScraperInput): Promise<
     }
 
     // Store the actual URL that was successfully scraped
-    console.log(`[WeeklyScraper] Storing URL in database: ${resolvedUrl}`);
 
     const result: WeeklyScraperOutput = {
       sourceId: input.sourceId,
@@ -660,11 +625,9 @@ export async function scrapeWeeklyHoroscope(input: WeeklyScraperInput): Promise<
  * Fanpage adds dynamic SEO suffixes to URLs
  */
 async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<string> {
-  console.log(`Fanpage.it - Extracting weekly URLs from archive`);
 
   // CORRECT archive URL
   const archiveUrl = 'https://www.fanpage.it/stile-e-trend/story/oroscopo/';
-  console.log(`Fanpage.it - Archive URL: ${archiveUrl}`);
 
   await respectDomainRateLimit(input.domain);
 
@@ -689,7 +652,6 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
 
   // Random delay to appear human-like
   const randomDelay = Math.floor(Math.random() * 2000) + 1500;
-  console.log(`Fanpage.it - Adding ${randomDelay}ms delay`);
   await new Promise(resolve => setTimeout(resolve, randomDelay));
 
   let html: string;
@@ -701,10 +663,8 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
       validateStatus: (status) => status < 500
     });
 
-    console.log(`Fanpage.it - Response status: ${response.status}`);
 
     if (response.status === 403) {
-      console.log('Fanpage.it - Got 403, trying with Safari user agent...');
       await new Promise(resolve => setTimeout(resolve, 3000));
 
       const safariResponse = await axios.get(archiveUrl, {
@@ -716,7 +676,6 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
         maxRedirects: 5
       });
 
-      console.log(`Fanpage.it - Safari retry status: ${safariResponse.status}`);
 
       if (safariResponse.status >= 400) {
         throw new Error(`HTTP ${safariResponse.status}: Still blocked after retry`);
@@ -738,14 +697,12 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
   const targetDateStr = targetDate.toISOString().split('T')[0];
   const candidates: Array<{ url: string; startDate: Date; score: number }> = [];
 
-  console.log(`Fanpage.it - Looking for links in archive...`);
 
   // Find all links containing "oroscopo-della-settimana"
   $('a').each((_, elem) => {
     const href = $(elem).attr('href');
     if (!href || !href.includes('oroscopo-della-settimana')) return;
 
-    console.log(`Fanpage.it - Checking link: ${href}`);
 
     // Parse date from URL: /attualita/loroscopo-della-settimana-dal-15-al-21-settembre-2025/
     const dateMatch = href.match(/dal-(\d{1,2})-al-(\d{1,2})-(\w+)-(\d{4})/i);
@@ -765,7 +722,6 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
         const startDate = new Date(parseInt(year), monthNum - 1, parseInt(startDay));
         const candidateDateStr = startDate.toISOString().split('T')[0];
 
-        console.log(`Fanpage.it - Parsed date: ${candidateDateStr} (target: ${targetDateStr})`);
 
         let absoluteUrl = href;
         if (href.startsWith('/')) {
@@ -790,13 +746,11 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
 
         if (score > 0) {
           candidates.push({ url: absoluteUrl, startDate, score });
-          console.log(`Fanpage.it - Added candidate (${daysDiff} days diff, score: ${score}): ${absoluteUrl}`);
         }
       }
     }
   });
 
-  console.log(`Fanpage.it - Total candidates found: ${candidates.length}`);
 
   if (candidates.length === 0) {
     throw new Error(`No Fanpage.it weekly horoscope URLs found in archive for week ${targetDateStr}`);
@@ -806,7 +760,6 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
   candidates.sort((a, b) => b.score - a.score);
 
   const bestMatch = candidates[0];
-  console.log(`Fanpage.it - ✓ Selected best match: ${bestMatch.url}`);
 
   return bestMatch.url;
 }
@@ -820,10 +773,8 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
                           input.sourceName.toLowerCase().includes('fanpage');
 
         if (isFanpage) {
-          console.log(`Detected Fanpage.it (domain: ${input.domain}, source: ${input.sourceName}) - using archive resolution`);
           try {
             const url = await resolveFanpageUrlFromArchive(input);
-            console.log(`Fanpage.it - Archive resolution successful: ${url}`);
             return url;
           } catch (error) {
             console.error(`Fanpage.it - Archive resolution failed:`, error);
@@ -837,10 +788,8 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
                        input.sourceName.toLowerCase().includes('elle');
 
         if (isElle) {
-          console.log(`Detected Elle.com/it (domain: ${input.domain}, source: ${input.sourceName}) - using archive + cross-reference resolution`);
           try {
             const url = await resolveElleUrlFromArchive(input);
-            console.log(`Elle.com/it - Archive resolution successful: ${url}`);
             return url;
           } catch (error) {
             console.error(`Elle.com/it - Archive resolution failed:`, error);
@@ -856,10 +805,8 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
        * Strategy: Find ANY weekly horoscope URL, then extract all sign URLs from its content
        */
       async function resolveElleUrlFromArchive(input: WeeklyScraperInput): Promise<string> {
-        console.log(`Elle.com/it - Extracting weekly URLs from archive`);
 
         const archiveUrl = 'https://www.elle.com/it/oroscopo/';
-        console.log(`Elle.com/it - Archive URL: ${archiveUrl}`);
 
         await respectDomainRateLimit(input.domain);
 
@@ -887,7 +834,6 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
 
         // Random delay
         const randomDelay = Math.floor(Math.random() * 2000) + 1500;
-        console.log(`Elle.com/it - Adding ${randomDelay}ms delay`);
         await new Promise(resolve => setTimeout(resolve, randomDelay));
 
         let html: string;
@@ -899,10 +845,8 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
             validateStatus: (status) => status < 500
           });
 
-          console.log(`Elle.com/it - Archive response status: ${response.status}`);
 
           if (response.status === 403 || response.status === 429) {
-            console.log(`Elle.com/it - Got ${response.status}, trying with Safari user agent...`);
             await new Promise(resolve => setTimeout(resolve, 3000));
 
             const safariResponse = await axios.get(archiveUrl, {
@@ -914,7 +858,6 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
               maxRedirects: 5
             });
 
-            console.log(`Elle.com/it - Safari retry status: ${safariResponse.status}`);
 
             if (safariResponse.status >= 400) {
               throw new Error(`HTTP ${safariResponse.status}: Still blocked after retry`);
@@ -941,11 +884,9 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
         thursdayDate.setDate(thursdayDate.getDate() - daysToThursday);
 
         const targetDateStr = thursdayDate.toISOString().split('T')[0];
-        console.log(`Elle.com/it - Target week starting (Thursday): ${targetDateStr}`);
 
         const candidates: Array<{ url: string; startDate: Date; score: number }> = [];
 
-        console.log(`Elle.com/it - Looking for weekly horoscope links in archive...`);
 
         // Find all horoscope links with weekly pattern
         $('a').each((_, elem) => {
@@ -955,7 +896,6 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
           // Match pattern: /oroscopo/a{ID}/oroscopo-{sign}-{dates}-simon-and-the-stars/
           if (!href.includes('/oroscopo/a') || !href.includes('simon-and-the-stars')) return;
 
-          console.log(`Elle.com/it - Checking link: ${href}`);
 
           // Parse date from URL: oroscopo-{sign}-16-22-ottobre-2025-simon
           // Or: oroscopo-{sign}-16-al-22-ottobre-2025-simon
@@ -976,7 +916,6 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
               const startDate = new Date(parseInt(year), monthNum - 1, parseInt(startDay));
               const candidateDateStr = startDate.toISOString().split('T')[0];
 
-              console.log(`Elle.com/it - Parsed date: ${candidateDateStr} (target: ${targetDateStr})`);
 
               let absoluteUrl = href;
               if (href.startsWith('/')) {
@@ -1001,13 +940,11 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
 
               if (score > 0) {
                 candidates.push({ url: absoluteUrl, startDate, score });
-                console.log(`Elle.com/it - Added candidate (${daysDiff} days diff, score: ${score}): ${absoluteUrl}`);
               }
             }
           }
         });
 
-        console.log(`Elle.com/it - Total candidates found: ${candidates.length}`);
 
         if (candidates.length === 0) {
           throw new Error(`No Elle.com/it weekly horoscope URLs found in archive for week ${targetDateStr}`);
@@ -1017,22 +954,18 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
         candidates.sort((a, b) => b.score - a.score);
 
         const bestMatch = candidates[0];
-        console.log(`Elle.com/it - ✓ Found ANY weekly URL: ${bestMatch.url}`);
 
         // Now extract all sign URLs from this page
-        console.log(`Elle.com/it - Fetching page to extract all sign URLs...`);
 
         await new Promise(resolve => setTimeout(resolve, 2000)); // Delay before second request
 
         const signUrl = await extractElleSignUrlFromPage(bestMatch.url, input.signSlugIt, headers);
 
         if (signUrl) {
-          console.log(`Elle.com/it - ✓ Found target sign URL: ${signUrl}`);
           return signUrl;
         }
 
         // If extraction failed, try to construct URL from the pattern
-        console.log(`Elle.com/it - Could not extract from page, using best match: ${bestMatch.url}`);
         return bestMatch.url;
       }
 
@@ -1045,7 +978,6 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
         headers: Record<string, string>
       ): Promise<string | null> {
         try {
-          console.log(`Elle.com/it - Extracting sign URLs from: ${pageUrl}`);
 
           const response = await axios.get(pageUrl, {
             headers: {
@@ -1067,7 +999,6 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
 
                  const targetSignSlug = SIGN_MAP[targetSign] || targetSign.toLowerCase();
 
-          console.log(`Elle.com/it - Looking for links containing: "${targetSignSlug}"`);
 
           // Find links in article body that point to other signs
           let foundUrl: string | null = null;
@@ -1090,7 +1021,6 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
                 absoluteUrl = 'https://www.elle.com/it/' + href;
               }
 
-              console.log(`Elle.com/it - ✓ Found target sign link: ${absoluteUrl}`);
               foundUrl = absoluteUrl;
               return false; // Break loop
             }
@@ -1108,10 +1038,8 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
 
       // COSMOPOLITAN.COM SPECIFIC: Use archive resolution (article URLs are not pattern-constructable)
       if (input.domain.includes('cosmopolitan.com') || input.baseUrl.includes('cosmopolitan.com')) {
-        console.log(`Detected Cosmopolitan.com - using archive resolution`);
         try {
           const url = await resolveWeeklyUrlFromArchive(input);
-          console.log(`Cosmopolitan.com - Archive resolution successful: ${url}`);
           return url;
         } catch (error) {
           console.error(`Cosmopolitan.com - Archive resolution failed:`, error);
@@ -1121,14 +1049,11 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
 
       // SORRISI.COM SPECIFIC: Try archive strategy first, with proper fallback
       if (input.domain.includes('sorrisi.com') || input.baseUrl.includes('sorrisi.com')) {
-        console.log(`Detected Sorrisi.com - trying archive strategy first`);
         try {
           const archiveUrl = await resolveWeeklyUrlFromArchive(input);
-          console.log(`Sorrisi.com - Archive resolution successful: ${archiveUrl}`);
           return archiveUrl;
         } catch (error) {
           console.warn(`Sorrisi.com - Archive resolution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-          console.log(`Sorrisi.com - Attempting URL pattern construction...`);
 
           // Fallback to pattern-based construction
           const startDay = input.startDay;
@@ -1141,17 +1066,14 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
           const prefix = usesDall ? 'dall' : 'dal';
 
           const url = `https://www.sorrisi.com/lifestyle/oroscopo/oroscopo-della-settimana-${prefix}${startDay}-al-${endDay}-${month}/`;
-          console.log(`Sorrisi.com - Constructed fallback URL: ${url}`);
           return url;
         }
       }
 
       // GAZZETTA.IT SPECIFIC: Use archive strategy and append sign
       if (input.domain.includes('gazzetta.it') || input.baseUrl.includes('gazzetta.it')) {
-        console.log(`Detected Gazzetta.it - using archive strategy`);
         try {
           const baseArticleUrl = await resolveWeeklyUrlFromArchive(input);
-          console.log(`Gazzetta.it - Archive resolution: ${baseArticleUrl}`);
 
                   const signSlug = SIGN_MAP[input.signSlugIt] || input.signSlugIt.toLowerCase();
 
@@ -1161,7 +1083,6 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
           if (signInUrlMatch) {
             // Replace the existing sign with our target sign
             const finalUrl = baseArticleUrl.replace(/\/(ariete|toro|gemelli|cancro|leone|vergine|bilancia|scorpione|sagittario|capricorno|acquario|pesci)\.shtml$/i, `/${signSlug}.shtml`);
-            console.log(`Gazzetta.it - Replaced sign in URL: ${finalUrl}`);
             return finalUrl;
           } 
 
@@ -1169,7 +1090,6 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
           if (baseArticleUrl.endsWith('.shtml')) {
             // Insert sign before .shtml
             const finalUrl = baseArticleUrl.replace(/\.shtml$/, `/${signSlug}.shtml`);
-            console.log(`Gazzetta.it - Inserted sign before .shtml: ${finalUrl}`);
             return finalUrl;
           }
 
@@ -1177,13 +1097,11 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
           if (baseArticleUrl.endsWith('/')) {
             // Append sign.shtml
             const finalUrl = `${baseArticleUrl}${signSlug}.shtml`;
-            console.log(`Gazzetta.it - Appended to directory: ${finalUrl}`);
             return finalUrl;
           }
 
           // Default case: append /sign.shtml
           const finalUrl = `${baseArticleUrl}/${signSlug}.shtml`;
-          console.log(`Gazzetta.it - Default append: ${finalUrl}`);
           return finalUrl;
 
         } catch (error) {
@@ -1196,7 +1114,6 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
 
       // Archive strategy - resolve from archive page    
       if (input.scrapeStrategy === 'archive') {
-        console.log(`Using archive strategy for ${input.sourceName}`);
         return await resolveWeeklyUrlFromArchive(input);
       }
 
@@ -1315,7 +1232,6 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
         throw new Error(`Invalid URL constructed: ${url}`);
       }
 
-      console.log(`Built weekly URL for ${input.sourceName}: ${url}`);
       return url;
     }
 
@@ -1326,7 +1242,6 @@ async function respectDomainRateLimit(domain: string): Promise<void> {
 
   if (timeSinceLastRequest < DOMAIN_DELAY_MS) {
     const delay = DOMAIN_DELAY_MS - timeSinceLastRequest;
-    console.log(`Rate limiting ${domain}, waiting ${delay}ms`);
     await new Promise(resolve => setTimeout(resolve, delay));
   }
 
@@ -1407,7 +1322,6 @@ async function fetchHtml(url: string, userAgent: string): Promise<string> {
 
     // Special headers for Fanpage.it
     if (url.includes('fanpage.it')) {
-      console.log('Fanpage.it - Using enhanced headers for weekly scraping');
       headers['Referer'] = 'https://www.fanpage.it/stile-e-trend/story/oroscopo/';
       headers['Origin'] = 'https://www.fanpage.it';
       headers['Sec-Fetch-Dest'] = 'document';
@@ -1420,7 +1334,6 @@ async function fetchHtml(url: string, userAgent: string): Promise<string> {
 
       // Random delay (1-3 seconds) to appear human-like
       const randomDelay = Math.floor(Math.random() * 2000) + 1000;
-      console.log(`Fanpage.it - Adding ${randomDelay}ms delay`);
       await new Promise(resolve => setTimeout(resolve, randomDelay));
     } 
     // Default random delay for other sources
@@ -1441,7 +1354,6 @@ async function fetchHtml(url: string, userAgent: string): Promise<string> {
 
     // If we get 403 on Fanpage, try with different user agent
     if (response.status === 403 && url.includes('fanpage.it')) {
-      console.log('Fanpage.it - Got 403, trying with Safari user agent...');
       headers['User-Agent'] = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15';
 
       await new Promise(resolve => setTimeout(resolve, 3000));
@@ -1498,7 +1410,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
 
     // Special handling for Cosmopolitan - single article with all signs
     if (url.includes('cosmopolitan.com') && url.includes('/oroscopo-settimana/a')) {
-      console.log(`Cosmopolitan - Extracting content for ${input.signSlugIt} from URL: ${url}`);
 
       const signId = SIGN_MAP[input.signSlugIt] || input.signSlugIt.toLowerCase();
       const zodiacSigns = ['ariete', 'toro', 'gemelli', 'cancro', 'leone', 'vergine',
@@ -1511,7 +1422,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
         const text = $(el).text().trim().toLowerCase();
         if (text === signId) {
           signHeading = $(el);
-          console.log(`Cosmopolitan - Strategy 1: found <${el.tagName}> for ${signId}`);
           return false;
         }
       });
@@ -1523,7 +1433,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
           const cls = $(el).attr('class') || '';
           if (id.toLowerCase() === signId || cls.toLowerCase().includes(signId)) {
             signHeading = $(el);
-            console.log(`Cosmopolitan - Strategy 2: found heading with id/class for ${signId}`);
             return false;
           }
         });
@@ -1557,13 +1466,11 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
         }
 
         if (extractedContent.trim().length > 50) {
-          console.log(`Cosmopolitan - Extracted ${pCount} paragraphs for ${signId}`);
           return { success: true, text: extractedContent.trim().substring(0, 3500), url };
         }
       }
 
       // Fallback: body text search between sign sections
-      console.log(`Cosmopolitan - Heading strategy failed, trying body text search`);
       const bodyText = ($('body').length > 0 ? $('body') : $('html')).text();
       const signIdx = bodyText.toLowerCase().indexOf(signId);
       if (signIdx !== -1) {
@@ -1575,18 +1482,15 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
         }
         const snippet = bodyText.substring(signIdx, nextIdx).trim();
         if (snippet.length > 100) {
-          console.log(`Cosmopolitan - Body text fallback: ${snippet.length} chars`);
           return { success: true, text: snippet.substring(0, 3500), url };
         }
       }
 
-      console.log(`Cosmopolitan - All extraction strategies failed for ${input.signSlugIt}`);
       return { success: false, error: `Could not extract content for ${input.signSlugIt} from Cosmopolitan page` };
     }
 
     // Special handling for alFemminile - single article with all signs separated by <h2><b>SIGN: oroscopo settimanale</b></h2>
     if (url.includes('alfemminile.com')) {
-      console.log(`alFemminile - Extracting content for ${input.signSlugIt} from URL: ${url}`);
 
       const signId = (SIGN_MAP[input.signSlugIt] || input.signSlugIt).toLowerCase();
       const zodiacSigns = ['ariete', 'toro', 'gemelli', 'cancro', 'leone', 'vergine',
@@ -1599,7 +1503,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
         // Matches "ariete: oroscopo settimanale" or "ariete:" at start
         if (text.startsWith(signId + ':')) {
           signHeading = $(el);
-          console.log(`alFemminile - Found H2: "${$(el).text().trim()}"`);
           return false;
         }
       });
@@ -1629,32 +1532,26 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
         }
 
         if (extractedContent.trim().length > 50) {
-          console.log(`alFemminile - Extracted content for ${signId}`);
           return { success: true, text: extractedContent.trim().substring(0, 3500), url };
         }
       }
 
-      console.log(`alFemminile - Could not find heading for ${signId}`);
       return { success: false, error: `Could not extract content for ${input.signSlugIt} from alFemminile page` };
     }
 
     // Special handling for Marie Claire - single page with all signs
     if (url.includes('marieclaire.it')) {
-      console.log(`Marie Claire - Extracting content for ${input.signSlugIt} from URL: ${url}`);
-      console.log(`Marie Claire - Page structure analysis:`);
 
            const signId = SIGN_MAP[input.signSlugIt] || input.signSlugIt.toLowerCase();
       const zodiacSigns = ['ariete', 'toro', 'gemelli', 'cancro', 'leone', 'vergine',
                            'bilancia', 'scorpione', 'sagittario', 'capricorno', 'acquario', 'pesci'];
 
       // Log all H2 elements for debugging
-      console.log(`Marie Claire - Found ${$('h2').length} H2 elements on page`);
       $('h2').each((i, h2) => {
         const $h2 = $(h2);
         const id = $h2.attr('id');
         const classes = $h2.attr('class');
         const text = $h2.text().trim();
-        console.log(`  H2[${i}]: id="${id || 'none'}" class="${classes || 'none'}" text="${text}"`);
       });
 
       // Strategy 0: Extract from Next.js __NEXT_DATA__ JSON using raw HTML
@@ -1665,7 +1562,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
           const nextData = JSON.parse(nextDataRawMatch[1]);
           const pageProps = nextData?.props?.pageProps;
           if (pageProps) {
-            console.log(`Marie Claire - __NEXT_DATA__ pageProps keys: ${Object.keys(pageProps).join(', ')}`);
           }
           const candidateBodies = [
             pageProps?.bodyDom,
@@ -1687,7 +1583,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
               const text = $inner(h2).text().trim().toLowerCase();
               if (text !== input.signSlugIt.toLowerCase()) return;
 
-              console.log(`Marie Claire - Strategy 0 SUCCESS: Found in __NEXT_DATA__ H2 "${$inner(h2).text().trim()}"`);
               foundHeading = true;
 
               let current = $inner(h2).next();
@@ -1708,26 +1603,20 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
             });
 
             if (innerContent.trim().length > 50) {
-              console.log(`Marie Claire - Strategy 0: extracted ${innerPCount} paragraphs`);
               return { success: true, text: innerContent.trim().substring(0, 3500), url };
             }
           }
 
           if (candidateBodies.length === 0) {
-            console.log(`Marie Claire - Strategy 0: no body paths found in __NEXT_DATA__`);
           } else {
-            console.log(`Marie Claire - Strategy 0: sign not found in __NEXT_DATA__ body`);
           }
         } catch (e) {
-          console.log(`Marie Claire - Strategy 0 failed: ${e}`);
         }
       } else {
-        console.log(`Marie Claire - Strategy 0: no __NEXT_DATA__ in raw HTML`);
         // Diagnostic: log raw HTML around the sign heading
         const signLower = input.signSlugIt.toLowerCase();
         const rawIdx = html.toLowerCase().indexOf(`>${signLower}<`);
         if (rawIdx >= 0) {
-          console.log(`Marie Claire - Raw HTML around sign: ...${html.substring(Math.max(0, rawIdx - 60), rawIdx + 500).replace(/\s+/g, ' ')}...`);
         }
       }
 
@@ -1737,7 +1626,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
       // Strategy 1: Find h2 with id attribute matching sign (e.g., <h2 id="toro">)
       signHeading = $(`h2#${signId}`).first();
       if (signHeading.length > 0) {
-        console.log(`Marie Claire - Strategy 1 SUCCESS: Found heading with id="${signId}"`);
       }
 
       // Strategy 2: Find h2 with exact sign name in text or strong tag
@@ -1750,7 +1638,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
 
           if (h2Text === targetSign || strongText === targetSign) {
             signHeading = $h2;
-            console.log(`Marie Claire - Strategy 2 SUCCESS: Found H2 with exact match "${$h2.text().trim()}"`);
             return false; // Break loop
           }
         });
@@ -1770,7 +1657,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
 
           if (patterns.some(p => p.test(headingText))) {
             signHeading = $heading;
-            console.log(`Marie Claire - Strategy 3 SUCCESS: Found heading "${headingText}"`);
             return false;
           }
         });
@@ -1808,7 +1694,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
           if (tagName === 'H2' || tagName === 'H3') {
             const headingText = currentElement.text().trim().toLowerCase();
             if (zodiacSigns.some(sign => headingText === sign || headingText.includes(sign))) {
-              console.log(`Marie Claire - Stopping at next sign: ${headingText}`);
               break;
             }
           }
@@ -1824,7 +1709,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
         }
 
         if (extractedContent.trim().length > 50) {
-          console.log(`Marie Claire - ✓ Extracted ${paragraphCount} paragraphs, ${extractedContent.length} chars`);
           return {
             success: true,
             text: extractedContent.trim().substring(0, 3500),
@@ -1834,7 +1718,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
 
         // Parent-level traversal: H2 may be wrapped in a container div
         // Try siblings of the H2's parent element
-        console.log(`Marie Claire - Direct siblings empty. H2 parent: <${(signHeading.parent().prop('tagName') || '').toUpperCase()}>, trying parent.next()...`);
         let $pSibling = signHeading.parent().next();
         while ($pSibling.length > 0) {
           const pTag = ($pSibling.prop('tagName') as string || '').toUpperCase();
@@ -1848,7 +1731,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
         }
 
         if (extractedContent.trim().length > 50) {
-          console.log(`Marie Claire - ✓ Parent traversal extracted ${paragraphCount} paragraphs`);
           return {
             success: true,
             text: extractedContent.trim().substring(0, 3500),
@@ -1858,14 +1740,12 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
       }
 
       // Advanced fallback: DOM traversal with context awareness
-      console.log(`Marie Claire - Trying advanced DOM analysis...`);
 
       // Use $.root() text as fallback in case <body> is absent in SSR/Next.js HTML
       const allText = ($('body').length > 0 ? $('body') : $('html')).text();
       const signRegex = new RegExp(`\\b${input.signSlugIt}\\b`, 'gi');
       const matches = Array.from(allText.matchAll(signRegex));
 
-      console.log(`Marie Claire - Found ${matches.length} occurrences of "${input.signSlugIt}" in body`);
 
       if (matches.length > 0) {
         // Find the main content area
@@ -1875,7 +1755,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
           const $content = $(selector).first();
           if ($content.length === 0) continue;
 
-          console.log(`Marie Claire - Analyzing ${selector} container...`);
 
           // Find all elements containing the sign name
           const $allElements = $content.find('*').filter((_, el) => {
@@ -1883,7 +1762,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
             return signRegex.test(text);
           });
 
-          console.log(`Marie Claire - Found ${$allElements.length} elements containing sign name in ${selector}`);
 
               // Try to find a heading-like element
               for (let i = 0; i < $allElements.length; i++) {
@@ -1898,7 +1776,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
                 if (['H2', 'H3', 'H4', 'STRONG', 'B'].includes(tagName) &&
                     elText.toLowerCase() === input.signSlugIt.toLowerCase()) {
 
-                  console.log(`Marie Claire - Found sign in ${tagName}: "${elText}"`);
 
                   // Extract following paragraphs
                   let $next = $el.parent().next();
@@ -1924,7 +1801,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
               }
 
               if (content.trim().length > 50) {
-                console.log(`Marie Claire - Fallback extraction successful: ${content.length} chars from ${pCount} paragraphs`);
                 return {
                   success: true,
                   text: content.trim().substring(0, 3500),
@@ -1936,7 +1812,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
         }
       }
 
-      console.log(`Marie Claire - All extraction strategies failed for ${input.signSlugIt}`);
       return {
         success: false,
         error: `Could not extract content for ${input.signSlugIt} from Marie Claire page`
@@ -1945,7 +1820,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
 
     // Special handling for Repubblica - single page with all signs
     if (url.includes('repubblica.it')) {
-      console.log(`Repubblica - Extracting content for ${input.signSlugIt} from URL: ${url}`);
 
       const zodiacSigns = ['ariete', 'toro', 'gemelli', 'cancro', 'leone', 'vergine',
                            'bilancia', 'scorpione', 'sagittario', 'capricorno', 'acquario', 'pesci'];
@@ -1957,7 +1831,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
         // Exact match (case-insensitive)
         if (h2Text.toLowerCase() === input.signSlugIt.toLowerCase()) {
           signHeading = $(h2);
-          console.log(`Repubblica - Found exact H2 match for ${input.signSlugIt}: "${h2Text}"`);
           return false; // Break the loop
 
         }
@@ -1975,7 +1848,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
           if (tagName === 'H2') {
             const nextH2Text = currentElement.text().trim().toLowerCase();
             if (zodiacSigns.some(sign => nextH2Text === sign)) {
-              console.log(`Repubblica - Stopping at next sign: ${nextH2Text}`);
               break;
             }
           }
@@ -1995,17 +1867,14 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
         }
 
         if (extractedContent.trim().length > 50) {
-          console.log(`Repubblica - Successfully extracted ${extractedContent.length} chars for ${input.signSlugIt}`);
           return {
             success: true,
             text: extractedContent.trim().substring(0, 3500),
             url: url
           };
         } else {
-          console.log(`Repubblica - Extracted content too short (${extractedContent.length} chars) for ${input.signSlugIt}`);
         }
       } else {
-        console.log(`Repubblica - Could not find H2 heading for ${input.signSlugIt}`);
       }
 
       // Fallback: Search entire page for the sign name and extract surrounding content
@@ -2025,7 +1894,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
 
         const snippet = bodyText.substring(signIndex, nextSignIndex).trim();
         if (snippet.length > 100) {
-          console.log(`Repubblica - Extracted ${snippet.length} chars from body text search`);
           return {
             success: true,
             text: snippet.substring(0, 3500),
@@ -2043,16 +1911,11 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
     // CODICE PER FANPAGE
     // Special handling for Fanpage.it - single page with all signs
     if (url.includes('fanpage.it')) {
-      console.log(`Fanpage.it - Extracting weekly content for ${input.signSlugIt} from URL: ${url}`);
 
       const zodiacSigns = ['ariete', 'toro', 'gemelli', 'cancro', 'leone', 'vergine',
                            'bilancia', 'scorpione', 'sagittario', 'capricorno', 'acquario', 'pesci'];
 
       // Log structure
-      console.log(`Fanpage.it - Found ${$('h2').length} H2 elements`);
-      console.log(`Fanpage.it - Found ${$('h3').length} H3 elements`);
-      console.log(`Fanpage.it - Found ${$('h4').length} H4 elements`);
-      console.log(`Fanpage.it - Found ${$('strong').length} STRONG elements`);
 
       let signHeading = $();
       let extractedContent = '';
@@ -2067,7 +1930,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
             h3Text === `oroscopo ${input.signSlugIt.toLowerCase()}` ||
             h3Text.includes(input.signSlugIt.toLowerCase())) {
           signHeading = $h3;
-          console.log(`Fanpage.it - Found H3 match: "${$h3.text().trim()}"`);
           return false; // Break loop
         }
       });
@@ -2082,7 +1944,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
               h4Text === `oroscopo ${input.signSlugIt.toLowerCase()}` ||
               h4Text.includes(input.signSlugIt.toLowerCase())) {
             signHeading = $h4;
-            console.log(`Fanpage.it - Found H4 match: "${$h4.text().trim()}"`);
             return false;
           }
         });
@@ -2100,7 +1961,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
                text === `oroscopo ${input.signSlugIt.toLowerCase()}` ||
                text.includes(input.signSlugIt.toLowerCase()))) {
             signHeading = $elem;
-            console.log(`Fanpage.it - Found STRONG/B match: "${$elem.text().trim()}"`);
             return false;
           }
         });
@@ -2126,7 +1986,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
           if (tagName === 'H2' || tagName === 'H3' || tagName === 'H4') {
             const headingText = currentElement.text().trim().toLowerCase();
             if (zodiacSigns.some(sign => headingText.includes(sign) && !headingText.includes(input.signSlugIt.toLowerCase()))) {
-              console.log(`Fanpage.it - Stopping at next sign: ${headingText}`);
               break;
             }
           }
@@ -2134,7 +1993,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
           // Check for strong/bold tags that might be next sign
           const strongText = currentElement.find('strong, b').first().text().trim().toLowerCase();
           if (strongText.length < 50 && zodiacSigns.some(sign => strongText.includes(sign) && !strongText.includes(input.signSlugIt.toLowerCase()))) {
-            console.log(`Fanpage.it - Stopping at next sign in STRONG: ${strongText}`);
             break;
           }
 
@@ -2165,7 +2023,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
         }
 
         if (extractedContent.trim().length > 50) {
-          console.log(`Fanpage.it - ✓ Extracted ${paragraphCount} paragraphs, ${extractedContent.length} chars`);
           return {
             success: true,
             text: extractedContent.trim().substring(0, 3500),
@@ -2175,7 +2032,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
       }
 
       // Fallback: Search body text for sign name
-      console.log(`Fanpage.it - Trying body text search fallback...`);
 
       const bodyText = $('body').text();
       const signPatterns = [
@@ -2206,7 +2062,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
             .trim();
 
           if (content.length > 100) {
-            console.log(`Fanpage.it - Fallback extracted ${content.length} chars`);
             return {
               success: true,
               text: content.substring(0, 3500),
@@ -2225,7 +2080,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
 
     // Special handling for OnlyOroscopo - single page with weekly content
     if (url.includes('onlyoroscopo.it') || url.includes('onlyoroscopo.com')) {
-      console.log(`OnlyOroscopo Weekly - Starting specialized extraction for ${input.signSlugIt} from URL: ${url}`);
 
       let extractedText = '';
 
@@ -2234,7 +2088,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
       const primaryWidget = $('[data-id="3087e79c"].elementor-drop-cap-yes');
 
       if (primaryWidget.length > 0) {
-        console.log('OnlyOroscopo Weekly - Found primary widget with data-id="3087e79c"');
 
         const widgetContainer = primaryWidget.find('.elementor-widget-container').first();
 
@@ -2258,21 +2111,18 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
             const stopIndex = text.toLowerCase().indexOf(phrase.toLowerCase());
             if (stopIndex !== -1) {
               text = text.substring(0, stopIndex).trim();
-              console.log(`OnlyOroscopo Weekly - Trimmed at "${phrase}" (position ${stopIndex})`);
               break;
             }
           }
 
           if (text.length >= 150) {
             extractedText = text;
-            console.log(`OnlyOroscopo Weekly - Extracted ${extractedText.length} chars from primary widget`);
           }
         }
       }
 
       // STRATEGIA SECONDARIA: Solo data-id (senza drop-cap check)
       if (!extractedText || extractedText.length < 150) {
-        console.log('OnlyOroscopo Weekly - Trying secondary strategy with data-id only...');
 
         const secondaryWidget = $('[data-id="3087e79c"]');
         if (secondaryWidget.length > 0) {
@@ -2292,7 +2142,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
 
             if (text.length >= 150) {
               extractedText = text;
-              console.log(`OnlyOroscopo Weekly - Extracted ${extractedText.length} chars from secondary widget`);
             }
           }
         }
@@ -2300,7 +2149,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
 
       // STRATEGIA TERZIARIA: Widget drop-cap in sezioni pulite
       if (!extractedText || extractedText.length < 150) {
-        console.log('OnlyOroscopo Weekly - Trying tertiary strategy with drop-cap widgets...');
 
         $('section.elementor-section').each((_, section) => {
           const $section = $(section);
@@ -2337,7 +2185,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
 
             if (!navigationPattern.test(text) && text.length >= 150) {
               extractedText = text;
-              console.log(`OnlyOroscopo Weekly - Extracted ${extractedText.length} chars from clean section`);
               return false; // break
             }
           }
@@ -2346,7 +2193,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
 
       // STRATEGIA QUATERNARIA: Widget text-editor generici con validazione
       if (!extractedText || extractedText.length < 150) {
-        console.log('OnlyOroscopo Weekly - Trying quaternary strategy with generic text-editors...');
 
         $('.elementor-widget-text-editor').each((index, elem) => {
           const $elem = $(elem);
@@ -2404,7 +2250,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
 
           if (text.length >= 200 && hasMultipleKeywords) {
             extractedText = text;
-            console.log(`OnlyOroscopo Weekly - Extracted ${extractedText.length} chars from generic widget ${index}`);
             return false; // break
           }
         });
@@ -2412,19 +2257,12 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
 
       // Validazione finale
       if (!extractedText || extractedText.length < 150) {
-        console.log('OnlyOroscopo Weekly - FAILED - Debug information:');
-        console.log('All text-editor widgets found:');
 
         $('.elementor-widget-text-editor').each((i, elem) => {
           const text = $(elem).find('.elementor-widget-container').text().trim();
           const dataId = $(elem).attr('data-id');
           const hasDropCap = $(elem).hasClass('elementor-drop-cap-yes');
 
-          console.log(`  Widget ${i}:`);
-          console.log(`    - data-id: ${dataId || 'none'}`);
-          console.log(`    - drop-cap: ${hasDropCap}`);
-          console.log(`    - length: ${text.length}`);
-          console.log(`    - preview: "${text.substring(0, 80)}..."`);
         });
 
         return {
@@ -2435,7 +2273,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
 
       // Calcola score per validazione qualità
       const score = scoreHoroscopeContent(extractedText, input.signSlugIt);
-      console.log(`OnlyOroscopo Weekly - Content quality score: ${score}, length: ${extractedText.length}`);
 
       // Pulizia finale del testo
       extractedText = extractedText
@@ -2449,14 +2286,12 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
       // Verifica finale: il testo deve contenere almeno 2 frasi complete
       const sentenceCount = (extractedText.match(/[.!?]+/g) || []).length;
       if (sentenceCount < 2) {
-        console.log(`OnlyOroscopo Weekly - Warning: Only ${sentenceCount} sentence(s) found, might be incomplete`);
       }
 
       // Verifica che contenga riferimenti settimanali
       const hasWeeklyReferences = /settimana|settimanale|giorni|periodo|lunedì|martedì|mercoledì|giovedì|venerdì|sabato|domenica/i.test(extractedText);
 
       if (!hasWeeklyReferences) {
-        console.log('OnlyOroscopo Weekly - Warning: Content may not be weekly-specific');
       }
 
       return {
@@ -2539,7 +2374,6 @@ export async function scrapeWeeklyWithRetry(input: WeeklyScraperInput, maxRetrie
       return await scrapeWeeklyHoroscope(input);
     } catch (error) {
       lastError = error instanceof Error ? error : new Error('Unknown error');
-      console.log(`Weekly scrape attempt ${attempt}/${maxRetries} failed:`, lastError.message);
 
       if (attempt < maxRetries) {
         const delay = attempt * 1000;

@@ -209,12 +209,10 @@ correggi prima di restituire l'output.`;
 
 export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAIOutput> {
   try {
-    console.log(`[Claude] Processing ${input.sourceName} - ${input.signSlugIt} (${input.extracted_text.length} chars)`);
 
     let useNeutralFallback = false;
 
     if (input.extracted_text.length < 30) {
-      console.log(`[Claude] Text too short (${input.extracted_text.length} chars), using neutral fallback`);
       useNeutralFallback = true;
     } else {
       const hasHoroscopeKeywords = /\b(oroscopo|previsioni|stelle|fortuna|amore|lavoro|salute|giornata|periodo|energia|voto|destino|luna|sole|pianeti|segno|zodiaco|oggi|domani|settimana|relazioni|carriera|benessere|marte|venere|saturno|giove|mercurio|plutone|nettuno|urano|ariete|toro|gemelli|cancro|leone|vergine|bilancia|scorpione|sagittario|capricorno|acquario|pesci)\b/i.test(input.extracted_text.toLowerCase());
@@ -226,7 +224,6 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
           ((hasNavigationWords && input.extracted_text.length < 60) ||
            (hasPaywallWords && input.extracted_text.length < 50))) {
         const reason = hasNavigationWords && input.extracted_text.length < 60 ? 'navigazione' : 'paywall';
-        console.log(`[Claude] SCARTATO — motivo: ${reason} | preview: "${input.extracted_text.slice(0, 100)}"`);
         useNeutralFallback = true;
       }
     }
@@ -312,8 +309,6 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
       throw new Error('No tool use block in Claude response');
     }
 
-    console.log(`[Claude] Tool response received`);
-    console.log(`[Claude] Cache usage — creation: ${response.usage.cache_creation_input_tokens ?? 0}, read: ${response.usage.cache_read_input_tokens ?? 0}, input: ${response.usage.input_tokens}`);
     const parsed = toolBlock.input as Record<string, unknown>;
 
     // Process summary (incipit) — enforce tier-based limits with snippet truncation
@@ -339,7 +334,6 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
       summary = summary.replace(/[.!?…]*$/, '') + '…';
     }
     
-    console.log(`[Claude] Summary tier: orig=${originalLength} → limit=${summaryLimit} → actual=${summary.length}`);
 
     // Process superquote — enforce 70-160 char limits
     let superquote = (parsed.superquote as string) || '';
@@ -357,7 +351,6 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
       superquote = trimmed.trim() || superquote.slice(0, 159) + '.';
     }
     if (superquote.length < 70) {
-      console.log(`[Claude] Warning: Superquote too short (${superquote.length} chars), using as-is`);
     }
 
     const result = {
@@ -373,9 +366,6 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
         : 'neutral'
     };
 
-    console.log(`[Claude] Final superquote length: ${result.superquote.length} characters`);
-    console.log(`[Claude] Final summary (incipit) length: ${result.summary.length} characters (tier limit: ${summaryLimit})`);
-    console.log(`[Claude] Processed result: Relazioni=${result.ratings.relazioni}, Lavoro=${result.ratings.lavoro}, Benessere=${result.ratings.benessere}, Tone=${result.tone}`);
 
     return openaiOutputSchema.parse(result);
   } catch (error) {
@@ -401,7 +391,6 @@ export async function processHoroscopeWithRetry(
       }
 
       const delay = Math.pow(2, attempt) * 1000;
-      console.log(`[Claude] Attempt ${attempt} failed, retrying in ${delay}ms...`);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
@@ -430,7 +419,6 @@ const NEUTRAL_FALLBACK: OpenAIOutput = {
 
 function isInvalidText(text: string): boolean {
   if (text.length < 30) {
-    console.log(`[isInvalidText] SCARTATO — motivo: testo troppo corto (${text.length} chars) | preview: "${text.slice(0, 100)}"`);
     return true;
   }
   const hasHoroscopeKeywords = /\b(oroscopo|previsioni|stelle|fortuna|amore|lavoro|salute|giornata|periodo|energia|voto|destino|luna|sole|pianeti|segno|zodiaco|oggi|domani|settimana|relazioni|carriera|benessere|marte|venere|saturno|giove|mercurio|plutone|nettuno|urano|ariete|toro|gemelli|cancro|leone|vergine|bilancia|scorpione|sagittario|capricorno|acquario|pesci)\b/i.test(text.toLowerCase());
@@ -440,7 +428,6 @@ function isInvalidText(text: string): boolean {
   if (!hasHoroscopeKeywords && !hasAstrologicalContent &&
       ((hasNavigationWords && text.length < 60) || (hasPaywallWords && text.length < 50))) {
     const reason = hasNavigationWords && text.length < 60 ? 'navigazione' : 'paywall';
-    console.log(`[isInvalidText] SCARTATO — motivo: ${reason} | preview: "${text.slice(0, 100)}"`);
     return true;
   }
   return false;
@@ -482,7 +469,6 @@ function postProcessOutput(parsed: Record<string, unknown>, originalLength?: num
     superquote = trimmed.trim() || superquote.slice(0, 159) + '.';
   }
   if (superquote.length < 70) {
-    console.log(`[Claude] Warning: Superquote too short (${superquote.length} chars), using as-is`);
   }
 
   return openaiOutputSchema.parse({
@@ -507,7 +493,6 @@ export async function processMultiSourceHoroscope(inputs: OpenAIInput[]): Promis
   const validEntries: { index: number; input: OpenAIInput }[] = [];
   for (let i = 0; i < inputs.length; i++) {
     if (isInvalidText(inputs[i].extracted_text)) {
-      console.log(`[Claude Batch] Source ${inputs[i].sourceName} (${inputs[i].extracted_text.length} chars) — using fallback`);
     } else {
       validEntries.push({ index: i, input: inputs[i] });
     }
@@ -515,7 +500,6 @@ export async function processMultiSourceHoroscope(inputs: OpenAIInput[]): Promis
 
   if (validEntries.length === 0) return results;
 
-  console.log(`[Claude Batch] Processing ${validEntries.length}/${inputs.length} valid sources for ${inputs[0].signSlugIt} (${inputs[0].dateISO})`);
 
   const userMessage = `Hai ${validEntries.length} oroscopi da analizzare. Per ognuno estrai i dati strutturati.\n\n` +
     validEntries.map((e, i) => `[FONTE ${i + 1} - ${e.input.sourceName}]\n${e.input.extracted_text}`).join('\n\n');
@@ -568,7 +552,6 @@ export async function processMultiSourceHoroscope(inputs: OpenAIInput[]): Promis
     throw new Error('No tool use block in Claude batch response');
   }
 
-  console.log(`[Claude Batch] Response received — cache creation: ${response.usage.cache_creation_input_tokens ?? 0}, read: ${response.usage.cache_read_input_tokens ?? 0}, input: ${response.usage.input_tokens}`);
 
   const batchResults = (toolBlock.input as { results: Record<string, unknown>[] }).results;
   for (const parsed of batchResults) {
@@ -580,7 +563,6 @@ export async function processMultiSourceHoroscope(inputs: OpenAIInput[]): Promis
     }
     try {
       results[entry.index] = postProcessOutput(parsed, entry.input.extracted_text.length);
-      console.log(`[Claude Batch] Source ${entry.input.sourceName}: superquote=${results[entry.index].superquote.length}ch, summary=${results[entry.index].summary.length}ch, tone=${results[entry.index].tone}`);
     } catch (err) {
       console.error(`[Claude Batch] Post-processing failed for source ${entry.input.sourceName}:`, err);
     }
@@ -606,7 +588,6 @@ export async function processMultiSourceHoroscopeWithRetry(
       }
 
       const delay = Math.pow(2, attempt) * 1000;
-      console.log(`[Claude Batch] Attempt ${attempt} failed, retrying in ${delay}ms...`);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }

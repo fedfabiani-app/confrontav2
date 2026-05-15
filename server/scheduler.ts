@@ -115,7 +115,6 @@ async function hasRunningWeeklyExecution(weekStart: Date): Promise<boolean> {
   });
   
   if (staleExecutions.length > 0) {
-    console.log(`[Weekly Helper] Found ${staleExecutions.length} stale execution(s), marking as timeout...`);
     
     for (const stale of staleExecutions) {
       await prisma.weeklyScraperExecution.update({
@@ -126,7 +125,6 @@ async function hasRunningWeeklyExecution(weekStart: Date): Promise<boolean> {
         },
       });
       
-      console.log(`[Weekly Helper] Marked execution ${stale.id} as timeout (started ${stale.started_at.toISOString()})`);
     }
   }
   
@@ -197,7 +195,6 @@ function isWithinMondayWindow(): boolean {
 // ============================================================================
 
 async function executeDailyScraper() {
-  console.log('\n========== [DailyScraper] Cron Triggered ==========');
   
   try {
     const targetDate = getItalyToday();
@@ -209,56 +206,37 @@ async function executeDailyScraper() {
       second: '2-digit'
     });
     
-    console.log(`[DailyScraper] Current time (Italy): ${italyTime}`);
-    console.log(`[DailyScraper] Target date: ${targetDate}`);
     
     // Guard 1: Check enabled flag
     const config = await getDailyScraperConfig();
     if (!config.enabled) {
-      console.log('[DailyScraper] ⊘ Skipped - Daily scraping is disabled in configuration');
-      console.log('==================================================\n');
       return;
     }
-    console.log('[DailyScraper] ✓ Daily config check passed - Scraping enabled');
     
     // Guard 2: Check time window
     if (!isWithinTimeWindow(config)) {
-      console.log(`[DailyScraper] ⊘ Skipped - Outside configured time window (${config.startTime}-${config.endTime})`);
-      console.log('==================================================\n');
       return;
     }
-    console.log('[DailyScraper] ✓ Time window check passed');
     
     // Guard 3: Check if already completed today
     if (await hasCompletedExecutionToday()) {
-      console.log('[DailyScraper] ⊘ Skipped - Successful execution already completed today');
-      console.log('==================================================\n');
       return;
     }
-    console.log('[DailyScraper] ✓ No completed execution today');
     
     // Guard 4: Check for running execution
     if (await hasRunningExecution(targetDate)) {
-      console.log('[DailyScraper] ⊘ Skipped - Execution already in progress for today');
-      console.log('==================================================\n');
       return;
     }
-    console.log('[DailyScraper] ✓ No running execution detected');
     
     // Execute orchestrator
-    console.log('[DailyScraper] → Starting orchestrator...');
     const result = await runDailyScraperCycle({ 
       targetDate,
       triggerType: 'scheduled'
     });
     
-    console.log('[DailyScraper] ✓ Orchestrator completed successfully');
-    console.log(`[DailyScraper] Results: ${result.stats.enqueued} enqueued, ${result.stats.skipped} skipped, ${result.stats.failed} failed`);
-    console.log('==================================================\n');
     
   } catch (error) {
     console.error('[DailyScraper] ✗ Error:', error);
-    console.log('==================================================\n');
     // Don't throw - let cron continue
   }
 }
@@ -268,7 +246,6 @@ async function executeDailyScraper() {
 // ============================================================================
 
 async function executeFallbackRetry() {
-  console.log('\n========== [Fallback] Retry Triggered ==========');
   
   try {
     const targetDate = getItalyToday();
@@ -280,45 +257,30 @@ async function executeFallbackRetry() {
       second: '2-digit'
     });
     
-    console.log(`[Fallback] Current time (Italy): ${italyTime}`);
-    console.log(`[Fallback] Target date: ${targetDate}`);
     
     // Guard 1: Check enabled flag
     const config = await getDailyScraperConfig();
     if (!config.enabled) {
-      console.log('[Fallback] ⊘ Skipped - Daily scraping is disabled in configuration');
-      console.log('================================================\n');
       return;
     }
-    console.log('[Fallback] ✓ Daily config check passed');
     
     // Guard 2: Check if fallback already ran today
     if (await hasFallbackRunToday()) {
-      console.log('[Fallback] ⊘ Skipped - Fallback already ran today');
-      console.log('================================================\n');
       return;
     }
-    console.log('[Fallback] ✓ No previous fallback execution today');
     
     // Guard 3: Check for running execution
     if (await hasRunningExecution(targetDate)) {
-      console.log('[Fallback] ⊘ Skipped - Execution currently in progress');
-      console.log('================================================\n');
       return;
     }
-    console.log('[Fallback] ✓ No running execution detected');
     
     // Get failed sources
     const failedSourceIds = await getFailedSourceIds(targetDate);
     
     if (failedSourceIds.length === 0) {
-      console.log('[Fallback] ✓ No failures detected - Nothing to retry');
-      console.log('================================================\n');
       return;
     }
     
-    console.log(`[Fallback] → Found ${failedSourceIds.length} failed source(s): ${failedSourceIds.join(', ')}`);
-    console.log('[Fallback] → Starting retry orchestrator...');
     
     // Execute retry with specific sources
     const result = await runDailyScraperCycle({ 
@@ -328,13 +290,9 @@ async function executeFallbackRetry() {
       triggerType: 'fallback'
     });
     
-    console.log('[Fallback] ✓ Retry completed successfully');
-    console.log(`[Fallback] Results: ${result.stats.enqueued} enqueued, ${result.stats.skipped} skipped, ${result.stats.failed} failed`);
-    console.log('================================================\n');
     
   } catch (error) {
     console.error('[Fallback] ✗ Error:', error);
-    console.log('================================================\n');
   }
 }
 
@@ -343,7 +301,6 @@ async function executeFallbackRetry() {
 // ============================================================================
 
 async function executeMondayWeeklyScraper() {
-  console.log('\n========== [MondayWeekly] Cron Triggered ==========');
   
   try {
     const weekStart = getCurrentWeekStart();
@@ -355,44 +312,29 @@ async function executeMondayWeeklyScraper() {
       second: '2-digit'
     });
     
-    console.log(`[MondayWeekly] Current time (Italy): ${italyTime}`);
-    console.log(`[MondayWeekly] Target week: ${weekStart.toISOString().split('T')[0]}`);
     
     // Guard 1: Check enabled flag
     const config = await getWeeklyScraperConfig();
     if (!config.enabled) {
-      console.log('[MondayWeekly] ⊘ Skipped - Weekly scraping is disabled in configuration');
-      console.log('====================================================\n');
       return;
     }
-    console.log('[MondayWeekly] ✓ Weekly config check passed - Scraping enabled');
     
     // Guard 2: Check time window (Monday 5:30-8:00 AM)
     if (!isWithinMondayWindow()) {
-      console.log('[MondayWeekly] ⊘ Skipped - Outside Monday window (5:30-8:00 AM)');
-      console.log('====================================================\n');
       return;
     }
-    console.log('[MondayWeekly] ✓ Time window check passed');
     
     // Guard 3: Check if Monday scrape already completed this week
     if (await hasCompletedGroupScrapeForWeek(weekStart, 'all')) {
-      console.log('[MondayWeekly] ⊘ Skipped - Monday scrape already completed this week');
-      console.log('====================================================\n');
       return;
     }
-    console.log('[MondayWeekly] ✓ No completed Monday scrape this week');
     
     // Guard 4: Check for running execution
     if (await hasRunningWeeklyExecution(weekStart)) {
-      console.log('[MondayWeekly] ⊘ Skipped - Execution already in progress for this week');
-      console.log('====================================================\n');
       return;
     }
-    console.log('[MondayWeekly] ✓ No running execution detected');
     
     // Execute orchestrator
-    console.log('[MondayWeekly] → Starting weekly orchestrator (ALL sources)...');
     const result = await runWeeklyScraperCycle({
       weekStart,
       sourceGroup: 'all',
@@ -400,13 +342,9 @@ async function executeMondayWeeklyScraper() {
       triggerType: 'scheduled'
     });
     
-    console.log('[MondayWeekly] ✓ Orchestrator completed successfully');
-    console.log(`[MondayWeekly] Results: ${result.stats.enqueued} enqueued, ${result.stats.skipped} skipped, ${result.stats.failed} failed`);
-    console.log('====================================================\n');
     
   } catch (error) {
     console.error('[MondayWeekly] ✗ Error:', error);
-    console.log('====================================================\n');
   }
 }
 
@@ -415,7 +353,6 @@ async function executeMondayWeeklyScraper() {
 // ============================================================================
 
 async function executeThursdayWeeklyScraper() {
-  console.log('\n========== [ThursdayWeekly] Cron Triggered ==========');
   
   try {
     const weekStart = getCurrentWeekStart();
@@ -427,54 +364,37 @@ async function executeThursdayWeeklyScraper() {
       second: '2-digit'
     });
     
-    console.log(`[ThursdayWeekly] Current time (Italy): ${italyTime}`);
-    console.log(`[ThursdayWeekly] Target week: ${weekStart.toISOString().split('T')[0]}`);
     
     // Guard 1: Check enabled flag
     const config = await getWeeklyScraperConfig();
     if (!config.enabled) {
-      console.log('[ThursdayWeekly] ⊘ Skipped - Weekly scraping is disabled in configuration');
-      console.log('======================================================\n');
       return;
     }
-    console.log('[ThursdayWeekly] ✓ Weekly config check passed');
     
     // Guard 2: Sanity check - is it actually Thursday?
     const italyNow = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Rome' }));
     if (italyNow.getDay() !== 4) {
-      console.log('[ThursdayWeekly] ⊘ Skipped - Not Thursday in Italy timezone');
-      console.log('======================================================\n');
       return;
     }
-    console.log('[ThursdayWeekly] ✓ Day check passed - It is Thursday');
     
     // Guard 3: Check if elle_only update already ran this week
     if (await hasCompletedGroupScrapeForWeek(weekStart, 'elle_only')) {
-      console.log('[ThursdayWeekly] ⊘ Skipped - Elle update already completed this week');
-      console.log('======================================================\n');
       return;
     }
-    console.log('[ThursdayWeekly] ✓ No elle_only update this week yet');
     
     // Guard 4: Check if Monday scrape completed (prerequisite)
     if (!(await hasMondayScrapeCompleted(weekStart))) {
-      console.log('[ThursdayWeekly] ⊘ Skipped - Monday scrape not yet completed');
-      console.log('======================================================\n');
       return;
     }
-    console.log('[ThursdayWeekly] ✓ Monday scrape prerequisite met');
     
     // Get Elle.com source ID
     const elleSourceIds = await getWeeklySourceIdsByDomain(['elle.com']);
     
     if (elleSourceIds.length === 0) {
-      console.log('[ThursdayWeekly] ⊘ Skipped - Elle.com source not found');
-      console.log('======================================================\n');
       return;
     }
     
     // Execute orchestrator
-    console.log(`[ThursdayWeekly] → Starting weekly orchestrator (Elle.com update, source ID: ${elleSourceIds[0]})...`);
     const result = await runWeeklyScraperCycle({
       weekStart,
       specificSources: elleSourceIds,
@@ -483,13 +403,9 @@ async function executeThursdayWeeklyScraper() {
       triggerType: 'scheduled'
     });
     
-    console.log('[ThursdayWeekly] ✓ Orchestrator completed successfully');
-    console.log(`[ThursdayWeekly] Results: ${result.stats.enqueued} enqueued, ${result.stats.skipped} skipped, ${result.stats.failed} failed`);
-    console.log('======================================================\n');
     
   } catch (error) {
     console.error('[ThursdayWeekly] ✗ Error:', error);
-    console.log('======================================================\n');
   }
 }
 
@@ -498,7 +414,6 @@ async function executeThursdayWeeklyScraper() {
 // ============================================================================
 
 async function executeSaturdayWeeklyScraper() {
-  console.log('\n========== [SaturdayWeekly] Cron Triggered ==========');
   
   try {
     const weekStart = getCurrentWeekStart();
@@ -510,42 +425,28 @@ async function executeSaturdayWeeklyScraper() {
       second: '2-digit'
     });
     
-    console.log(`[SaturdayWeekly] Current time (Italy): ${italyTime}`);
-    console.log(`[SaturdayWeekly] Target week: ${weekStart.toISOString().split('T')[0]}`);
     
     // Guard 1: Check enabled flag
     const config = await getWeeklyScraperConfig();
     if (!config.enabled) {
-      console.log('[SaturdayWeekly] ⊘ Skipped - Weekly scraping is disabled in configuration');
-      console.log('======================================================\n');
       return;
     }
-    console.log('[SaturdayWeekly] ✓ Weekly config check passed');
     
     // Guard 2: Sanity check - is it actually Saturday?
     const italyNow = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Rome' }));
     if (italyNow.getDay() !== 6) {
-      console.log('[SaturdayWeekly] ⊘ Skipped - Not Saturday in Italy timezone');
-      console.log('======================================================\n');
       return;
     }
-    console.log('[SaturdayWeekly] ✓ Day check passed - It is Saturday');
     
     // Guard 3: Check if saturday_group update already ran this week
     if (await hasCompletedGroupScrapeForWeek(weekStart, 'saturday_group')) {
-      console.log('[SaturdayWeekly] ⊘ Skipped - Saturday update already completed this week');
-      console.log('======================================================\n');
       return;
     }
-    console.log('[SaturdayWeekly] ✓ No saturday_group update this week yet');
     
     // Guard 4: Check if Monday scrape completed (prerequisite)
     if (!(await hasMondayScrapeCompleted(weekStart))) {
-      console.log('[SaturdayWeekly] ⊘ Skipped - Monday scrape not yet completed');
-      console.log('======================================================\n');
       return;
     }
-    console.log('[SaturdayWeekly] ✓ Monday scrape prerequisite met');
     
     // Get Saturday sources IDs
     const saturdaySourceIds = await getWeeklySourceIdsByDomain([
@@ -555,13 +456,10 @@ async function executeSaturdayWeeklyScraper() {
     ]);
     
     if (saturdaySourceIds.length === 0) {
-      console.log('[SaturdayWeekly] ⊘ Skipped - No Saturday sources found');
-      console.log('======================================================\n');
       return;
     }
     
     // Execute orchestrator
-    console.log(`[SaturdayWeekly] → Starting weekly orchestrator (${saturdaySourceIds.length} Saturday sources update)...`);
     const result = await runWeeklyScraperCycle({
       weekStart,
       specificSources: saturdaySourceIds,
@@ -570,13 +468,9 @@ async function executeSaturdayWeeklyScraper() {
       triggerType: 'scheduled'
     });
     
-    console.log('[SaturdayWeekly] ✓ Orchestrator completed successfully');
-    console.log(`[SaturdayWeekly] Results: ${result.stats.enqueued} enqueued, ${result.stats.skipped} skipped, ${result.stats.failed} failed`);
-    console.log('======================================================\n');
     
   } catch (error) {
     console.error('[SaturdayWeekly] ✗ Error:', error);
-    console.log('======================================================\n');
   }
 }
 
@@ -585,7 +479,6 @@ async function executeSaturdayWeeklyScraper() {
 // ============================================================================
 
 async function executeSundayWeeklyScraper() {
-  console.log('\n========== [SundayWeekly] Cron Triggered ==========');
 
   try {
     // CRITICAL: on Sunday we store content under NEXT Monday's week,
@@ -599,45 +492,31 @@ async function executeSundayWeeklyScraper() {
       second: '2-digit'
     });
 
-    console.log(`[SundayWeekly] Current time (Italy): ${italyTime}`);
-    console.log(`[SundayWeekly] Target week (next Monday): ${weekStart.toISOString().split('T')[0]}`);
 
     // Guard 1: Check enabled flag
     const config = await getWeeklyScraperConfig();
     if (!config.enabled) {
-      console.log('[SundayWeekly] ⊘ Skipped - Weekly scraping is disabled in configuration');
-      console.log('=====================================================\n');
       return;
     }
-    console.log('[SundayWeekly] ✓ Weekly config check passed');
 
     // Guard 2: Sanity check - is it actually Sunday?
     const italyNow = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Rome' }));
     if (italyNow.getDay() !== 0) {
-      console.log('[SundayWeekly] ⊘ Skipped - Not Sunday in Italy timezone');
-      console.log('=====================================================\n');
       return;
     }
-    console.log('[SundayWeekly] ✓ Day check passed - It is Sunday');
 
     // Guard 3: Check if sunday_group update already ran for next week
     if (await hasCompletedGroupScrapeForWeek(weekStart, 'sunday_group')) {
-      console.log('[SundayWeekly] ⊘ Skipped - Sunday update already completed for this week');
-      console.log('=====================================================\n');
       return;
     }
-    console.log('[SundayWeekly] ✓ No sunday_group run yet for next week');
 
     // Guard 4: No Monday prerequisite (Sunday runs before Monday)
 
     const sundaySourceIds = await getWeeklySourceIdsByDomain(['superguidatv.it']);
     if (sundaySourceIds.length === 0) {
-      console.log('[SundayWeekly] ⊘ Skipped - No Sunday sources found (superguidatv.it not active)');
-      console.log('=====================================================\n');
       return;
     }
 
-    console.log(`[SundayWeekly] → Starting weekly orchestrator (${sundaySourceIds.length} Sunday source(s))...`);
     const result = await runWeeklyScraperCycle({
       weekStart,
       specificSources: sundaySourceIds,
@@ -646,13 +525,9 @@ async function executeSundayWeeklyScraper() {
       triggerType: 'scheduled'
     });
 
-    console.log('[SundayWeekly] ✓ Orchestrator completed successfully');
-    console.log(`[SundayWeekly] Results: ${result.stats.enqueued} enqueued, ${result.stats.skipped} skipped, ${result.stats.failed} failed`);
-    console.log('=====================================================\n');
 
   } catch (error) {
     console.error('[SundayWeekly] ✗ Error:', error);
-    console.log('=====================================================\n');
   }
 }
 
@@ -661,7 +536,6 @@ async function executeSundayWeeklyScraper() {
 // ============================================================================
 
 async function executeWeeklyFallbackRetry() {
-  console.log('\n========== [WeeklyFallback] Retry Triggered ==========');
   
   try {
     const weekStart = getCurrentWeekStart();
@@ -673,17 +547,12 @@ async function executeWeeklyFallbackRetry() {
       second: '2-digit'
     });
     
-    console.log(`[WeeklyFallback] Current time (Italy): ${italyTime}`);
-    console.log(`[WeeklyFallback] Target week: ${weekStart.toISOString().split('T')[0]}`);
     
     // Guard 1: Check enabled flag
     const config = await getWeeklyScraperConfig();
     if (!config.enabled) {
-      console.log('[WeeklyFallback] ⊘ Skipped - Weekly scraping is disabled in configuration');
-      console.log('======================================================\n');
       return;
     }
-    console.log('[WeeklyFallback] ✓ Weekly config check passed');
     
     // Guard 2: Check if fallback already ran this week
     const existingFallback = await prisma.weeklyScraperExecution.findFirst({
@@ -694,31 +563,21 @@ async function executeWeeklyFallbackRetry() {
     });
     
     if (existingFallback) {
-      console.log('[WeeklyFallback] ⊘ Skipped - Fallback already ran this week');
-      console.log('======================================================\n');
       return;
     }
-    console.log('[WeeklyFallback] ✓ No previous fallback execution this week');
     
     // Guard 3: Check for running execution
     if (await hasRunningWeeklyExecution(weekStart)) {
-      console.log('[WeeklyFallback] ⊘ Skipped - Execution currently in progress');
-      console.log('======================================================\n');
       return;
     }
-    console.log('[WeeklyFallback] ✓ No running execution detected');
     
     // Get failed sources for this week
     const failedSourceIds = await getFailedWeeklySources(weekStart, 'all');
     
     if (failedSourceIds.length === 0) {
-      console.log('[WeeklyFallback] ✓ No failures detected - Nothing to retry');
-      console.log('======================================================\n');
       return;
     }
     
-    console.log(`[WeeklyFallback] → Found ${failedSourceIds.length} failed source(s): ${failedSourceIds.join(', ')}`);
-    console.log('[WeeklyFallback] → Starting retry orchestrator...');
     
     // Execute retry with specific sources
     const result = await runWeeklyScraperCycle({ 
@@ -729,13 +588,9 @@ async function executeWeeklyFallbackRetry() {
       triggerType: 'fallback'
     });
     
-    console.log('[WeeklyFallback] ✓ Retry completed successfully');
-    console.log(`[WeeklyFallback] Results: ${result.stats.enqueued} enqueued, ${result.stats.skipped} skipped, ${result.stats.failed} failed`);
-    console.log('======================================================\n');
     
   } catch (error) {
     console.error('[WeeklyFallback] ✗ Error:', error);
-    console.log('======================================================\n');
   }
 }
 
@@ -820,10 +675,8 @@ export async function initializeScheduledTasks() {
       const shouldRun = await cleanupTracker.shouldRunCleanup();
       
       if (shouldRun) {
-        console.log('[Scheduler] Starting scheduled 31-day cleanup...');
         await cleanupService.cleanupHoroscopeData();
         await cleanupTracker.setLastCleanupDate(new Date());
-        console.log('[Scheduler] Scheduled cleanup completed successfully');
       }
     } catch (error) {
       console.error('[Scheduler] Error during scheduled cleanup:', error);
@@ -835,18 +688,6 @@ export async function initializeScheduledTasks() {
   const lastCleanup = await cleanupTracker.getLastCleanupDate();
   const weeklyConfig = await getWeeklyScraperConfig();
   
-  console.log('\n========== [Scheduler] Initialization Complete ==========');
-  console.log('Scheduled tasks:');
-  console.log(`  - Daily Scraper: Every ${dailyConfig.intervalMinutes} min (window: ${dailyConfig.startTime}-${dailyConfig.endTime}) ${dailyConfig.enabled ? '✓' : '✗'}`);
-  console.log(`  - Daily Fallback: ${String(fallbackHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')} daily`);
-  console.log(`  - Monday Weekly: Every 20 min on Mondays (5:30-8:00 AM) ${weeklyConfig.enabled ? '✓' : '✗'}`);
-  console.log(`  - Thursday Weekly: Thursdays at 12:00 PM (Elle.com update) ${weeklyConfig.enabled ? '✓' : '✗'}`);
-  console.log(`  - Saturday Weekly: Saturdays at 12:00 PM (3 sources update) ${weeklyConfig.enabled ? '✓' : '✗'}`);
-  console.log(`  - Sunday Weekly: Sundays at 18:00 (SuperGuida TV / Branko) ${weeklyConfig.enabled ? '✓' : '✗'}`);
-  console.log('  - Weekly Fallback: Mondays at 9:00 AM (retry failed sources)');
-  console.log('  - Cleanup: Daily at 3 AM (31-day interval)');
   if (lastCleanup) {
-    console.log(`[Scheduler] Last cleanup: ${lastCleanup.toISOString()}`);
   }
-  console.log('==========================================================\n');
 }
