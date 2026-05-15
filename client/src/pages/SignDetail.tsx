@@ -896,7 +896,7 @@ function SignDetail({ sign }: SignDetailProps) {
                   {/* SUPERQUOTE - Always visible */}
 {horoscope.superquote && (
   <>
-    <p className="text-xs text-muted-foreground mb-1 px-1">La nostra sintesi</p>
+    <p className="text-xs text-muted-foreground mb-1 px-2">La nostra sintesi:</p>
     <div className="px-4 py-3 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-950/30 dark:to-yellow-950/30 border-l-4" style={{ borderLeftColor: '#E1B64E' }}>
       <p className="text-sm font-italic text-gray-800 dark:text-gray-200 italic">
         {horoscope.superquote}

@@ -9,6 +9,8 @@ import InfoPage from "@/pages/Info";
 import Login from "@/pages/Login";
 import Account from "@/pages/Account";
 import Pricing from "@/pages/Pricing";
+import Privacy from './pages/Privacy';
+import Terms from './pages/Terms';
 import NotFound from "@/pages/not-found";
 
 function Footer() {
@@ -38,9 +40,11 @@ function Router() {
         <Route path="/login" component={Login} />
         <Route path="/account" component={Account} />
         <Route path="/pricing" component={Pricing} />
+        <Route path="/privacy" component={Privacy} />
+        <Route path="/terms" component={Terms} />
         <Route component={NotFound} />
       </Switch>
-      
+    
       <Footer />
     </>
   );
