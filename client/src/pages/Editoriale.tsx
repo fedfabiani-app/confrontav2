@@ -71,14 +71,14 @@ return (
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-12">
         <section className="mt-12 p-6 bg-foreground/5 rounded-lg border border-border">
-          <h3 className="font-semibold mb-3">Attributions e Disclaimer</h3>
+          <h3 className="font-semibold text-white mb-3">Attributions e Disclaimer</h3>
           <p className="text-sm text-white text-foreground/80 leading-relaxed">
             Confronta Oroscopo aggrega oroscopi da fonti pubbliche per fornire un servizio comparativo. I diritti d'autore dei contenuti degli oroscopi rimangono presso gli editori originali. Questa App non rivendica la proprietà intellettuale dei testi degli oroscopi, ma esclusivamente del sistema di aggregazione e confronto. Se un editore desidera richiedere la rimozione dei propri contenuti, può contattare fed.fabiani@gmail.com.
           </p>
         </section>
 
        <section>
-  <h2 className="text-xl font-bold mb-6">Oroscopi Giornalieri</h2>
+  <h2 className="text-xl text-white font-bold mb-6">Oroscopi Giornalieri</h2>
   <div className="space-y-2">
     {dailySources.map((source) => (
       <a
@@ -86,7 +86,7 @@ return (
         href={`https://${source.domain}`}
         target="_blank"
         rel="noopener noreferrer"
-        className="text-blue-500 hover:text-blue-600 hover:underline flex items-center gap-2"
+        className="text-white hover:text-blue-600 hover:underline flex items-center gap-2"
       >
         {source.name}
         <ExternalLink className="w-3 h-3" />
@@ -96,7 +96,7 @@ return (
 </section>
 
 <section>
-  <h2 className="text-xl font-bold mb-6">Oroscopi Settimanali</h2>
+  <h2 className="text-xl text-white font-bold mb-6">Oroscopi Settimanali</h2>
   <div className="space-y-2">
     {weeklySources.map((source) => (
       <a
@@ -104,7 +104,7 @@ return (
         href={`https://${source.domain}`}
         target="_blank"
         rel="noopener noreferrer"
-        className="text-blue-500 hover:text-blue-600 hover:underline flex items-center gap-2"
+        className="text-white hover:text-blue-600 hover:underline flex items-center gap-2"
       >
         {source.name}
         <ExternalLink className="w-3 h-3" />
