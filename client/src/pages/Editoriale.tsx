@@ -70,8 +70,14 @@ return (
     </header>
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-12">
+        <section className="mt-12 p-6 bg-foreground/5 rounded-lg border border-border">
+          <h3 className="font-semibold mb-3">Attributions e Disclaimer</h3>
+          <p className="text-sm text-white text-foreground/80 leading-relaxed">
+            Confronta Oroscopo aggrega oroscopi da fonti pubbliche per fornire un servizio comparativo. I diritti d'autore dei contenuti degli oroscopi rimangono presso gli editori originali. Questa App non rivendica la proprietà intellettuale dei testi degli oroscopi, ma esclusivamente del sistema di aggregazione e confronto. Se un editore desidera richiedere la rimozione dei propri contenuti, contatta fed.fabiani@gmail.com.
+          </p>
+        </section>
         <section>
-          <h2 className="text-xl font-bold mb-6">Oroscopi Giornalieri</h2>
+          <h2 className="text-xl text-white font-bold mb-6">Oroscopi Giornalieri</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {dailySources.map((source) => (
               <Card key={source.id} className="hover:shadow-lg transition-shadow">
@@ -104,7 +110,7 @@ return (
         </section>
 
         <section>
-          <h2 className="text-xl font-bold mb-6">Oroscopi Settimanali</h2>
+          <h2 className="text-xl text-white font-bold mb-6">Oroscopi Settimanali</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {weeklySources.map((source) => (
               <Card key={source.id} className="hover:shadow-lg transition-shadow">
@@ -136,12 +142,7 @@ return (
           </div>
         </section>
 
-        <section className="mt-12 p-6 bg-foreground/5 rounded-lg border border-border">
-          <h3 className="font-semibold mb-3">Attributions e Disclaimer</h3>
-          <p className="text-sm text-foreground/80 leading-relaxed">
-            Confronta Oroscopo aggrega oroscopi da fonti pubbliche per fornire un servizio comparativo. I diritti d'autore dei contenuti degli oroscopi rimangono presso gli editori originali. Questa App non rivendica la proprietà intellettuale dei testi degli oroscopi, ma esclusivamente del sistema di aggregazione e confronto. Se un editore desidera richiedere la rimozione dei propri contenuti, contatta fed.fabiani@gmail.com.
-          </p>
-        </section>
+        
       </main>
     </div>
   );
