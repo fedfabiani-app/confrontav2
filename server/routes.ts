@@ -1835,7 +1835,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const resend = new Resend(process.env.RESEND_API_KEY);
       await resend.emails.send({
-        from: "Confronta Oroscopo <noreply@confrontaoroscopo.it>",
+        from: "Confronta Oroscopo <onboarding@resend.dev>",
         to: "fed.fabiani@gmail.com",
         subject: `[Contatto] ${subject}`,
         text: `Da: ${name} <${email}>\nOggetto: ${subject}\n\n${message}`,
