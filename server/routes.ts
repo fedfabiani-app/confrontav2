@@ -1564,13 +1564,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!dateRegex.test(dateToUse)) {
         return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
       }
-      
-        targetDate: dateToUse,
-        forceRescrape: forceRescrape || false,
-        specificSources: specificSources || 'all',
-        dryRun: dryRun || false,
-      });
-      
+
       const result = await runDailyScraperCycle({
         targetDate: dateToUse,
         forceRescrape: forceRescrape || false,
