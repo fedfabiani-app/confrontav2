@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { z } from "zod";
 import Stripe from "stripe";
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import prisma from "./services/database";
 import { enqueueScrapeJob, enqueueWeeklyScrapeJob, enqueueAggregatedNlpJob, enqueueAggregatedWeeklyNlpJob, getAllJobStatuses, getJobStatus } from "./jobs";
 import { ScraperInput, WeeklyScraperInput, ScraperOutput, WeeklyScraperOutput, OpenAIInput } from "@shared/schema";
@@ -1838,20 +1838,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      const transporter = nodemailer.createTransport({
-        service: "gmail",
-        auth: {
-          user: process.env.CONTACT_EMAIL_USER,
-          pass: process.env.CONTACT_EMAIL_PASS,
-        },
-      });
+      const resend = new Resend(process.env.RESEND_API_KEY);
 
-      await transporter.sendMail({
-        from: `"Confronta Oroscopo" <${process.env.CONTACT_EMAIL_USER}>`,
+      await resend.emails.send({
+        from: "Confronta Oroscopo <onboarding@resend.dev>",
         to: "fed.fabiani@gmail.com",
-        replyTo: email,
+        reply_to: email,
         subject: `[Contatto] ${subject}`,
-        text: `Da: ${name} <${email}>\n\n${message}`,
         html: `<p><strong>Da:</strong> ${name} &lt;${email}&gt;</p><p><strong>Oggetto:</strong> ${subject}</p><hr/><p>${message.replace(/\n/g, "<br/>")}</p>`,
       });
 
