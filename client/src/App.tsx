@@ -11,6 +11,7 @@ import Account from "@/pages/Account";
 import Pricing from "@/pages/Pricing";
 import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
+import Editoriale from './pages/Editoriale';
 import NotFound from "@/pages/not-found";
 
 function Footer() {
@@ -43,6 +44,15 @@ function Footer() {
             Termini
           </a>
         </Link>
+        <span className="text-white text-sm">-</span>
+        <Link href="/editoriale">
+          <a 
+            className="text-white hover:text-gray-300 transition-colors text-sm"
+            data-testid="link-footer-editoriale"
+          >
+            Editoriale
+          </a>
+        </Link>
       </div>
     </footer>
   );
@@ -62,6 +72,7 @@ function Router() {
         <Route path="/pricing" component={Pricing} />
         <Route path="/privacy" component={Privacy} />
         <Route path="/terms" component={Terms} />
+        <Route path="/editoriale" component={Editoriale} />
         <Route component={NotFound} />
       </Switch>
     
