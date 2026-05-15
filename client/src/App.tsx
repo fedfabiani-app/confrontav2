@@ -45,14 +45,12 @@ function Footer() {
           </a>
         </Link>
         <span className="text-white text-sm">-</span>
-        <Link href="/editoriale">
-          <a 
-            className="text-white hover:text-gray-300 transition-colors text-sm"
-            data-testid="link-footer-editoriale"
-          >
-            Editoriale
-          </a>
-        </Link>
+<Link href="/editoriale">
+  <a className="text-white hover:text-gray-300 transition-colors text-sm">
+    Editori
+  </a>
+</Link>
+<span className="text-white text-sm">-</span>
       </div>
     </footer>
   );
