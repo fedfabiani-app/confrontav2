@@ -323,22 +323,17 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
     }
     
     if (summary.length > summaryLimit) {
-      // Trim to limit, attempting snippet-style truncation
       summary = summary.substring(0, summaryLimit);
-      // Ensure it ends with … if it doesn't already
       if (!summary.endsWith('…')) {
         summary = summary.trimEnd() + '…';
       }
     } else {
-      // Even if within limit, ensure it ends with …
       summary = summary.replace(/[.!?…]*$/, '') + '…';
     }
-    
 
     // Process superquote — enforce 70-160 char limits
     let superquote = (parsed.superquote as string) || '';
     if (superquote.length > 160) {
-      // Trim to last complete sentence within 160 chars
       const sentences = superquote.match(/[^.!?]+[.!?]+/g) || [];
       let trimmed = '';
       for (const sentence of sentences) {
