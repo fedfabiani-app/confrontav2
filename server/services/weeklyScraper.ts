@@ -1889,9 +1889,10 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
               .replace(/\r\n/g, '\n')
               .replace(/Voto\s+[\d\/\s]+$/i, '')
               .trim();
-            console.log(`  [JSON-LD] Regex matched for ${signNameCapitalized}, extracted ${extractedContent.length} chars`);
+            console.log(`[JSON-LD Strategy 0 SUCCESS] ${signNameCapitalized}: ${extractedContent.length} chars`);
+            console.log(`  Text start: "${extractedContent.substring(0, 80)}"`);
           } else {
-            console.log(`  [JSON-LD] No regex match for ${signNameCapitalized} in articleBody`);
+            console.log(`[JSON-LD Strategy 0 FAILED] No regex match for ${signNameCapitalized}`);
           }
         } catch (err) {
           console.log(`Fanpage weekly - JSON-LD Strategy 0 error: ${err}`);
@@ -1899,15 +1900,14 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
       });
 
       if (extractedContent.length > 50) {
-        console.log(`Fanpage weekly - JSON-LD Strategy 0 success for ${input.signSlugIt}: ${extractedContent.length} chars`);
-        console.log(`  First 150 chars: ${extractedContent.substring(0, 150)}`);
         return {
           success: true,
           text: extractedContent.substring(0, 3500),
           url
         };
       }
-      console.log(`Fanpage weekly - JSON-LD Strategy 0 failed for ${input.signSlugIt}, falling back to Strategy 1`);
+
+      console.log(`[FALLBACK] JSON-LD Strategy 0 insufficient (<50 chars), using DOM Strategy 1+`);
 
       // Strategy 1: Try H3 headings (most likely for Fanpage)
       $('h3').each((_, h3) => {
@@ -1919,6 +1919,7 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
             h3Text === `oroscopo ${input.signSlugIt.toLowerCase()}` ||
             h3Text.includes(input.signSlugIt.toLowerCase())) {
           signHeading = $h3;
+          console.log(`[Strategy 1 H3] Found heading: "${h3Text}"`);
           return false; // Break loop
         }
       });
