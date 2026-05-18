@@ -1512,72 +1512,82 @@ async function scrapeFanpageHoroscopeText(url: string, input: ScraperInput): Pro
     const html = await fetchHtml(url, input.userAgent);
     const $ = cheerio.load(html);
 
-    // Rimuovi elementi non necessari
-    $('script, style, nav, header, footer, iframe, noscript').remove();
-
     const zodiacNameLower = input.signSlugIt.toLowerCase();
     let bestContent = '';
     let highestScore = 0;
 
-    // Pattern 1: Cerca div con classe article-body o simili
-    const contentSelectors = [
-      '.article-body',
-      '.entry-content',
-      '.post-content',
-      '[class*="article"][class*="content"]',
-      'article .content',
-      'main article'
-    ];
-
-    for (const selector of contentSelectors) {
-      const content = $(selector);
-      if (content.length > 0) {
-        // Cerca il contenuto specifico per il segno zodiacale
-        const paragraphs: string[] = [];
-
-        content.find('p').each((_, elem) => {
-          const text = $(elem).text().trim();
-          if (text.length > 20) {
-            paragraphs.push(text);
+    // Strategy 0: JSON-LD articleBody — all signs are embedded as \r\nSignName\r\n delimited sections
+    const allItalianSigns = ['Ariete','Toro','Gemelli','Cancro','Leone','Vergine',
+      'Bilancia','Scorpione','Sagittario','Capricorno','Acquario','Pesci'];
+    $('script[type="application/ld+json"]').each((_, el) => {
+      if (bestContent) return;
+      try {
+        const rawData = JSON.parse($(el).html() || '{}');
+        const data = Array.isArray(rawData) ? rawData[0] : rawData;
+        const body: string = data?.articleBody || '';
+        if (!body) return;
+        // Split on \r\nSignName\r\n delimiters (capture group keeps sign names in parts array)
+        const signPattern = new RegExp(`\\r?\\n(${allItalianSigns.join('|')})\\r?\\n`);
+        const parts = body.split(signPattern);
+        // parts layout: [intro, signName0, text0, signName1, text1, ...]
+        for (let i = 1; i + 1 < parts.length; i += 2) {
+          if (normalizeForMatching(parts[i]) === normalizeForMatching(input.signSlugIt)) {
+            bestContent = parts[i + 1].replace(/\r\n/g, '\n').trim();
+            highestScore = 100;
+            break;
           }
-        });
+        }
+      } catch { /* malformed JSON-LD, skip */ }
+    });
 
-        if (paragraphs.length > 0) {
-          const combinedText = paragraphs.join('\n\n');
-          const score = scoreHoroscopeContent(combinedText, zodiacNameLower, 'fanpage.it');
+    if (!bestContent) {
+      // Rimuovi elementi non necessari
+      $('script, style, nav, header, footer, iframe, noscript').remove();
 
-          if (score > highestScore) {
-            highestScore = score;
-            bestContent = combinedText;
+      // Strategy 1: Cerca div con classe article-body o simili
+      const contentSelectors = [
+        '.article-body',
+        '.entry-content',
+        '.post-content',
+        '[class*="article"][class*="content"]',
+        'article .content',
+        'main article'
+      ];
+
+      for (const selector of contentSelectors) {
+        const content = $(selector);
+        if (content.length > 0) {
+          const paragraphs: string[] = [];
+          content.find('p').each((_, elem) => {
+            const text = $(elem).text().trim();
+            if (text.length > 20) paragraphs.push(text);
+          });
+          if (paragraphs.length > 0) {
+            const combinedText = paragraphs.join('\n\n');
+            const score = scoreHoroscopeContent(combinedText, zodiacNameLower, 'fanpage.it');
+            if (score > highestScore) { highestScore = score; bestContent = combinedText; }
           }
         }
       }
-    }
 
-    // Pattern 2: Se non troviamo con i selettori, cerca heading con il nome del segno
-    if (!bestContent || highestScore < 30) {
-      const headingPattern = new RegExp(`<h[2-4][^>]*>[^<]*${input.signSlugIt}[^<]*</h[2-4]>`, 'gi');
-      const htmlString = $.html();
-      const headingMatch = htmlString.match(headingPattern);
-
-      if (headingMatch) {
-        const headingIndex = htmlString.indexOf(headingMatch[0]);
-        if (headingIndex !== -1) {
-          let contentAfter = htmlString.substring(headingIndex + headingMatch[0].length);
-          const nextHeading = contentAfter.match(/<h[2-4][^>]*>/i);
-
-          if (nextHeading && nextHeading.index !== undefined) {
-            contentAfter = contentAfter.substring(0, nextHeading.index);
-          }
-
-          const $section = cheerio.load(contentAfter);
-          const sectionText = $section('p').map((_, elem) => $section(elem).text().trim()).get().join('\n\n');
-
-          if (sectionText.length > 50) {
-            const score = scoreHoroscopeContent(sectionText, zodiacNameLower, 'fanpage.it');
-            if (score > highestScore) {
-              bestContent = sectionText;
-              highestScore = score;
+      // Strategy 2: cerca heading con il nome del segno
+      if (!bestContent || highestScore < 30) {
+        const headingPattern = new RegExp(`<h[2-4][^>]*>[^<]*${input.signSlugIt}[^<]*</h[2-4]>`, 'gi');
+        const htmlString = $.html();
+        const headingMatch = htmlString.match(headingPattern);
+        if (headingMatch) {
+          const headingIndex = htmlString.indexOf(headingMatch[0]);
+          if (headingIndex !== -1) {
+            let contentAfter = htmlString.substring(headingIndex + headingMatch[0].length);
+            const nextHeading = contentAfter.match(/<h[2-4][^>]*>/i);
+            if (nextHeading && nextHeading.index !== undefined) {
+              contentAfter = contentAfter.substring(0, nextHeading.index);
+            }
+            const $section = cheerio.load(contentAfter);
+            const sectionText = $section('p').map((_, elem) => $section(elem).text().trim()).get().join('\n\n');
+            if (sectionText.length > 50) {
+              const score = scoreHoroscopeContent(sectionText, zodiacNameLower, 'fanpage.it');
+              if (score > highestScore) { bestContent = sectionText; highestScore = score; }
             }
           }
         }
