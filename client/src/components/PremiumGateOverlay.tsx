@@ -1,5 +1,7 @@
+import { useEffect } from 'react';
 import { Lock } from 'lucide-react';
 import { useLocation } from 'wouter';
+import { trackPremiumGateOverlay } from '../lib/analytics';
 
 interface PremiumGateOverlayProps {
   type: 'daily' | 'weekly';
@@ -9,6 +11,10 @@ interface PremiumGateOverlayProps {
 
 export function PremiumGateOverlay({ type, date, onClose }: PremiumGateOverlayProps) {
   const [, navigate] = useLocation();
+
+  useEffect(() => {
+    trackPremiumGateOverlay(type);
+  }, [type]);
 
   return (
     <div

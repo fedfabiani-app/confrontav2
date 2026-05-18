@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, CheckCircle } from "lucide-react";
+import { trackContactSubmit } from "../lib/analytics";
 
 interface FormData {
   name: string;
@@ -73,8 +74,10 @@ export default function Contact() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Errore durante l'invio");
+      trackContactSubmit(true);
       setSuccess(true);
     } catch (err) {
+      trackContactSubmit(false);
       setServerError(
         err instanceof Error ? err.message : "Errore durante l'invio"
       );

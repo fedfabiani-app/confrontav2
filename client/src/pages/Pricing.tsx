@@ -4,6 +4,7 @@ import { AppHeader } from '@/components/AppHeader';
 import { useAccess } from '../hooks/use-access';
 import { useToast } from '@/hooks/use-toast';
 import { useUser } from '@clerk/clerk-react';
+import { trackCheckoutStart } from '../lib/analytics';
 
 const FREE_FEATURES = [
   'Tutti i 12 segni',
@@ -142,14 +143,20 @@ export default function Pricing() {
 
             <div className="flex flex-col gap-2">
               <button
-                onClick={() => handleCheckout('price_1TX0IzLi2fBiRYknuJxfS0Pi')}
+                onClick={() => {
+                  trackCheckoutStart('monthly');
+                  handleCheckout('price_1TX0IzLi2fBiRYknuJxfS0Pi');
+                }}
                 className="w-full py-2.5 rounded-xl text-sm font-semibold"
                 style={{ background: '#E1B64E', color: '#1a1a1a' }}
               >
                 Passa a Premium — €2,99/mese
               </button>
               <button
-                onClick={() => handleCheckout('price_1TX0IyLi2fBiRYknTy3zbGVF')}
+                onClick={() => {
+                  trackCheckoutStart('yearly');
+                  handleCheckout('price_1TX0IyLi2fBiRYknTy3zbGVF');
+                }}
                 className="w-full py-2.5 rounded-xl text-sm font-semibold text-white/80"
                 style={{ border: '1px solid #E1B64E', background: 'transparent' }}
               >

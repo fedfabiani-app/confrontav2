@@ -1638,6 +1638,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const session = event.data.object as Stripe.Checkout.Session;
           const sessionClerkId = session.metadata?.clerkId;
           if (sessionClerkId) {
+            // Tracking lato server (opzionale, per maggior accuratezza)
+            console.log('[Analytics] Purchase completed:', sessionClerkId);
             await prisma.user.update({
               where: { clerkId: sessionClerkId },
               data: {

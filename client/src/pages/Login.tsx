@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { SignIn } from '@clerk/clerk-react';
 import { useLocation } from 'wouter';
 import { useAuth } from '../hooks/use-auth';
+import { trackLogin } from '../lib/analytics';
 
 export default function Login() {
   const { isLoggedIn, isLoading } = useAuth();
@@ -9,6 +10,7 @@ export default function Login() {
 
   useEffect(() => {
     if (!isLoading && isLoggedIn) {
+      trackLogin('google', true);
       navigate('/');
     }
   }, [isLoggedIn, isLoading, navigate]);
