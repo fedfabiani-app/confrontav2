@@ -1802,10 +1802,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { Anthropic } = await import('@anthropic-ai/sdk');
       const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-      const prompt =
-        `Oroscopo di ${sign1} del ${dateLabel}:\n${horo1.map(h => h.summary).join(' ')}\n\n` +
-        `Oroscopo di ${sign2} del ${dateLabel}:\n${horo2.map(h => h.summary).join(' ')}\n\n` +
-        `Scrivi 1-2 frasi sulla compatibilità amorosa tra ${sign1} e ${sign2} secondo i loro oroscopi di ${dateLabel}. Tono leggero, italiano. Massimo 100 parole, nessun voto numerico.`;
+      const horoscope1 = horo1.map(h => h.summary).join(' ');
+      const horoscope2 = horo2.map(h => h.summary).join(' ');
+
+      const prompt = `Segno 1: ${sign1}
+Oroscopo: "${horoscope1}"
+
+Segno 2: ${sign2}
+Oroscopo: "${horoscope2}"
+
+Scrivi 1 sola frase breve sulla compatibilità amorosa tra questi due segni.
+- Non ripetere i nomi dei segni o la data
+- Usa linguaggio semplice e generico (no metafore sportive, no riferimenti specifici)
+- Tono: leggero e simpatico
+- Max 50 parole, 1 sola frase`;
 
       const response = await client.messages.create({
         model: 'claude-haiku-4-5-20251001',
