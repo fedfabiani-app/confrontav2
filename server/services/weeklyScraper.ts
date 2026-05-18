@@ -1811,10 +1811,44 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
       const zodiacSigns = ['ariete', 'toro', 'gemelli', 'cancro', 'leone', 'vergine',
                            'bilancia', 'scorpione', 'sagittario', 'capricorno', 'acquario', 'pesci'];
 
-      // Log structure
+      const allItalianSigns = ['Ariete','Toro','Gemelli','Cancro','Leone','Vergine',
+        'Bilancia','Scorpione','Sagittario','Capricorno','Acquario','Pesci'];
 
       let signHeading = $();
       let extractedContent = '';
+
+      // Strategy 0: JSON-LD articleBody
+      // Weekly format: "SignName (date range)\r\nContent...\r\nVoto N\r\nNextSign..."
+      $('script[type="application/ld+json"]').each((_, el) => {
+        if (extractedContent) return;
+        try {
+          const rawData = JSON.parse($(el).html() || '{}');
+          const data = Array.isArray(rawData) ? rawData[0] : rawData;
+          const body: string = data?.articleBody || '';
+          if (!body) return;
+          // Delimiter: newline + SignName + optional "(date range)" + newline
+          const signPattern = new RegExp(
+            `\\r?\\n(${allItalianSigns.join('|')})(?:\\s*\\([^)]*\\))?\\r?\\n`
+          );
+          const parts = body.split(signPattern);
+          // parts layout: [intro, signName0, text0, signName1, text1, ...]
+          for (let i = 1; i + 1 < parts.length; i += 2) {
+            if (parts[i].toLowerCase() === input.signSlugIt.toLowerCase()) {
+              extractedContent = parts[i + 1].replace(/\r\n/g, '\n').trim();
+              break;
+            }
+          }
+        } catch { /* malformed JSON-LD */ }
+      });
+
+      if (extractedContent.length > 50) {
+        console.log(`Fanpage weekly - JSON-LD Strategy 0 success: ${extractedContent.length} chars`);
+        return {
+          success: true,
+          text: extractedContent.substring(0, 3500),
+          url
+        };
+      }
 
       // Strategy 1: Try H3 headings (most likely for Fanpage)
       $('h3').each((_, h3) => {
@@ -1822,7 +1856,7 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
         const h3Text = $h3.text().trim().toLowerCase();
 
         // Check for exact match or "Oroscopo [sign]" pattern
-        if (h3Text === input.signSlugIt.toLowerCase() || 
+        if (h3Text === input.signSlugIt.toLowerCase() ||
             h3Text === `oroscopo ${input.signSlugIt.toLowerCase()}` ||
             h3Text.includes(input.signSlugIt.toLowerCase())) {
           signHeading = $h3;
