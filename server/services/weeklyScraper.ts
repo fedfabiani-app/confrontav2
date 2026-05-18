@@ -1871,7 +1871,13 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
             .filter(s => s.toLowerCase() !== input.signSlugIt.toLowerCase())
             .join('|');
 
-          const regexPattern = `${signNameCapitalized}\\s*\\([^)]*\\)[\\r\\n]*(.+?)(?:(?:Voto|${nextSignsPattern})\\s*\\(|$)`;
+          // Key insight: the horoscope sections start after "le previsioni segno per segno"
+          // Find text starting from that marker, then locate our sign
+          const startMarker = body.indexOf('le previsioni segno per segno');
+          const searchBody = startMarker !== -1 ? body.substring(startMarker) : body;
+
+          // Now search for "SignName (date)" on its own line, possibly preceded by newline
+          const regexPattern = `\\n${signNameCapitalized}\\s*\\(\\d[^)]*\\)[\\r\\n]*(.+?)(?:(?:\\n(?:Voto|${nextSignsPattern})\\s*\\()|$)`;
           const findSignRegex = new RegExp(regexPattern, 'is');
 
           const match = body.match(findSignRegex);
