@@ -1775,47 +1775,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const clerkId = req.headers['x-clerk-user-id'] as string;
     if (!clerkId) return res.status(401).json({ error: 'Unauthorized' });
 
-    const { sign1, sign2 } = req.body;
+    const { sign1, sign2, date } = req.body;
     if (!sign1 || !sign2) return res.status(400).json({ error: 'Both signs required' });
 
-    try {
-      const today = new Date().toISOString().split('T')[0];
+    const targetDate = date ? new Date(date) : new Date();
+    const dateLabel = targetDate.toISOString().split('T')[0];
 
+    try {
       const [horo1, horo2] = await Promise.all([
         prisma.horoscopeData.findMany({
-          where: { zodiac_sign: { name_english: sign1 }, date: new Date(today) },
-          select: { summary: true, source: { select: { name: true } } }
+          where: { zodiac_sign: { name_english: sign1 }, date: targetDate },
+          select: { summary: true },
+          take: 3,
         }),
         prisma.horoscopeData.findMany({
-          where: { zodiac_sign: { name_english: sign2 }, date: new Date(today) },
-          select: { summary: true, source: { select: { name: true } } }
-        })
+          where: { zodiac_sign: { name_english: sign2 }, date: targetDate },
+          select: { summary: true },
+          take: 3,
+        }),
       ]);
 
       if (horo1.length === 0 || horo2.length === 0) {
-        return res.status(404).json({ error: 'Horoscope data not available for one or both signs' });
+        return res.status(404).json({ error: 'Nessun oroscopo disponibile per quella data' });
       }
 
       const { Anthropic } = await import('@anthropic-ai/sdk');
       const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-      const compatibility = await client.messages.create({
+      const prompt =
+        `Oroscopo di ${sign1} del ${dateLabel}:\n${horo1.map(h => h.summary).join(' ')}\n\n` +
+        `Oroscopo di ${sign2} del ${dateLabel}:\n${horo2.map(h => h.summary).join(' ')}\n\n` +
+        `Scrivi 1-2 frasi sulla compatibilità amorosa tra ${sign1} e ${sign2} secondo i loro oroscopi di ${dateLabel}. Tono leggero, italiano. Massimo 100 parole, nessun voto numerico.`;
+
+      const response = await client.messages.create({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 500,
-        messages: [{
-          role: 'user',
-          content: `Analizza la compatibilità astrologica tra ${sign1} e ${sign2} basandoti su questi oroscopi di oggi:\n\n${sign1}:\n${horo1.map(h => h.summary).join('\n')}\n\n${sign2}:\n${horo2.map(h => h.summary).join('\n')}\n\nDa una valutazione da 1-10 e spiega perché.`
-        }]
+        max_tokens: 150,
+        messages: [{ role: 'user', content: prompt }],
       });
 
-      const analysisText = compatibility.content[0].type === 'text' ? compatibility.content[0].text : '';
+      const result = response.content[0].type === 'text' ? response.content[0].text.trim() : '';
 
-      return res.json({
-        sign1,
-        sign2,
-        analysis: analysisText,
-        date: today
-      });
+      return res.json({ result });
     } catch (error) {
       console.error('[Compatibility] Error:', error);
       return res.status(500).json({ error: 'Failed to analyze compatibility' });
