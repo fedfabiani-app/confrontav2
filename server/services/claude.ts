@@ -175,25 +175,46 @@ VERIFICA FINALE:
 CAMPO 3 — RATINGS E TONE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Analizza l'intero testo originale e assegna:
+Analizza l'intero testo originale e assegna ratings e tone.
+Usa TUTTA la scala: 1 e 5 esistono e devono essere usati quando
+il testo lo giustifica. Non usare 3 o 4 come "default sicuro".
 
-RELAZIONI (0-5):
-  Valutazione dell'ambito relazionale.
-  0 = non menzionato nell'oroscopo.
+RELAZIONI (0-5) — amore, coppia, famiglia, amicizie:
+  0 = ambito non menzionato nell'oroscopo (caso raro)
+  1 = conflitti aperti, rotture, isolamento, incomprensioni gravi
+  2 = tensioni latenti, comunicazione difficile, dubbi, distanze
+  3 = stabilità nella norma, routine relazionale, situazione neutra
+  4 = connessioni positive, dialogo costruttivo, sintonia, affetto
+  5 = momenti trasformativi, riconciliazioni profonde, incontri
+      importanti, dichiarazioni, gioia condivisa intensa
 
-LAVORO (0-5):
-  Valutazione dell'ambito professionale.
-  0 = non menzionato nell'oroscopo.
+LAVORO (0-5) — carriera, progetti, finanze, colleghi:
+  0 = ambito non menzionato nell'oroscopo (caso raro)
+  1 = crisi professionale, conflitti, fallimenti, perdite economiche
+  2 = ostacoli, ritardi, tensioni, finanze sotto pressione
+  3 = routine professionale, nessun cambiamento, stabilità neutra
+  4 = progressi concreti, riconoscimenti, opportunità, crescita
+  5 = svolte di carriera, successi importanti, guadagni eccezionali,
+      progetti che decollano
 
-BENESSERE (0-5):
-  Valutazione di umore, energia emotiva
-  e outlook generale della giornata.
-  0 = non menzionato nell'oroscopo.
+BENESSERE (0-5) — energia emotiva, umore, vitalità, salute:
+  0 = ambito non menzionato nell'oroscopo (caso raro)
+  1 = esaurimento, sintomi fisici, depressione, ansia paralizzante
+  2 = stanchezza marcata, malumore persistente, energia bassa
+  3 = equilibrio nella norma, alti e bassi tipici, stato neutro
+  4 = energia positiva, ottimismo, vitalità, buon umore stabile
+  5 = picco di benessere, euforia, energia esplosiva, rinascita
 
 TONE:
   "positive" = giornata complessivamente favorevole
   "negative" = giornata complessivamente difficile
   "neutral"  = giornata nella norma, senza picchi
+
+COERENZA TONE-RATING (obbligatoria):
+  tone = "negative" → almeno uno dei rating ≤ 2
+  tone = "positive" → almeno uno dei rating ≥ 4
+  tone = "neutral"  → i rating gravitano attorno a 3, non sopra 4
+  Un oroscopo "negative" con tutti i rating a 4 è incoerente: correggi.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 VERIFICA FINALE
@@ -201,8 +222,9 @@ VERIFICA FINALE
 
 □ Incipit: testuale, stile snippet, entro il limite del tier corretto, termina con "…"?
 □ Superquote: 1-2 frasi, 70-160 caratteri, tono fedele?
-□ Ratings: 0 per ambiti non menzionati?
+□ Ratings: 0 solo se l'ambito è assente, altrimenti 1-5 calibrati sulla rubrica?
 □ Tone: coerente con superquote e ratings?
+□ Coerenza tone-rating rispettata (negative→≤2, positive→≥4, neutral→≈3)?
 
 Se anche una sola risposta è problematica,
 correggi prima di restituire l'output.`;
@@ -276,24 +298,24 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
                 type: 'integer',
                 minimum: 0,
                 maximum: 5,
-                description: 'Valutazione relazioni da 0 a 5 stelle basata sul contenuto (0 = non menzionato)'
+                description: 'Valutazione relazioni (amore, famiglia, amicizie). 0=non menzionato. 1=conflitti/rotture. 2=tensioni/distanze. 3=stabilità neutra. 4=connessioni positive/sintonia. 5=momenti trasformativi/gioia intensa. Usa tutta la scala.'
               },
               lavoro: {
                 type: 'integer',
                 minimum: 0,
                 maximum: 5,
-                description: 'Valutazione lavoro da 0 a 5 stelle basata sul contenuto (0 = non menzionato)'
+                description: 'Valutazione lavoro (carriera, finanze, progetti). 0=non menzionato. 1=crisi/conflitti/perdite. 2=ostacoli/ritardi. 3=routine neutra. 4=progressi/opportunità. 5=svolte/successi eccezionali. Usa tutta la scala.'
               },
               benessere: {
                 type: 'integer',
                 minimum: 0,
                 maximum: 5,
-                description: 'Valutazione benessere/umore/energia emotiva da 0 a 5 stelle basata sul contenuto (0 = non menzionato)'
+                description: 'Valutazione benessere (energia, umore, vitalità). 0=non menzionato. 1=esaurimento/ansia paralizzante. 2=stanchezza/malumore. 3=equilibrio neutro. 4=energia positiva/ottimismo. 5=picco di benessere/euforia. Usa tutta la scala.'
               },
               tone: {
                 type: 'string',
                 enum: ['positive', 'negative', 'neutral'],
-                description: 'Tono generale dell\'oroscopo: positive = favorevole, negative = difficile, neutral = nella norma'
+                description: 'Tono generale. positive=favorevole (almeno un rating≥4). negative=difficile (almeno un rating≤2). neutral=nella norma (rating attorno a 3). Deve essere coerente con i rating assegnati.'
               }
             },
             required: ['superquote', 'summary', 'relazioni', 'lavoro', 'benessere', 'tone']
@@ -525,10 +547,10 @@ export async function processMultiSourceHoroscope(inputs: OpenAIInput[]): Promis
                   source_index: { type: 'integer' as const, description: 'Indice 1-based della fonte (1 = prima fonte)' },
                   superquote: { type: 'string' as const, description: 'Testo ORIGINALE che esprime il clima emotivo dal punto di vista del lettore. Una o due frasi con punto finale. Lettore sempre soggetto. 70-160 caratteri totali. Zero astrologico, zero condizionali.' },
                   summary: { type: 'string' as const, description: 'Snippet stile anteprima: riproduzione verbatim delle prime parole originali, troncate PRIMA della prima previsione, stile testo tagliato dal sistema. Termina con "…". Limiti tier-based: ≤400 orig→60 char; 401-1500→120; >1500→150.' },
-                  relazioni: { type: 'integer' as const, minimum: 0, maximum: 5 },
-                  lavoro: { type: 'integer' as const, minimum: 0, maximum: 5 },
-                  benessere: { type: 'integer' as const, minimum: 0, maximum: 5 },
-                  tone: { type: 'string' as const, enum: ['positive', 'neutral', 'negative'] },
+                  relazioni: { type: 'integer' as const, minimum: 0, maximum: 5, description: '0=non menzionato. 1=conflitti. 2=tensioni. 3=neutro. 4=positivo. 5=eccellente. Usa tutta la scala.' },
+                  lavoro: { type: 'integer' as const, minimum: 0, maximum: 5, description: '0=non menzionato. 1=crisi. 2=ostacoli. 3=neutro. 4=progressi. 5=successi eccezionali. Usa tutta la scala.' },
+                  benessere: { type: 'integer' as const, minimum: 0, maximum: 5, description: '0=non menzionato. 1=esaurimento. 2=stanchezza. 3=neutro. 4=energia positiva. 5=picco benessere. Usa tutta la scala.' },
+                  tone: { type: 'string' as const, enum: ['positive', 'neutral', 'negative'], description: 'positive→almeno un rating≥4. negative→almeno un rating≤2. neutral→rating attorno a 3.' },
                 },
                 required: ['source_index', 'superquote', 'summary', 'relazioni', 'lavoro', 'benessere', 'tone'],
               },
