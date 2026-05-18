@@ -1871,17 +1871,21 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
             .filter(s => s.toLowerCase() !== input.signSlugIt.toLowerCase())
             .join('|');
 
-          const findSignRegex = new RegExp(
-            `${signNameCapitalized}\\s*\\([^)]*\\)[\\r\\n]*(.+?)(?:(?:Voto|${nextSignsPattern})\\s*\\(|$)`,
-            'is'
-          );
+          const regexPattern = `${signNameCapitalized}\\s*\\([^)]*\\)[\\r\\n]*(.+?)(?:(?:Voto|${nextSignsPattern})\\s*\\(|$)`;
+          const findSignRegex = new RegExp(regexPattern, 'is');
 
           const match = body.match(findSignRegex);
+          if (!match) {
+            console.log(`  [JSON-LD] Regex: ${regexPattern.substring(0, 80)}...`);
+          }
           if (match && match[1]) {
             extractedContent = match[1]
               .replace(/\r\n/g, '\n')
               .replace(/Voto\s+[\d\/\s]+$/i, '')
               .trim();
+            console.log(`  [JSON-LD] Regex matched for ${signNameCapitalized}, extracted ${extractedContent.length} chars`);
+          } else {
+            console.log(`  [JSON-LD] No regex match for ${signNameCapitalized} in articleBody`);
           }
         } catch (err) {
           console.log(`Fanpage weekly - JSON-LD Strategy 0 error: ${err}`);
@@ -1889,13 +1893,15 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
       });
 
       if (extractedContent.length > 50) {
-        console.log(`Fanpage weekly - JSON-LD Strategy 0 success: ${extractedContent.length} chars`);
+        console.log(`Fanpage weekly - JSON-LD Strategy 0 success for ${input.signSlugIt}: ${extractedContent.length} chars`);
+        console.log(`  First 150 chars: ${extractedContent.substring(0, 150)}`);
         return {
           success: true,
           text: extractedContent.substring(0, 3500),
           url
         };
       }
+      console.log(`Fanpage weekly - JSON-LD Strategy 0 failed for ${input.signSlugIt}, falling back to Strategy 1`);
 
       // Strategy 1: Try H3 headings (most likely for Fanpage)
       $('h3').each((_, h3) => {
