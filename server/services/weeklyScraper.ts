@@ -664,9 +664,44 @@ async function discoverFanpageWeeklyUrl(
 
 // ==================== END FANPAGE.IT FUNCTIONS ====================
 
+// ==================== SIMON AND THE STARS SPECIFIC FUNCTIONS ====================
+
+function buildSimonAndTheStarsUrl(input: WeeklyScraperInput): string {
+  const MONTH_NAMES: Record<number, string> = {
+    0: 'gennaio', 1: 'febbraio', 2: 'marzo', 3: 'aprile', 4: 'maggio', 5: 'giugno',
+    6: 'luglio', 7: 'agosto', 8: 'settembre', 9: 'ottobre', 10: 'novembre', 11: 'dicembre'
+  };
+  const weekStart = new Date(input.weekStartDate);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+
+  const signSlug = SIGN_MAP[input.signSlugIt] || input.signSlugIt.toLowerCase();
+  const startDay = weekStart.getDate();
+  const endDay = weekEnd.getDate();
+  const startMonth = MONTH_NAMES[weekStart.getMonth()];
+  const endMonth = MONTH_NAMES[weekEnd.getMonth()];
+  const year = weekStart.getFullYear();
+  const crossMonth = weekStart.getMonth() !== weekEnd.getMonth();
+
+  const datePart = crossMonth
+    ? `${startDay}-${startMonth}-${endDay}-${endMonth}-${year}`
+    : `${startDay}-${endDay}-${startMonth}-${year}`;
+
+  const url = `${input.baseUrl}/${signSlug}-oroscopo-${datePart}/`;
+  console.log(`Simon and the Stars - Built URL: ${url}`);
+  return url;
+}
+
+// ==================== END SIMON AND THE STARS FUNCTIONS ====================
+
       async function buildWeeklyHoroscopeUrl(input: WeeklyScraperInput): Promise<string> {
+        // SIMON AND THE STARS SPECIFIC: URL has no dal/al, built directly from dates
+        if (input.domain.includes('simonandthestars.it')) {
+          return buildSimonAndTheStarsUrl(input);
+        }
+
         // FANPAGE.IT SPECIFIC: Use archive resolution (URLs have dynamic suffixes)
-        const isFanpage = input.domain.toLowerCase().includes('fanpage') || 
+        const isFanpage = input.domain.toLowerCase().includes('fanpage') ||
                           input.baseUrl.toLowerCase().includes('fanpage') ||
                           input.sourceName.toLowerCase().includes('fanpage');
 
@@ -679,7 +714,7 @@ async function discoverFanpageWeeklyUrl(
         }
 
         // ELLE.COM/IT SPECIFIC: Use archive + cross-reference strategy
-        const isElle = input.domain.toLowerCase().includes('elle.com') || 
+        const isElle = input.domain.toLowerCase().includes('elle.com') ||
                        input.baseUrl.toLowerCase().includes('elle.com') ||
                        input.sourceName.toLowerCase().includes('elle');
 

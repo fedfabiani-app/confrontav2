@@ -119,7 +119,7 @@ const WEEKLY_SOURCES = [
     domain: 'simonandthestars.it',
     logo_url: 'https://www.simonandthestars.it/favicon.ico',
     base_url: 'https://www.simonandthestars.it',
-    url_pattern: '/{sign}-oroscopo-dal-{start_day}-al-{end_day}-{month}-{year}/',
+    url_pattern: '/{sign}-oroscopo-{start_day}-{end_day}-{month}-{year}/',
     scrape_strategy: 'pattern',
     slug: null,
     is_active: true,
