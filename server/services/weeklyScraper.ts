@@ -620,148 +620,46 @@ export async function scrapeWeeklyHoroscope(input: WeeklyScraperInput): Promise<
 
 // ==================== FANPAGE.IT SPECIFIC FUNCTIONS ====================
 
-/**
- * Fanpage-specific archive resolution
- * Fanpage adds dynamic SEO suffixes to URLs
- */
-async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<string> {
+// Cache: weekStart (YYYY-MM-DD) → discovered URL | null
+const fanpageWeeklyUrlCache = new Map<string, string | null>();
 
-  // CORRECT archive URL
-  const archiveUrl = 'https://www.fanpage.it/stile-e-trend/story/oroscopo/';
+async function discoverFanpageWeeklyUrl(
+  weekStart: string,
+  userAgent: string
+): Promise<string | null> {
+  if (fanpageWeeklyUrlCache.has(weekStart)) {
+    return fanpageWeeklyUrlCache.get(weekStart)!;
+  }
 
-  await respectDomainRateLimit(input.domain);
-
-  // Enhanced headers for Fanpage
-  const headers: Record<string, string> = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-    'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7',
-    'Accept-Encoding': 'gzip, deflate, br',
-    'Connection': 'keep-alive',
-    'Upgrade-Insecure-Requests': '1',
-    'Sec-Fetch-Dest': 'document',
-    'Sec-Fetch-Mode': 'navigate',
-    'Sec-Fetch-Site': 'none',
-    'Sec-Fetch-User': '?1',
-    'Cache-Control': 'no-cache',
-    'Referer': 'https://www.fanpage.it/',
-    'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
-    'sec-ch-ua-mobile': '?0',
-    'sec-ch-ua-platform': '"Windows"'
-  };
-
-  // Random delay to appear human-like
-  const randomDelay = Math.floor(Math.random() * 2000) + 1500;
-  await new Promise(resolve => setTimeout(resolve, randomDelay));
-
-  let html: string;
   try {
-    const response = await axios.get(archiveUrl, {
-      headers,
-      timeout: 25000,
-      maxRedirects: 5,
-      validateStatus: (status) => status < 500
-    });
+    const html = await fetchHtml(
+      'https://www.fanpage.it/stile-e-trend/story/oroscopo/',
+      userAgent
+    );
 
+    const startDay = new Date(weekStart).getDate();
 
-    if (response.status === 403) {
-      await new Promise(resolve => setTimeout(resolve, 3000));
+    // Matches all variants: dall11, dal-11, dall-11, dal11, dall-04, dal-4, etc.
+    const regex = new RegExp(
+      `href="(https://www\\.fanpage\\.it/attualita/loroscopo-della-settimana-dall?-?0?${startDay}[^"]*)"`,
+      'i'
+    );
+    const match = html.match(regex);
+    const url = match?.[1] ?? null;
 
-      const safariResponse = await axios.get(archiveUrl, {
-        headers: {
-          ...headers,
-          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15'
-        },
-        timeout: 25000,
-        maxRedirects: 5
-      });
+    console.log(
+      url
+        ? `Fanpage weekly - Discovered: ${url}`
+        : `Fanpage weekly - Not found on index for week starting ${weekStart}`
+    );
 
-
-      if (safariResponse.status >= 400) {
-        throw new Error(`HTTP ${safariResponse.status}: Still blocked after retry`);
-      }
-
-      html = safariResponse.data;
-    } else if (response.status >= 400) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    } else {
-      html = response.data;
-    }
-  } catch (error) {
-    console.error('Fanpage.it - Error fetching archive:', error);
-    throw new Error(`Cannot fetch Fanpage archive: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    fanpageWeeklyUrlCache.set(weekStart, url);
+    return url;
+  } catch (err) {
+    console.log(`Fanpage weekly - Discovery error: ${err}`);
+    fanpageWeeklyUrlCache.set(weekStart, null);
+    return null;
   }
-
-  const $ = cheerio.load(html);
-  const targetDate = new Date(input.weekStartDate);
-  const targetDateStr = targetDate.toISOString().split('T')[0];
-  const candidates: Array<{ url: string; startDate: Date; score: number }> = [];
-
-
-  // Find all links containing "oroscopo-della-settimana"
-  $('a').each((_, elem) => {
-    const href = $(elem).attr('href');
-    if (!href || !href.includes('oroscopo-della-settimana')) return;
-
-
-    // Parse date from URL: /attualita/loroscopo-della-settimana-dal-15-al-21-settembre-2025/
-    const dateMatch = href.match(/dal-(\d{1,2})-al-(\d{1,2})-(\w+)-(\d{4})/i);
-
-    if (dateMatch) {
-      const [_, startDay, endDay, monthName, year] = dateMatch;
-
-      const monthMap: Record<string, number> = {
-        'gennaio': 1, 'febbraio': 2, 'marzo': 3, 'aprile': 4,
-        'maggio': 5, 'giugno': 6, 'luglio': 7, 'agosto': 8,
-        'settembre': 9, 'ottobre': 10, 'novembre': 11, 'dicembre': 12
-      };
-
-      const monthNum = monthMap[monthName.toLowerCase()];
-
-      if (monthNum) {
-        const startDate = new Date(parseInt(year), monthNum - 1, parseInt(startDay));
-        const candidateDateStr = startDate.toISOString().split('T')[0];
-
-
-        let absoluteUrl = href;
-        if (href.startsWith('/')) {
-          absoluteUrl = 'https://www.fanpage.it' + href;
-        } else if (!href.startsWith('http')) {
-          absoluteUrl = 'https://www.fanpage.it/' + href;
-        }
-
-        // Calculate score based on date proximity
-        const daysDiff = Math.abs(Math.floor((startDate.getTime() - targetDate.getTime()) / (1000 * 60 * 60 * 24)));
-
-        let score = 100;
-        if (daysDiff === 0) {
-          score = 100;
-        } else if (daysDiff <= 3) {
-          score = 90 - (daysDiff * 10);
-        } else if (daysDiff <= 7) {
-          score = 50 - (daysDiff * 5);
-        } else {
-          score = 0;
-        }
-
-        if (score > 0) {
-          candidates.push({ url: absoluteUrl, startDate, score });
-        }
-      }
-    }
-  });
-
-
-  if (candidates.length === 0) {
-    throw new Error(`No Fanpage.it weekly horoscope URLs found in archive for week ${targetDateStr}`);
-  }
-
-  // Sort by score (highest first)
-  candidates.sort((a, b) => b.score - a.score);
-
-  const bestMatch = candidates[0];
-
-  return bestMatch.url;
 }
 
 // ==================== END FANPAGE.IT FUNCTIONS ====================
@@ -773,13 +671,11 @@ async function resolveFanpageUrlFromArchive(input: WeeklyScraperInput): Promise<
                           input.sourceName.toLowerCase().includes('fanpage');
 
         if (isFanpage) {
-          try {
-            const url = await resolveFanpageUrlFromArchive(input);
-            return url;
-          } catch (error) {
-            console.error(`Fanpage.it - Archive resolution failed:`, error);
-            throw new Error(`Cannot resolve Fanpage.it URL: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          const url = await discoverFanpageWeeklyUrl(input.weekStartDate, input.userAgent);
+          if (!url) {
+            throw new Error(`Fanpage weekly - No URL found for week ${input.weekStartDate}`);
           }
+          return url;
         }
 
         // ELLE.COM/IT SPECIFIC: Use archive + cross-reference strategy
