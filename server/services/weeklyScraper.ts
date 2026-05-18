@@ -1880,7 +1880,7 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
           const regexPattern = `\\n${signNameCapitalized}\\s*\\(\\d[^)]*\\)[\\r\\n]*(.+?)(?:(?:\\n(?:Voto|${nextSignsPattern})\\s*\\()|$)`;
           const findSignRegex = new RegExp(regexPattern, 'is');
 
-          const match = body.match(findSignRegex);
+          const match = searchBody.match(findSignRegex);
           if (!match) {
             console.log(`  [JSON-LD] Regex: ${regexPattern.substring(0, 80)}...`);
           }
