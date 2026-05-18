@@ -176,9 +176,14 @@ function buildFanpageUrls(input: ScraperInput): string[] {
 
 export async function scrapeHoroscope(input: ScraperInput): Promise<ScraperOutput> {
   try {
-    // Build URL(s) from pattern
-    const urlResult = buildHoroscopeUrl(input);
-    const urls = Array.isArray(urlResult) ? urlResult : [urlResult];
+    // Build URL(s) from pattern (Sky TG24 uses async discovery)
+    let urls: string[];
+    if (input.domain.includes('tg24.sky.it') || input.domain.includes('skytg24.it')) {
+      urls = await buildSkyTG24Urls(input);
+    } else {
+      const urlResult = buildHoroscopeUrl(input);
+      urls = Array.isArray(urlResult) ? urlResult : [urlResult];
+    }
 
     // Try multiple URLs if available (e.g., for Gazzetta.it)
     let scrapeResult: ScrapeResult | null = null;
@@ -256,7 +261,47 @@ export async function scrapeHoroscope(input: ScraperInput): Promise<ScraperOutpu
   }
 }
 
-function buildSkyTG24Url(input: ScraperInput): string[] {
+// Cache: ISO date → discovered URL (or null if not found)
+const skyTG24UrlCache = new Map<string, string | null>();
+
+async function discoverSkyTG24DailyUrl(date: string, userAgent: string): Promise<string | null> {
+  try {
+    const indexHtml = await fetchHtml('https://tg24.sky.it/lifestyle/oroscopo', userAgent);
+    const d = new Date(date);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const datePrefix = `/lifestyle/${yyyy}/${mm}/${dd}/`;
+    const linkRegex = new RegExp(
+      `href="(${datePrefix.replace(/\//g, '\\/')}oroscopo[^"]*)"`,
+      'gi'
+    );
+    const matches = [...indexHtml.matchAll(linkRegex)];
+    if (matches.length === 0) {
+      console.log(`Sky TG24 - No daily link found on index page for ${date}`);
+      return null;
+    }
+    const dailyMatch = matches.find(m =>
+      !m[1].includes('settimana') && !m[1].includes('anno') && !m[1].includes('mese')
+    ) ?? matches[0];
+    const url = `https://tg24.sky.it${dailyMatch[1]}`;
+    console.log(`Sky TG24 - Discovered daily URL: ${url}`);
+    return url;
+  } catch (err) {
+    console.log(`Sky TG24 - Discovery failed: ${err}`);
+    return null;
+  }
+}
+
+async function getSkyTG24DailyUrl(date: string, userAgent: string): Promise<string | null> {
+  if (skyTG24UrlCache.has(date)) return skyTG24UrlCache.get(date)!;
+  const url = await discoverSkyTG24DailyUrl(date, userAgent);
+  skyTG24UrlCache.set(date, url);
+  return url;
+}
+
+async function buildSkyTG24Urls(input: ScraperInput): Promise<string[]> {
+  const discovered = await getSkyTG24DailyUrl(input.dateISO, input.userAgent);
   const d = new Date(input.dateISO);
   const year = d.getFullYear();
   const month = (d.getMonth() + 1).toString().padStart(2, '0');
@@ -264,18 +309,19 @@ function buildSkyTG24Url(input: ScraperInput): string[] {
   const dayNum = d.getDate();
   const monthName = ITALIAN_MONTHS[d.getMonth()];
   const base = `https://tg24.sky.it/lifestyle/${year}/${month}/${day}`;
-  return [
-    `${base}/oroscopo-oggi-${dayNum}-${monthName}`,
+  const fallbacks = [
     `${base}/oroscopo-${dayNum}-${monthName}`,
+    `${base}/oroscopo-oggi-${dayNum}-${monthName}`,
+    `${base}/oroscopo-giorno-${dayNum}-${monthName}`,
   ];
+  const urls = discovered
+    ? [discovered, ...fallbacks.filter(u => u !== discovered)]
+    : fallbacks;
+  console.log(`Sky TG24 - URL candidates for ${input.signSlugIt}:`, urls[0]);
+  return urls;
 }
 
 function buildHoroscopeUrl(input: ScraperInput): string | string[] {
-  // ========== SPECIAL HANDLING: Sky TG24 ==========
-  if (input.domain.includes('tg24.sky.it') || input.domain.includes('skytg24.it')) {
-    return buildSkyTG24Url(input);
-  }
-
   // ========== SPECIAL HANDLING: Repubblica.it ==========
   if (input.domain.includes('repubblica.it')) {
     return input.baseUrl + input.urlPattern;
