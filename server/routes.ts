@@ -1593,12 +1593,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(401).json({ error: 'Unauthorized' });
     }
     try {
-      let user = await prisma.user.findUnique({ where: { clerkId } });
-      if (!user) {
-        user = await prisma.user.create({
-          data: { clerkId, email: '', tier: 'free' },
-        });
-      }
+      const user = await prisma.user.upsert({
+        where: { clerkId },
+        update: {},
+        create: { clerkId, email: `clerk_${clerkId}@noemail.local`, tier: 'free' },
+      });
       return res.json({ id: user.id, clerkId: user.clerkId, tier: user.tier, email: user.email });
     } catch (error) {
       console.error('[User] Error in /api/user/me:', error);
