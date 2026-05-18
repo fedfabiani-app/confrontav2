@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Lock } from 'lucide-react';
 import { useAccess } from '../hooks/use-access';
+import { useAuth } from '../hooks/use-auth';
 import { useLocation } from 'wouter';
 
 interface CompatibilityWidgetProps {
@@ -24,6 +25,7 @@ type Status = 'idle' | 'loading' | 'result' | 'error';
 
 export function CompatibilityWidget({ currentSign }: CompatibilityWidgetProps) {
   const { canAccessCompatibility } = useAccess();
+  const { clerkUserId } = useAuth();
   const [, navigate] = useLocation();
 
   const defaultSign1 = currentSign && SIGNS.find(s => s.en === currentSign) ? currentSign : SIGNS[0].en;
@@ -49,7 +51,10 @@ export function CompatibilityWidget({ currentSign }: CompatibilityWidgetProps) {
     try {
       const res = await fetch('/api/compatibility', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(clerkUserId ? { 'x-clerk-user-id': clerkUserId } : {}),
+        },
         body: JSON.stringify({ sign1, sign2, date }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
