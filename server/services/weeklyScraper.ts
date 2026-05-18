@@ -1853,7 +1853,7 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
       let extractedContent = '';
 
       // Strategy 0: JSON-LD articleBody
-      // Weekly format: "SignName (date range)\r\nContent...\r\nVoto N\r\nNextSign..."
+      // Weekly format: find "SignName (date)" then extract until next sign
       $('script[type="application/ld+json"]').each((_, el) => {
         if (extractedContent) return;
         try {
@@ -1861,19 +1861,31 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
           const data = Array.isArray(rawData) ? rawData[0] : rawData;
           const body: string = data?.articleBody || '';
           if (!body) return;
-          // Delimiter: newline + SignName + optional "(date range)" + newline
-          const signPattern = new RegExp(
-            `\\r?\\n(${allItalianSigns.join('|')})(?:\\s*\\([^)]*\\))?\\r?\\n`
+
+          // Find this sign: look for pattern "SignName (optionally with dates)"
+          // Match: Ariete, Ariete (...), etc. then extract up to next sign
+          const signNameCapitalized = input.signSlugIt.charAt(0).toUpperCase() + input.signSlugIt.slice(1);
+
+          // Build a regex to find this sign and capture until next sign
+          const nextSignsPattern = allItalianSigns
+            .filter(s => s.toLowerCase() !== input.signSlugIt.toLowerCase())
+            .join('|');
+
+          const findSignRegex = new RegExp(
+            `${signNameCapitalized}\\s*\\([^)]*\\)[\\r\\n]*(.+?)(?:(?:Voto|${nextSignsPattern})\\s*\\(|$)`,
+            'is'
           );
-          const parts = body.split(signPattern);
-          // parts layout: [intro, signName0, text0, signName1, text1, ...]
-          for (let i = 1; i + 1 < parts.length; i += 2) {
-            if (parts[i].toLowerCase() === input.signSlugIt.toLowerCase()) {
-              extractedContent = parts[i + 1].replace(/\r\n/g, '\n').trim();
-              break;
-            }
+
+          const match = body.match(findSignRegex);
+          if (match && match[1]) {
+            extractedContent = match[1]
+              .replace(/\r\n/g, '\n')
+              .replace(/Voto\s+[\d\/\s]+$/i, '')
+              .trim();
           }
-        } catch { /* malformed JSON-LD */ }
+        } catch (err) {
+          console.log(`Fanpage weekly - JSON-LD Strategy 0 error: ${err}`);
+        }
       });
 
       if (extractedContent.length > 50) {
