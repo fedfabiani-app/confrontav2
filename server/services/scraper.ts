@@ -2019,6 +2019,95 @@ function isPaywallText(text: string): boolean {
   return /altro dispositivo|piano di abbonamento|continuare a leggere|rimarrà collegato|questo account|utilizzandoli in momenti diversi/i.test(text);
 }
 
+// ============================================================================
+// RADIO SUBASIO — Handler dedicato (tutti i segni su una pagina, divisi da H3)
+// ============================================================================
+async function scrapeRadioSubasioHoroscopeText(url: string, input: ScraperInput): Promise<ScrapeResult> {
+  try {
+    console.log('Radio Subasio - Starting extraction for:', input.signSlugIt);
+    const html = await fetchHtml(url, input.userAgent);
+    const $ = cheerio.load(html);
+
+    const signNameLower = input.signSlugIt.toLowerCase();
+    // Capitalize first letter to match H3 content (e.g. "ariete" → "Ariete")
+    const signName = signNameLower.charAt(0).toUpperCase() + signNameLower.slice(1);
+
+    let extractedText = '';
+
+    // Strategy 1: find the H3, collect following sibling P elements until the next H3
+    $('h3').each((_, h3El) => {
+      const h3Text = $(h3El).text().trim().toLowerCase();
+      if (!h3Text.includes(signNameLower)) return; // skip non-matching signs
+
+      const parts: string[] = [];
+
+      // Direct following siblings
+      let sibling = $(h3El).next();
+      while (sibling.length && !sibling.is('h3')) {
+        const t = sibling.text().trim();
+        if (t.length > 20) parts.push(t);
+        sibling = sibling.next();
+      }
+
+      // Elementor puts each widget in its own container — if no direct siblings,
+      // walk the parent chain upward then collect the next container's text
+      if (parts.length === 0) {
+        let container = $(h3El).parent();
+        while (container.length && !container.next().length) {
+          container = container.parent();
+        }
+        let nextContainer = container.next();
+        while (nextContainer.length && !nextContainer.find('h3').length) {
+          nextContainer.find('p').each((_, p) => {
+            const t = $(p).text().trim();
+            if (t.length > 20) parts.push(t);
+          });
+          if (parts.length > 0) break;
+          nextContainer = nextContainer.next();
+        }
+      }
+
+      extractedText = parts.join(' ');
+      return false; // break .each()
+    });
+
+    // Strategy 2: regex slice between this H3 and the next one (handles any nesting)
+    if (!extractedText || extractedText.length < 50) {
+      const sectionRegex = new RegExp(
+        `<h3[^>]*>\\s*${signName}\\s*</h3>([\\s\\S]*?)(?=<h3[^>]*>|$)`,
+        'i'
+      );
+      const sectionMatch = html.match(sectionRegex);
+      if (sectionMatch) {
+        const sec$ = cheerio.load(sectionMatch[1]);
+        const parts: string[] = [];
+        sec$('p').each((_, p) => {
+          const t = sec$(p).text().trim();
+          if (t.length > 20) parts.push(t);
+        });
+        if (parts.length === 0) {
+          // No <p> tags — take raw text of the section
+          const raw = sec$('body').text().replace(/\s+/g, ' ').trim();
+          if (raw.length > 50) extractedText = raw;
+        } else {
+          extractedText = parts.join(' ');
+        }
+      }
+    }
+
+    if (!extractedText || extractedText.length < 50) {
+      return { success: false, error: `No horoscope content found for ${input.signSlugIt} on Radio Subasio` };
+    }
+
+    console.log(`Radio Subasio - Extracted ${extractedText.length} chars for ${input.signSlugIt}`);
+    return { success: true, text: extractedText, actualUrl: url };
+
+  } catch (error) {
+    console.error(`Radio Subasio - Error for ${input.signSlugIt}:`, error instanceof Error ? error.message : error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown Radio Subasio scraping error' };
+  }
+}
+
 async function scrapeHoroscopeText(url: string, input: ScraperInput): Promise<ScrapeResult> {
   try {
     console.log(`Starting scrape for ${input.signSlugIt} at URL: ${url}`);
@@ -2088,6 +2177,11 @@ async function scrapeHoroscopeText(url: string, input: ScraperInput): Promise<Sc
     // Special handling for Sky TG24
     if (url.includes('skytg24.it') || url.includes('tg24.sky.it')) {
       return await scrapeSkyTG24HoroscopeText(url, input);
+    }
+
+    // Special handling for Radio Subasio (all 12 signs on a single page, split by H3)
+    if (url.includes('radiosubasio.it')) {
+      return await scrapeRadioSubasioHoroscopeText(url, input);
     }
 
     // Special handling for Fanpage.it
