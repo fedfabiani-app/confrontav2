@@ -79,7 +79,7 @@ export function CompatibilityWidget({ currentSign }: CompatibilityWidgetProps) {
       className="rounded-xl p-4 space-y-4"
       style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}
     >
-      <h3 className="text-white font-semibold text-sm">Compatibilità amorosa</h3>
+      <h3 className="text-white font-semibold text-sm">Affinità tra segni</h3>
 
       {/* Dual sign selectors */}
       <div className="flex gap-2 items-center">
