@@ -227,7 +227,7 @@ export default function Contact() {
 
               <HCaptcha
                 ref={captchaRef}
-                sitekey={import.meta.env.VITE_HCAPTCHA_SITE_KEY}
+                sitekey={import.meta.env.VITE_HCAPTCHA_SITE_KEY || "0e58d15a-5430-43b0-9e82-61d411021070"}
                 onVerify={(token) => setCaptchaToken(token)}
                 onExpire={() => setCaptchaToken(null)}
                 theme="dark"
