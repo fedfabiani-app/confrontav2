@@ -1834,7 +1834,7 @@ Scrivi 1 sola frase breve sulla compatibilità amorosa tra questi due segni.
 
   // POST /api/contact
   app.post("/api/contact", async (req, res) => {
-    const { name, email, subject, message } = req.body;
+    const { name, email, subject, message, captchaToken } = req.body;
 
     if (!name?.trim() || !email?.trim() || !subject?.trim() || !message?.trim()) {
       return res.status(400).json({ error: "Tutti i campi sono obbligatori" });
@@ -1842,8 +1842,21 @@ Scrivi 1 sola frase breve sulla compatibilità amorosa tra questi due segni.
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return res.status(400).json({ error: "Email non valida" });
     }
+    if (!captchaToken) {
+      return res.status(400).json({ error: "Captcha richiesto" });
+    }
 
     try {
+      const hcaptchaResponse = await fetch('https://hcaptcha.com/siteverify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `secret=${process.env.HCAPTCHA_SECRET_KEY}&response=${captchaToken}`,
+      });
+      const { success: captchaOk } = await hcaptchaResponse.json() as { success: boolean };
+      if (!captchaOk) {
+        return res.status(400).json({ error: 'Captcha fallito' });
+      }
+
       const resend = new Resend(process.env.RESEND_API_KEY);
       await resend.emails.send({
         from: "Confronta Oroscopo <onboarding@resend.dev>",

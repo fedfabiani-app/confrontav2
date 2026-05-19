@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, CheckCircle } from "lucide-react";
+import HCaptcha from "@hcaptcha/react-hcaptcha";
 import { trackContactSubmit } from "../lib/analytics";
 
 interface FormData {
@@ -44,6 +45,8 @@ export default function Contact() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const captchaRef = useRef<HCaptcha>(null);
 
   function handleChange(
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -70,7 +73,7 @@ export default function Contact() {
       const res = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, captchaToken }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Errore durante l'invio");
@@ -81,6 +84,8 @@ export default function Contact() {
       setServerError(
         err instanceof Error ? err.message : "Errore durante l'invio"
       );
+      captchaRef.current?.resetCaptcha();
+      setCaptchaToken(null);
     } finally {
       setLoading(false);
     }
@@ -220,10 +225,18 @@ export default function Contact() {
                 <p className="text-sm text-red-400">{serverError}</p>
               )}
 
+              <HCaptcha
+                ref={captchaRef}
+                sitekey={import.meta.env.VITE_HCAPTCHA_SITE_KEY}
+                onVerify={(token) => setCaptchaToken(token)}
+                onExpire={() => setCaptchaToken(null)}
+                theme="dark"
+              />
+
               <Button
                 type="submit"
-                disabled={loading}
-                className="w-full bg-white text-purple-900 hover:bg-gray-100 font-semibold py-2"
+                disabled={loading || !captchaToken}
+                className="w-full bg-white text-purple-900 hover:bg-gray-100 font-semibold py-2 disabled:opacity-50"
               >
                 {loading ? "Invio in corso…" : "Invia messaggio"}
               </Button>
