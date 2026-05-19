@@ -5,18 +5,18 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Home from "@/pages/Home";
-import InfoPage from "@/pages/Info";
 import Login from "@/pages/Login";
-import Privacy from "@/pages/Privacy";
-import Terms from "@/pages/Terms";
-import Editoriale from "@/pages/Editoriale";
-import Contact from "@/pages/Contact";
 import NotFound from "@/pages/not-found";
 
-// Heavy pages — code-split so they don't inflate the initial bundle
+// All non-home pages are code-split to minimise the initial bundle
 const SignDetail = lazy(() => import("@/pages/SignDetail"));
 const Account = lazy(() => import("@/pages/Account"));
 const Pricing = lazy(() => import("@/pages/Pricing"));
+const InfoPage = lazy(() => import("@/pages/Info"));
+const Privacy = lazy(() => import("@/pages/Privacy"));
+const Terms = lazy(() => import("@/pages/Terms"));
+const Contact = lazy(() => import("@/pages/Contact"));
+const Editoriale = lazy(() => import("@/pages/Editoriale"));
 
 function Footer() {
   return (
@@ -68,7 +68,7 @@ function Footer() {
 function Router() {
   return (
     <>
-      <Suspense fallback={null}>
+      <Suspense fallback={<div className="lh-loading" />}>
         <Switch>
           <Route path="/" component={Home} />
           <Route path="/sign/:sign">

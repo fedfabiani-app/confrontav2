@@ -289,3 +289,25 @@
 .hover\:to-red-600:hover {
   --tw-gradient-to: hsl(0, 84%, 52%);
 }
+
+/* Suspense loading fallback */
+.lh-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+}
+
+.lh-loading::after {
+  content: '';
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: lh-spin 0.8s linear infinite;
+}
+
+@keyframes lh-spin {
+  to { transform: rotate(360deg); }
+}

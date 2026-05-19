@@ -17,7 +17,7 @@ const root = createRoot(document.getElementById("root")!);
 
 if (PUBLISHABLE_KEY) {
   root.render(
-    <Suspense fallback={null}>
+    <Suspense fallback={<div className="lh-loading" />}>
       <ClerkAuthProvider publishableKey={PUBLISHABLE_KEY}>
         <App />
       </ClerkAuthProvider>
