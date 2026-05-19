@@ -18,7 +18,7 @@ import { UpgradeBanner } from "@/components/UpgradeBanner";
 import { PremiumGateOverlay } from "@/components/PremiumGateOverlay";
 import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
-import iconImage from "@assets/icon.png";
+import iconImage from "@assets/icon.webp";
 
 interface ZodiacSign {
   id: number;
