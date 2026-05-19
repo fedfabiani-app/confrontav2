@@ -17,7 +17,7 @@ const root = createRoot(document.getElementById("root")!);
 
 if (PUBLISHABLE_KEY) {
   root.render(
-    <Suspense fallback={<App />}>
+    <Suspense fallback={null}>
       <ClerkAuthProvider publishableKey={PUBLISHABLE_KEY}>
         <App />
       </ClerkAuthProvider>
