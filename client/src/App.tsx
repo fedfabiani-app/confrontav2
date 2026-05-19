@@ -1,26 +1,29 @@
+import { lazy, Suspense } from "react";
 import { Switch, Route, Link } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Home from "@/pages/Home";
-import SignDetail from "@/pages/SignDetail";
 import InfoPage from "@/pages/Info";
 import Login from "@/pages/Login";
-import Account from "@/pages/Account";
-import Pricing from "@/pages/Pricing";
-import Privacy from '@/pages/Privacy';
-import Terms from '@/pages/Terms';
-import Editoriale from '@/pages/Editoriale';
-import Contact from '@/pages/Contact';
+import Privacy from "@/pages/Privacy";
+import Terms from "@/pages/Terms";
+import Editoriale from "@/pages/Editoriale";
+import Contact from "@/pages/Contact";
 import NotFound from "@/pages/not-found";
+
+// Heavy pages — code-split so they don't inflate the initial bundle
+const SignDetail = lazy(() => import("@/pages/SignDetail"));
+const Account = lazy(() => import("@/pages/Account"));
+const Pricing = lazy(() => import("@/pages/Pricing"));
 
 function Footer() {
   return (
     <footer className="w-full py-3 mt-4 text-center px-2">
       <div className="flex justify-center items-center gap-2">
         <Link href="/info">
-          <a 
+          <a
             className="text-white hover:text-gray-300 transition-colors text-xs"
             data-testid="link-footer-info"
           >
@@ -29,7 +32,7 @@ function Footer() {
         </Link>
         <span className="text-white text-sm">-</span>
         <Link href="/privacy">
-          <a 
+          <a
             className="text-white hover:text-gray-300 transition-colors text-xs"
             data-testid="link-footer-privacy"
           >
@@ -38,7 +41,7 @@ function Footer() {
         </Link>
         <span className="text-white text-sm">-</span>
         <Link href="/terms">
-          <a 
+          <a
             className="text-white hover:text-gray-300 transition-colors text-xs"
             data-testid="link-footer-terms"
           >
@@ -46,17 +49,17 @@ function Footer() {
           </a>
         </Link>
         <span className="text-white text-sm">-</span>
-<Link href="/editoriale">
-  <a className="text-white hover:text-gray-300 transition-colors text-xs">
-    Editori
-  </a>
-</Link>
-<span className="text-white text-sm">-</span>
-<Link href="/contact">
-  <a className="text-white hover:text-gray-300 transition-colors text-xs">
-    Contatti
-  </a>
-</Link>
+        <Link href="/editoriale">
+          <a className="text-white hover:text-gray-300 transition-colors text-xs">
+            Editori
+          </a>
+        </Link>
+        <span className="text-white text-sm">-</span>
+        <Link href="/contact">
+          <a className="text-white hover:text-gray-300 transition-colors text-xs">
+            Contatti
+          </a>
+        </Link>
       </div>
     </footer>
   );
@@ -65,22 +68,24 @@ function Footer() {
 function Router() {
   return (
     <>
-      <Switch>
-        <Route path="/" component={Home} />
-        <Route path="/sign/:sign">
-          {(params) => <SignDetail sign={params.sign} />}
-        </Route>
-        <Route path="/info" component={InfoPage} />
-        <Route path="/login" component={Login} />
-        <Route path="/account" component={Account} />
-        <Route path="/pricing" component={Pricing} />
-        <Route path="/privacy" component={Privacy} />
-        <Route path="/terms" component={Terms} />
-        <Route path="/editoriale" component={Editoriale} />
-        <Route path="/contact" component={Contact} />
-        <Route component={NotFound} />
-      </Switch>
-    
+      <Suspense fallback={null}>
+        <Switch>
+          <Route path="/" component={Home} />
+          <Route path="/sign/:sign">
+            {(params) => <SignDetail sign={params.sign} />}
+          </Route>
+          <Route path="/info" component={InfoPage} />
+          <Route path="/login" component={Login} />
+          <Route path="/account" component={Account} />
+          <Route path="/pricing" component={Pricing} />
+          <Route path="/privacy" component={Privacy} />
+          <Route path="/terms" component={Terms} />
+          <Route path="/editoriale" component={Editoriale} />
+          <Route path="/contact" component={Contact} />
+          <Route component={NotFound} />
+        </Switch>
+      </Suspense>
+
       <Footer />
     </>
   );

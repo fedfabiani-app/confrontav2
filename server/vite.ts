@@ -76,7 +76,19 @@ export function serveStatic(app: Express) {
     );
   }
 
-  app.use(express.static(distPath));
+  // Hashed assets (JS/CSS/fonts/images) are immutable — cache for 1 year.
+  // HTML and manifests must revalidate on every request.
+  app.use(
+    express.static(distPath, {
+      setHeaders(res, filePath) {
+        if (/\.(js|css|woff2?|ttf|otf|svg|png|jpg|jpeg|webp|ico)$/.test(filePath)) {
+          res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+        } else {
+          res.setHeader("Cache-Control", "no-cache");
+        }
+      },
+    })
+  );
 
   // fall through to index.html if the file doesn't exist
   app.use("*", (_req, res) => {
