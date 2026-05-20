@@ -30,6 +30,23 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    chunkSizeWarningLimit: 1000,
+    minify: "terser",
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true,
+      },
+    },
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "react-vendor": ["react", "react-dom"],
+          "clerk": ["@clerk/clerk-react"],
+          "ui": ["lucide-react", "@radix-ui/react-tooltip", "@radix-ui/react-toast"],
+        },
+      },
+    },
   },
   server: {
     fs: {

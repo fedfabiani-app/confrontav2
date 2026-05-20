@@ -16,29 +16,78 @@ Analizza il testo di un oroscopo e restituisci incipit, superquote, ratings e to
 CAMPO 1 — INCIPIT (summary)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-L'incipit è la riproduzione testuale e fedele dell'inizio
-dell'oroscopo originale. Non rielaborare, non parafrasare,
-non modificare nemmeno una parola.
+OBIETTIVO:
+Generare uno snippet stile anteprima editoriale: le prime parole 
+dell'oroscopo, troncate prima che venga rivelata qualsiasi previsione 
+concreta. Deve sembrare un estratto interrotto dal sistema, non una 
+frase volutamente abbreviata.
 
-REGOLE:
-- Estrai le prime due frasi dell'originale, verbatim
-- Limite: min(200 caratteri, 50% della lunghezza del testo originale)
-  es. testo di 200 caratteri → incipit max 100 caratteri
-  es. testo di 600+ caratteri → incipit max 200 caratteri
-- Se entrambe le frasi rientrano nel limite → includi entrambe
-- Se solo la prima rientra nel limite → includi solo la prima
-- Se anche la prima supera il limite → tronca al limite
-- Rimuovi la punteggiatura finale (., !, ?) e aggiungi sempre "…"
-  L'incipit è un teaser: termina SEMPRE con "…", senza eccezioni
-- Non aggiungere mai una terza frase
-- Non modificare il resto del testo (maiuscole, stile, parole)
+PRINCIPIO LEGALE — "ESTRATTO MOLTO BREVE":
+Conforme alla direttiva UE 2019/790 art. 15, legge 633/1941 art. 43-bis 
+e delibera AGCOM 3/23/CONS. L'incipit NON deve dispensare dalla 
+consultazione dell'articolo originale.
 
-VERIFICA INCIPIT:
-□ È riproduzione testuale fedele?
-□ Sono al massimo due frasi?
-□ È entro min(200 caratteri, 50% del testo originale)?
-□ Termina con "…" (obbligatorio, sempre)?
-□ Zero modifiche al testo originale?
+LUNGHEZZA — SISTEMA A TRE LIVELLI:
+Calcola la lunghezza massima in base al testo originale ricevuto:
+- Testo originale ≤ 400 caratteri  → max 60 caratteri
+- Testo originale 401–1500 caratteri → max 120 caratteri
+- Testo originale > 1500 caratteri  → max 150 caratteri
+
+REGOLE TECNICHE:
+1. RIPRODUZIONE VERBATIM: zero modifiche a parole, ortografia,
+   punteggiatura interna o maiuscole.
+2. UNA SOLA FRASE: mai due, mai concatenate con punto fermo.
+3. TRONCAMENTO STILE SNIPPET: l'incipit deve terminare in modo che 
+   sembri tagliato dal sistema, NON a una pausa grammaticale pulita. 
+   Idealmente subito dopo una parola che lascia il pensiero incompleto, 
+   come se il testo continuasse oltre.
+4. CHIUSURA: rimuovi sempre punto/esclamativo/interrogativo finale 
+   e aggiungi "…" (obbligatorio, senza eccezioni).
+5. MAI TAGLIARE A METÀ PAROLA — la parola finale deve essere intera, 
+   ma il senso della frase deve restare aperto.
+
+TRONCA SEMPRE PRIMA DI:
+- Verbi che annunciano eventi ("porterà", "succederà", "arriverà",
+  "ti aspetta", "incontrerai")
+- Ambiti specifici rivelati ("nel lavoro", "in amore", "in famiglia",
+  "con il partner", "sul fronte economico")
+- Consigli operativi ("dovrai", "evita", "approfitta", "attento a")
+- Esiti o conseguenze ("ti permetterà di…", "rischi di…", "potrai…")
+
+ESEMPI DI TRONCATURA STILE SNIPPET:
+
+Originale (310 char, tier ≤400 → max 60): "Cara Ariete, oggi le 
+stelle ti sorridono. Una nuova opportunità lavorativa…"
+✓ "Cara Ariete, oggi le stelle ti sorri…" (37 char, frase aperta)
+✗ "Cara Ariete, oggi le stelle ti sorridono…" (chiusura grammaticale, 
+  troppo pulita)
+
+Originale (240 char, tier ≤400 → max 60): "Giornata complessa per 
+voi del Toro, con Marte in opposizione…"
+✓ "Giornata complessa per voi del Toro, con Marte…" (45 char)
+✗ "Giornata complessa per voi del Toro…" (chiude troppo pulito)
+
+Originale (900 char, tier ≤1500 → max 120): "La Luna nel segno ti 
+porta un'energia inaspettata e ti spinge a uscire dalla zona di 
+comfort, ma attento al…"
+✓ "La Luna nel segno ti porta un'energia inaspettata e ti spinge a 
+   uscire dalla zona di…" (87 char, parola "comfort" tagliata via)
+✗ "La Luna nel segno ti porta un'energia inaspettata…" (troppo pulito)
+
+Originale (3500 char, tier >1500 → max 150): "Mercoledì spartiacque 
+della settimana e voi vi sentite sullo stesso piano, al centro 
+della scena planetaria, energetici…"
+✓ "Mercoledì spartiacque della settimana e voi vi sentite sullo 
+   stesso piano, al centro della scena planetaria…" (108 char)
+
+VERIFICA FINALE INCIPIT:
+□ Una sola frase entro il limite del tier corretto?
+□ Termina con "…"?
+□ Verbatim al 100% (zero modifiche)?
+□ Il taglio sembra fatto dal sistema, non grammaticalmente pulito?
+□ L'ultima parola è intera ma il pensiero resta aperto?
+□ Dopo la lettura, il lettore ancora NON sa cosa succederà?
+Se anche una sola risposta è NO → riformula la troncatura.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 CAMPO 2 — SUPERQUOTE
@@ -126,46 +175,66 @@ VERIFICA FINALE:
 CAMPO 3 — RATINGS E TONE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Analizza l'intero testo originale e assegna:
+Analizza l'intero testo originale e assegna ratings e tone.
+Usa TUTTA la scala: 1 e 5 esistono e devono essere usati quando
+il testo lo giustifica. Non usare 3 o 4 come "default sicuro".
 
-RELAZIONI (0-5):
-  Valutazione dell'ambito relazionale.
-  0 = non menzionato nell'oroscopo.
+RELAZIONI (0-5) — amore, coppia, famiglia, amicizie:
+  0 = ambito non menzionato nell'oroscopo (caso raro)
+  1 = conflitti aperti, rotture, isolamento, incomprensioni gravi
+  2 = tensioni latenti, comunicazione difficile, dubbi, distanze
+  3 = stabilità nella norma, routine relazionale, situazione neutra
+  4 = connessioni positive, dialogo costruttivo, sintonia, affetto
+  5 = momenti trasformativi, riconciliazioni profonde, incontri
+      importanti, dichiarazioni, gioia condivisa intensa
 
-LAVORO (0-5):
-  Valutazione dell'ambito professionale.
-  0 = non menzionato nell'oroscopo.
+LAVORO (0-5) — carriera, progetti, finanze, colleghi:
+  0 = ambito non menzionato nell'oroscopo (caso raro)
+  1 = crisi professionale, conflitti, fallimenti, perdite economiche
+  2 = ostacoli, ritardi, tensioni, finanze sotto pressione
+  3 = routine professionale, nessun cambiamento, stabilità neutra
+  4 = progressi concreti, riconoscimenti, opportunità, crescita
+  5 = svolte di carriera, successi importanti, guadagni eccezionali,
+      progetti che decollano
 
-BENESSERE (0-5):
-  Valutazione di umore, energia emotiva
-  e outlook generale della giornata.
-  0 = non menzionato nell'oroscopo.
+BENESSERE (0-5) — energia emotiva, umore, vitalità, salute:
+  0 = ambito non menzionato nell'oroscopo (caso raro)
+  1 = esaurimento, sintomi fisici, depressione, ansia paralizzante
+  2 = stanchezza marcata, malumore persistente, energia bassa
+  3 = equilibrio nella norma, alti e bassi tipici, stato neutro
+  4 = energia positiva, ottimismo, vitalità, buon umore stabile
+  5 = picco di benessere, euforia, energia esplosiva, rinascita
 
 TONE:
   "positive" = giornata complessivamente favorevole
   "negative" = giornata complessivamente difficile
   "neutral"  = giornata nella norma, senza picchi
 
+COERENZA TONE-RATING (obbligatoria):
+  tone = "negative" → almeno uno dei rating ≤ 2
+  tone = "positive" → almeno uno dei rating ≥ 4
+  tone = "neutral"  → i rating gravitano attorno a 3, non sopra 4
+  Un oroscopo "negative" con tutti i rating a 4 è incoerente: correggi.
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 VERIFICA FINALE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-□ Incipit: testuale, max 2 frasi, entro min(200 char, 50% del testo originale), termina con "…"?
+□ Incipit: testuale, stile snippet, entro il limite del tier corretto, termina con "…"?
 □ Superquote: 1-2 frasi, 70-160 caratteri, tono fedele?
-□ Ratings: 0 per ambiti non menzionati?
+□ Ratings: 0 solo se l'ambito è assente, altrimenti 1-5 calibrati sulla rubrica?
 □ Tone: coerente con superquote e ratings?
+□ Coerenza tone-rating rispettata (negative→≤2, positive→≥4, neutral→≈3)?
 
 Se anche una sola risposta è problematica,
 correggi prima di restituire l'output.`;
 
 export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAIOutput> {
   try {
-    console.log(`[Claude] Processing ${input.sourceName} - ${input.signSlugIt} (${input.extracted_text.length} chars)`);
 
     let useNeutralFallback = false;
 
     if (input.extracted_text.length < 30) {
-      console.log(`[Claude] Text too short (${input.extracted_text.length} chars), using neutral fallback`);
       useNeutralFallback = true;
     } else {
       const hasHoroscopeKeywords = /\b(oroscopo|previsioni|stelle|fortuna|amore|lavoro|salute|giornata|periodo|energia|voto|destino|luna|sole|pianeti|segno|zodiaco|oggi|domani|settimana|relazioni|carriera|benessere|marte|venere|saturno|giove|mercurio|plutone|nettuno|urano|ariete|toro|gemelli|cancro|leone|vergine|bilancia|scorpione|sagittario|capricorno|acquario|pesci)\b/i.test(input.extracted_text.toLowerCase());
@@ -177,7 +246,6 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
           ((hasNavigationWords && input.extracted_text.length < 60) ||
            (hasPaywallWords && input.extracted_text.length < 50))) {
         const reason = hasNavigationWords && input.extracted_text.length < 60 ? 'navigazione' : 'paywall';
-        console.log(`[Claude] SCARTATO — motivo: ${reason} | preview: "${input.extracted_text.slice(0, 100)}"`);
         useNeutralFallback = true;
       }
     }
@@ -208,7 +276,7 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
       messages: [
         {
           role: 'user',
-          content: `Testo da analizzare:\n${input.extracted_text}`
+          content: `Testo da analizzare (${input.extracted_text.length} caratteri):\n${input.extracted_text}`
         }
       ],
       tools: [
@@ -224,30 +292,30 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
               },
               summary: {
                 type: 'string',
-                description: 'Riproduzione testuale fedele delle prime due frasi dell\'oroscopo originale. Massimo 200 caratteri E mai più del 50% della lunghezza del testo originale. Termina SEMPRE con "…" (rimuovi la punteggiatura finale e aggiungi "…") — l\'incipit è sempre un teaser. Non modificare nulla del resto del testo.'
+                description: 'Snippet stile anteprima editoriale: riproduzione verbatim delle prime parole dell\'oroscopo, troncate PRIMA della prima previsione concreta. Deve sembrare un testo tagliato dal sistema (non una pausa grammaticale pulita). Termina SEMPRE con "…". Limiti tier-based: testo ≤400 char orig→max 60; 401-1500→max 120; >1500→max 150. Zero modifiche al testo originale.'
               },
               relazioni: {
                 type: 'integer',
                 minimum: 0,
                 maximum: 5,
-                description: 'Valutazione relazioni da 0 a 5 stelle basata sul contenuto (0 = non menzionato)'
+                description: 'Valutazione relazioni (amore, famiglia, amicizie). 0=non menzionato. 1=conflitti/rotture. 2=tensioni/distanze. 3=stabilità neutra. 4=connessioni positive/sintonia. 5=momenti trasformativi/gioia intensa. Usa tutta la scala.'
               },
               lavoro: {
                 type: 'integer',
                 minimum: 0,
                 maximum: 5,
-                description: 'Valutazione lavoro da 0 a 5 stelle basata sul contenuto (0 = non menzionato)'
+                description: 'Valutazione lavoro (carriera, finanze, progetti). 0=non menzionato. 1=crisi/conflitti/perdite. 2=ostacoli/ritardi. 3=routine neutra. 4=progressi/opportunità. 5=svolte/successi eccezionali. Usa tutta la scala.'
               },
               benessere: {
                 type: 'integer',
                 minimum: 0,
                 maximum: 5,
-                description: 'Valutazione benessere/umore/energia emotiva da 0 a 5 stelle basata sul contenuto (0 = non menzionato)'
+                description: 'Valutazione benessere (energia, umore, vitalità). 0=non menzionato. 1=esaurimento/ansia paralizzante. 2=stanchezza/malumore. 3=equilibrio neutro. 4=energia positiva/ottimismo. 5=picco di benessere/euforia. Usa tutta la scala.'
               },
               tone: {
                 type: 'string',
                 enum: ['positive', 'negative', 'neutral'],
-                description: 'Tono generale dell\'oroscopo: positive = favorevole, negative = difficile, neutral = nella norma'
+                description: 'Tono generale. positive=favorevole (almeno un rating≥4). negative=difficile (almeno un rating≤2). neutral=nella norma (rating attorno a 3). Deve essere coerente con i rating assegnati.'
               }
             },
             required: ['superquote', 'summary', 'relazioni', 'lavoro', 'benessere', 'tone']
@@ -263,26 +331,31 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
       throw new Error('No tool use block in Claude response');
     }
 
-    console.log(`[Claude] Tool response received`);
-    console.log(`[Claude] Cache usage — creation: ${response.usage.cache_creation_input_tokens ?? 0}, read: ${response.usage.cache_read_input_tokens ?? 0}, input: ${response.usage.input_tokens}`);
     const parsed = toolBlock.input as Record<string, unknown>;
 
-    // Process summary (incipit) — enforce min(200 chars, 50% of original text) + always "…"
+    // Process summary (incipit) — enforce tier-based limits with snippet truncation
     let summary = (parsed.summary as string) || '';
-    const maxIncipitLength = Math.min(200, Math.floor(input.extracted_text.length * 0.5));
-    if (summary.length > maxIncipitLength) {
-      const truncated = summary.slice(0, maxIncipitLength);
-      const lastSentenceEnd = truncated.search(/[.!?][^.!?]*$/);
-      summary = lastSentenceEnd > 0
-        ? truncated.slice(0, lastSentenceEnd + 1)
-        : truncated.trimEnd();
+    const originalLength = input.extracted_text.length;
+    let summaryLimit = 150; // default for >1500
+    
+    if (originalLength <= 400) {
+      summaryLimit = 60;
+    } else if (originalLength <= 1500) {
+      summaryLimit = 120;
     }
-    summary = summary.replace(/[.!?…]+$/, '') + '…';
+    
+    if (summary.length > summaryLimit) {
+      summary = summary.substring(0, summaryLimit);
+      if (!summary.endsWith('…')) {
+        summary = summary.trimEnd() + '…';
+      }
+    } else {
+      summary = summary.replace(/[.!?…]*$/, '') + '…';
+    }
 
     // Process superquote — enforce 70-160 char limits
     let superquote = (parsed.superquote as string) || '';
     if (superquote.length > 160) {
-      // Trim to last complete sentence within 160 chars
       const sentences = superquote.match(/[^.!?]+[.!?]+/g) || [];
       let trimmed = '';
       for (const sentence of sentences) {
@@ -295,7 +368,6 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
       superquote = trimmed.trim() || superquote.slice(0, 159) + '.';
     }
     if (superquote.length < 70) {
-      console.log(`[Claude] Warning: Superquote too short (${superquote.length} chars), using as-is`);
     }
 
     const result = {
@@ -311,9 +383,6 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
         : 'neutral'
     };
 
-    console.log(`[Claude] Final superquote length: ${result.superquote.length} characters`);
-    console.log(`[Claude] Final summary (incipit) length: ${result.summary.length} characters`);
-    console.log(`[Claude] Processed result: Relazioni=${result.ratings.relazioni}, Lavoro=${result.ratings.lavoro}, Benessere=${result.ratings.benessere}, Tone=${result.tone}`);
 
     return openaiOutputSchema.parse(result);
   } catch (error) {
@@ -339,7 +408,6 @@ export async function processHoroscopeWithRetry(
       }
 
       const delay = Math.pow(2, attempt) * 1000;
-      console.log(`[Claude] Attempt ${attempt} failed, retrying in ${delay}ms...`);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
@@ -368,7 +436,6 @@ const NEUTRAL_FALLBACK: OpenAIOutput = {
 
 function isInvalidText(text: string): boolean {
   if (text.length < 30) {
-    console.log(`[isInvalidText] SCARTATO — motivo: testo troppo corto (${text.length} chars) | preview: "${text.slice(0, 100)}"`);
     return true;
   }
   const hasHoroscopeKeywords = /\b(oroscopo|previsioni|stelle|fortuna|amore|lavoro|salute|giornata|periodo|energia|voto|destino|luna|sole|pianeti|segno|zodiaco|oggi|domani|settimana|relazioni|carriera|benessere|marte|venere|saturno|giove|mercurio|plutone|nettuno|urano|ariete|toro|gemelli|cancro|leone|vergine|bilancia|scorpione|sagittario|capricorno|acquario|pesci)\b/i.test(text.toLowerCase());
@@ -378,7 +445,6 @@ function isInvalidText(text: string): boolean {
   if (!hasHoroscopeKeywords && !hasAstrologicalContent &&
       ((hasNavigationWords && text.length < 60) || (hasPaywallWords && text.length < 50))) {
     const reason = hasNavigationWords && text.length < 60 ? 'navigazione' : 'paywall';
-    console.log(`[isInvalidText] SCARTATO — motivo: ${reason} | preview: "${text.slice(0, 100)}"`);
     return true;
   }
   return false;
@@ -386,17 +452,25 @@ function isInvalidText(text: string): boolean {
 
 function postProcessOutput(parsed: Record<string, unknown>, originalLength?: number): OpenAIOutput {
   let summary = (parsed.summary as string) || '';
-  const maxIncipitLength = originalLength != null
-    ? Math.min(200, Math.floor(originalLength * 0.5))
-    : 200;
-  if (summary.length > maxIncipitLength) {
-    const truncated = summary.slice(0, maxIncipitLength);
-    const lastSentenceEnd = truncated.search(/[.!?][^.!?]*$/);
-    summary = lastSentenceEnd > 0
-      ? truncated.slice(0, lastSentenceEnd + 1)
-      : truncated.trimEnd();
+  
+  // Calculate tier-based summary limit
+  let summaryLimit = 150; // default for >1500
+  if (originalLength != null) {
+    if (originalLength <= 400) {
+      summaryLimit = 60;
+    } else if (originalLength <= 1500) {
+      summaryLimit = 120;
+    }
   }
-  summary = summary.replace(/[.!?…]+$/, '') + '…';
+  
+  if (summary.length > summaryLimit) {
+    summary = summary.substring(0, summaryLimit);
+    if (!summary.endsWith('…')) {
+      summary = summary.trimEnd() + '…';
+    }
+  } else {
+    summary = summary.replace(/[.!?…]*$/, '') + '…';
+  }
 
   let superquote = (parsed.superquote as string) || '';
   if (superquote.length > 160) {
@@ -412,7 +486,6 @@ function postProcessOutput(parsed: Record<string, unknown>, originalLength?: num
     superquote = trimmed.trim() || superquote.slice(0, 159) + '.';
   }
   if (superquote.length < 70) {
-    console.log(`[Claude] Warning: Superquote too short (${superquote.length} chars), using as-is`);
   }
 
   return openaiOutputSchema.parse({
@@ -437,7 +510,6 @@ export async function processMultiSourceHoroscope(inputs: OpenAIInput[]): Promis
   const validEntries: { index: number; input: OpenAIInput }[] = [];
   for (let i = 0; i < inputs.length; i++) {
     if (isInvalidText(inputs[i].extracted_text)) {
-      console.log(`[Claude Batch] Source ${inputs[i].sourceName} (${inputs[i].extracted_text.length} chars) — using fallback`);
     } else {
       validEntries.push({ index: i, input: inputs[i] });
     }
@@ -445,7 +517,6 @@ export async function processMultiSourceHoroscope(inputs: OpenAIInput[]): Promis
 
   if (validEntries.length === 0) return results;
 
-  console.log(`[Claude Batch] Processing ${validEntries.length}/${inputs.length} valid sources for ${inputs[0].signSlugIt} (${inputs[0].dateISO})`);
 
   const userMessage = `Hai ${validEntries.length} oroscopi da analizzare. Per ognuno estrai i dati strutturati.\n\n` +
     validEntries.map((e, i) => `[FONTE ${i + 1} - ${e.input.sourceName}]\n${e.input.extracted_text}`).join('\n\n');
@@ -474,12 +545,12 @@ export async function processMultiSourceHoroscope(inputs: OpenAIInput[]): Promis
                 type: 'object' as const,
                 properties: {
                   source_index: { type: 'integer' as const, description: 'Indice 1-based della fonte (1 = prima fonte)' },
-                  superquote: { type: 'string' as const, description: 'Testo ORIGINALE che esprime il clima emotivo dal punto di vista del lettore. Una o due frasi con punto finale. Lettore sempre soggetto. 70-160 caratteri totali. Zero astrologico, zero condizionali, zero aperture con "La giornata".' },
-                  summary: { type: 'string' as const, description: 'Riproduzione testuale fedele delle prime due frasi originali. Massimo 200 caratteri e mai più del 50% della lunghezza del testo originale. Termina SEMPRE con "…" (l\'incipit è un teaser, non testo completo).' },
-                  relazioni: { type: 'integer' as const, minimum: 0, maximum: 5 },
-                  lavoro: { type: 'integer' as const, minimum: 0, maximum: 5 },
-                  benessere: { type: 'integer' as const, minimum: 0, maximum: 5 },
-                  tone: { type: 'string' as const, enum: ['positive', 'neutral', 'negative'] },
+                  superquote: { type: 'string' as const, description: 'Testo ORIGINALE che esprime il clima emotivo dal punto di vista del lettore. Una o due frasi con punto finale. Lettore sempre soggetto. 70-160 caratteri totali. Zero astrologico, zero condizionali.' },
+                  summary: { type: 'string' as const, description: 'Snippet stile anteprima: riproduzione verbatim delle prime parole originali, troncate PRIMA della prima previsione, stile testo tagliato dal sistema. Termina con "…". Limiti tier-based: ≤400 orig→60 char; 401-1500→120; >1500→150.' },
+                  relazioni: { type: 'integer' as const, minimum: 0, maximum: 5, description: '0=non menzionato. 1=conflitti. 2=tensioni. 3=neutro. 4=positivo. 5=eccellente. Usa tutta la scala.' },
+                  lavoro: { type: 'integer' as const, minimum: 0, maximum: 5, description: '0=non menzionato. 1=crisi. 2=ostacoli. 3=neutro. 4=progressi. 5=successi eccezionali. Usa tutta la scala.' },
+                  benessere: { type: 'integer' as const, minimum: 0, maximum: 5, description: '0=non menzionato. 1=esaurimento. 2=stanchezza. 3=neutro. 4=energia positiva. 5=picco benessere. Usa tutta la scala.' },
+                  tone: { type: 'string' as const, enum: ['positive', 'neutral', 'negative'], description: 'positive→almeno un rating≥4. negative→almeno un rating≤2. neutral→rating attorno a 3.' },
                 },
                 required: ['source_index', 'superquote', 'summary', 'relazioni', 'lavoro', 'benessere', 'tone'],
               },
@@ -498,7 +569,6 @@ export async function processMultiSourceHoroscope(inputs: OpenAIInput[]): Promis
     throw new Error('No tool use block in Claude batch response');
   }
 
-  console.log(`[Claude Batch] Response received — cache creation: ${response.usage.cache_creation_input_tokens ?? 0}, read: ${response.usage.cache_read_input_tokens ?? 0}, input: ${response.usage.input_tokens}`);
 
   const batchResults = (toolBlock.input as { results: Record<string, unknown>[] }).results;
   for (const parsed of batchResults) {
@@ -510,7 +580,6 @@ export async function processMultiSourceHoroscope(inputs: OpenAIInput[]): Promis
     }
     try {
       results[entry.index] = postProcessOutput(parsed, entry.input.extracted_text.length);
-      console.log(`[Claude Batch] Source ${entry.input.sourceName}: superquote=${results[entry.index].superquote.length}ch, tone=${results[entry.index].tone}`);
     } catch (err) {
       console.error(`[Claude Batch] Post-processing failed for source ${entry.input.sourceName}:`, err);
     }
@@ -536,7 +605,6 @@ export async function processMultiSourceHoroscopeWithRetry(
       }
 
       const delay = Math.pow(2, attempt) * 1000;
-      console.log(`[Claude Batch] Attempt ${attempt} failed, retrying in ${delay}ms...`);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }

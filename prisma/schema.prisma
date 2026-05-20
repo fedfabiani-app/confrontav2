@@ -9,11 +9,14 @@ datasource db {
 }
 
 model User {
-  id               Int       @id @default(autoincrement())
-  email            String    @unique
-  last_signed_in_at DateTime?
-  created_at       DateTime  @default(now())
-  updated_at       DateTime  @updatedAt
+  id                 Int       @id @default(autoincrement())
+  email              String    @unique
+  clerkId            String?   @unique
+  tier               String    @default("free")
+  stripe_customer_id String?   @unique
+  last_signed_in_at  DateTime?
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
 
   preferences UserPreferences?
 
@@ -129,7 +132,8 @@ model WeeklyHoroscopeData {
 model UserPreferences {
   id                Int      @id @default(autoincrement())
   user_id           Int      @unique
-  favorite_signs    String[] // Array of zodiac sign IDs
+  favorite_signs    String[] // Array of zodiac sign slugs
+  favorite_sources  String[] // Array of source IDs (as strings)
   notifications_enabled Boolean @default(true)
   created_at        DateTime @default(now())
   updated_at        DateTime @updatedAt

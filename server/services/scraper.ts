@@ -176,9 +176,14 @@ function buildFanpageUrls(input: ScraperInput): string[] {
 
 export async function scrapeHoroscope(input: ScraperInput): Promise<ScraperOutput> {
   try {
-    // Build URL(s) from pattern
-    const urlResult = buildHoroscopeUrl(input);
-    const urls = Array.isArray(urlResult) ? urlResult : [urlResult];
+    // Build URL(s) from pattern (Sky TG24 uses async discovery)
+    let urls: string[];
+    if (input.domain.includes('tg24.sky.it') || input.domain.includes('skytg24.it')) {
+      urls = await buildSkyTG24Urls(input);
+    } else {
+      const urlResult = buildHoroscopeUrl(input);
+      urls = Array.isArray(urlResult) ? urlResult : [urlResult];
+    }
 
     // Try multiple URLs if available (e.g., for Gazzetta.it)
     let scrapeResult: ScrapeResult | null = null;
@@ -256,7 +261,47 @@ export async function scrapeHoroscope(input: ScraperInput): Promise<ScraperOutpu
   }
 }
 
-function buildSkyTG24Url(input: ScraperInput): string[] {
+// Cache: ISO date → discovered URL (or null if not found)
+const skyTG24UrlCache = new Map<string, string | null>();
+
+async function discoverSkyTG24DailyUrl(date: string, userAgent: string): Promise<string | null> {
+  try {
+    const indexHtml = await fetchHtml('https://tg24.sky.it/lifestyle/oroscopo', userAgent);
+    const d = new Date(date);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const datePrefix = `/lifestyle/${yyyy}/${mm}/${dd}/`;
+    const linkRegex = new RegExp(
+      `href="(${datePrefix.replace(/\//g, '\\/')}oroscopo[^"]*)"`,
+      'gi'
+    );
+    const matches = [...indexHtml.matchAll(linkRegex)];
+    if (matches.length === 0) {
+      console.log(`Sky TG24 - No daily link found on index page for ${date}`);
+      return null;
+    }
+    const dailyMatch = matches.find(m =>
+      !m[1].includes('settimana') && !m[1].includes('anno') && !m[1].includes('mese')
+    ) ?? matches[0];
+    const url = `https://tg24.sky.it${dailyMatch[1]}`;
+    console.log(`Sky TG24 - Discovered daily URL: ${url}`);
+    return url;
+  } catch (err) {
+    console.log(`Sky TG24 - Discovery failed: ${err}`);
+    return null;
+  }
+}
+
+async function getSkyTG24DailyUrl(date: string, userAgent: string): Promise<string | null> {
+  if (skyTG24UrlCache.has(date)) return skyTG24UrlCache.get(date)!;
+  const url = await discoverSkyTG24DailyUrl(date, userAgent);
+  skyTG24UrlCache.set(date, url);
+  return url;
+}
+
+async function buildSkyTG24Urls(input: ScraperInput): Promise<string[]> {
+  const discovered = await getSkyTG24DailyUrl(input.dateISO, input.userAgent);
   const d = new Date(input.dateISO);
   const year = d.getFullYear();
   const month = (d.getMonth() + 1).toString().padStart(2, '0');
@@ -264,18 +309,19 @@ function buildSkyTG24Url(input: ScraperInput): string[] {
   const dayNum = d.getDate();
   const monthName = ITALIAN_MONTHS[d.getMonth()];
   const base = `https://tg24.sky.it/lifestyle/${year}/${month}/${day}`;
-  return [
-    `${base}/oroscopo-oggi-${dayNum}-${monthName}`,
+  const fallbacks = [
     `${base}/oroscopo-${dayNum}-${monthName}`,
+    `${base}/oroscopo-oggi-${dayNum}-${monthName}`,
+    `${base}/oroscopo-giorno-${dayNum}-${monthName}`,
   ];
+  const urls = discovered
+    ? [discovered, ...fallbacks.filter(u => u !== discovered)]
+    : fallbacks;
+  console.log(`Sky TG24 - URL candidates for ${input.signSlugIt}:`, urls[0]);
+  return urls;
 }
 
 function buildHoroscopeUrl(input: ScraperInput): string | string[] {
-  // ========== SPECIAL HANDLING: Sky TG24 ==========
-  if (input.domain.includes('tg24.sky.it') || input.domain.includes('skytg24.it')) {
-    return buildSkyTG24Url(input);
-  }
-
   // ========== SPECIAL HANDLING: Repubblica.it ==========
   if (input.domain.includes('repubblica.it')) {
     return input.baseUrl + input.urlPattern;
@@ -1466,72 +1512,82 @@ async function scrapeFanpageHoroscopeText(url: string, input: ScraperInput): Pro
     const html = await fetchHtml(url, input.userAgent);
     const $ = cheerio.load(html);
 
-    // Rimuovi elementi non necessari
-    $('script, style, nav, header, footer, iframe, noscript').remove();
-
     const zodiacNameLower = input.signSlugIt.toLowerCase();
     let bestContent = '';
     let highestScore = 0;
 
-    // Pattern 1: Cerca div con classe article-body o simili
-    const contentSelectors = [
-      '.article-body',
-      '.entry-content',
-      '.post-content',
-      '[class*="article"][class*="content"]',
-      'article .content',
-      'main article'
-    ];
-
-    for (const selector of contentSelectors) {
-      const content = $(selector);
-      if (content.length > 0) {
-        // Cerca il contenuto specifico per il segno zodiacale
-        const paragraphs: string[] = [];
-
-        content.find('p').each((_, elem) => {
-          const text = $(elem).text().trim();
-          if (text.length > 20) {
-            paragraphs.push(text);
+    // Strategy 0: JSON-LD articleBody — all signs are embedded as \r\nSignName\r\n delimited sections
+    const allItalianSigns = ['Ariete','Toro','Gemelli','Cancro','Leone','Vergine',
+      'Bilancia','Scorpione','Sagittario','Capricorno','Acquario','Pesci'];
+    $('script[type="application/ld+json"]').each((_, el) => {
+      if (bestContent) return;
+      try {
+        const rawData = JSON.parse($(el).html() || '{}');
+        const data = Array.isArray(rawData) ? rawData[0] : rawData;
+        const body: string = data?.articleBody || '';
+        if (!body) return;
+        // Split on \r\nSignName\r\n delimiters (capture group keeps sign names in parts array)
+        const signPattern = new RegExp(`\\r?\\n(${allItalianSigns.join('|')})\\r?\\n`);
+        const parts = body.split(signPattern);
+        // parts layout: [intro, signName0, text0, signName1, text1, ...]
+        for (let i = 1; i + 1 < parts.length; i += 2) {
+          if (normalizeForMatching(parts[i]) === normalizeForMatching(input.signSlugIt)) {
+            bestContent = parts[i + 1].replace(/\r\n/g, '\n').trim();
+            highestScore = 100;
+            break;
           }
-        });
+        }
+      } catch { /* malformed JSON-LD, skip */ }
+    });
 
-        if (paragraphs.length > 0) {
-          const combinedText = paragraphs.join('\n\n');
-          const score = scoreHoroscopeContent(combinedText, zodiacNameLower, 'fanpage.it');
+    if (!bestContent) {
+      // Rimuovi elementi non necessari
+      $('script, style, nav, header, footer, iframe, noscript').remove();
 
-          if (score > highestScore) {
-            highestScore = score;
-            bestContent = combinedText;
+      // Strategy 1: Cerca div con classe article-body o simili
+      const contentSelectors = [
+        '.article-body',
+        '.entry-content',
+        '.post-content',
+        '[class*="article"][class*="content"]',
+        'article .content',
+        'main article'
+      ];
+
+      for (const selector of contentSelectors) {
+        const content = $(selector);
+        if (content.length > 0) {
+          const paragraphs: string[] = [];
+          content.find('p').each((_, elem) => {
+            const text = $(elem).text().trim();
+            if (text.length > 20) paragraphs.push(text);
+          });
+          if (paragraphs.length > 0) {
+            const combinedText = paragraphs.join('\n\n');
+            const score = scoreHoroscopeContent(combinedText, zodiacNameLower, 'fanpage.it');
+            if (score > highestScore) { highestScore = score; bestContent = combinedText; }
           }
         }
       }
-    }
 
-    // Pattern 2: Se non troviamo con i selettori, cerca heading con il nome del segno
-    if (!bestContent || highestScore < 30) {
-      const headingPattern = new RegExp(`<h[2-4][^>]*>[^<]*${input.signSlugIt}[^<]*</h[2-4]>`, 'gi');
-      const htmlString = $.html();
-      const headingMatch = htmlString.match(headingPattern);
-
-      if (headingMatch) {
-        const headingIndex = htmlString.indexOf(headingMatch[0]);
-        if (headingIndex !== -1) {
-          let contentAfter = htmlString.substring(headingIndex + headingMatch[0].length);
-          const nextHeading = contentAfter.match(/<h[2-4][^>]*>/i);
-
-          if (nextHeading && nextHeading.index !== undefined) {
-            contentAfter = contentAfter.substring(0, nextHeading.index);
-          }
-
-          const $section = cheerio.load(contentAfter);
-          const sectionText = $section('p').map((_, elem) => $section(elem).text().trim()).get().join('\n\n');
-
-          if (sectionText.length > 50) {
-            const score = scoreHoroscopeContent(sectionText, zodiacNameLower, 'fanpage.it');
-            if (score > highestScore) {
-              bestContent = sectionText;
-              highestScore = score;
+      // Strategy 2: cerca heading con il nome del segno
+      if (!bestContent || highestScore < 30) {
+        const headingPattern = new RegExp(`<h[2-4][^>]*>[^<]*${input.signSlugIt}[^<]*</h[2-4]>`, 'gi');
+        const htmlString = $.html();
+        const headingMatch = htmlString.match(headingPattern);
+        if (headingMatch) {
+          const headingIndex = htmlString.indexOf(headingMatch[0]);
+          if (headingIndex !== -1) {
+            let contentAfter = htmlString.substring(headingIndex + headingMatch[0].length);
+            const nextHeading = contentAfter.match(/<h[2-4][^>]*>/i);
+            if (nextHeading && nextHeading.index !== undefined) {
+              contentAfter = contentAfter.substring(0, nextHeading.index);
+            }
+            const $section = cheerio.load(contentAfter);
+            const sectionText = $section('p').map((_, elem) => $section(elem).text().trim()).get().join('\n\n');
+            if (sectionText.length > 50) {
+              const score = scoreHoroscopeContent(sectionText, zodiacNameLower, 'fanpage.it');
+              if (score > highestScore) { bestContent = sectionText; highestScore = score; }
             }
           }
         }
@@ -1973,6 +2029,95 @@ function isPaywallText(text: string): boolean {
   return /altro dispositivo|piano di abbonamento|continuare a leggere|rimarrà collegato|questo account|utilizzandoli in momenti diversi/i.test(text);
 }
 
+// ============================================================================
+// RADIO SUBASIO — Handler dedicato (tutti i segni su una pagina, divisi da H3)
+// ============================================================================
+async function scrapeRadioSubasioHoroscopeText(url: string, input: ScraperInput): Promise<ScrapeResult> {
+  try {
+    console.log('Radio Subasio - Starting extraction for:', input.signSlugIt);
+    const html = await fetchHtml(url, input.userAgent);
+    const $ = cheerio.load(html);
+
+    const signNameLower = input.signSlugIt.toLowerCase();
+    // Capitalize first letter to match H3 content (e.g. "ariete" → "Ariete")
+    const signName = signNameLower.charAt(0).toUpperCase() + signNameLower.slice(1);
+
+    let extractedText = '';
+
+    // Strategy 1: find the H3, collect following sibling P elements until the next H3
+    $('h3').each((_, h3El) => {
+      const h3Text = $(h3El).text().trim().toLowerCase();
+      if (!h3Text.includes(signNameLower)) return; // skip non-matching signs
+
+      const parts: string[] = [];
+
+      // Direct following siblings
+      let sibling = $(h3El).next();
+      while (sibling.length && !sibling.is('h3')) {
+        const t = sibling.text().trim();
+        if (t.length > 20) parts.push(t);
+        sibling = sibling.next();
+      }
+
+      // Elementor puts each widget in its own container — if no direct siblings,
+      // walk the parent chain upward then collect the next container's text
+      if (parts.length === 0) {
+        let container = $(h3El).parent();
+        while (container.length && !container.next().length) {
+          container = container.parent();
+        }
+        let nextContainer = container.next();
+        while (nextContainer.length && !nextContainer.find('h3').length) {
+          nextContainer.find('p').each((_, p) => {
+            const t = $(p).text().trim();
+            if (t.length > 20) parts.push(t);
+          });
+          if (parts.length > 0) break;
+          nextContainer = nextContainer.next();
+        }
+      }
+
+      extractedText = parts.join(' ');
+      return false; // break .each()
+    });
+
+    // Strategy 2: regex slice between this H3 and the next one (handles any nesting)
+    if (!extractedText || extractedText.length < 50) {
+      const sectionRegex = new RegExp(
+        `<h3[^>]*>\\s*${signName}\\s*</h3>([\\s\\S]*?)(?=<h3[^>]*>|$)`,
+        'i'
+      );
+      const sectionMatch = html.match(sectionRegex);
+      if (sectionMatch) {
+        const sec$ = cheerio.load(sectionMatch[1]);
+        const parts: string[] = [];
+        sec$('p').each((_, p) => {
+          const t = sec$(p).text().trim();
+          if (t.length > 20) parts.push(t);
+        });
+        if (parts.length === 0) {
+          // No <p> tags — take raw text of the section
+          const raw = sec$('body').text().replace(/\s+/g, ' ').trim();
+          if (raw.length > 50) extractedText = raw;
+        } else {
+          extractedText = parts.join(' ');
+        }
+      }
+    }
+
+    if (!extractedText || extractedText.length < 50) {
+      return { success: false, error: `No horoscope content found for ${input.signSlugIt} on Radio Subasio` };
+    }
+
+    console.log(`Radio Subasio - Extracted ${extractedText.length} chars for ${input.signSlugIt}`);
+    return { success: true, text: extractedText, actualUrl: url };
+
+  } catch (error) {
+    console.error(`Radio Subasio - Error for ${input.signSlugIt}:`, error instanceof Error ? error.message : error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown Radio Subasio scraping error' };
+  }
+}
+
 async function scrapeHoroscopeText(url: string, input: ScraperInput): Promise<ScrapeResult> {
   try {
     console.log(`Starting scrape for ${input.signSlugIt} at URL: ${url}`);
@@ -2042,6 +2187,11 @@ async function scrapeHoroscopeText(url: string, input: ScraperInput): Promise<Sc
     // Special handling for Sky TG24
     if (url.includes('skytg24.it') || url.includes('tg24.sky.it')) {
       return await scrapeSkyTG24HoroscopeText(url, input);
+    }
+
+    // Special handling for Radio Subasio (all 12 signs on a single page, split by H3)
+    if (url.includes('radiosubasio.it')) {
+      return await scrapeRadioSubasioHoroscopeText(url, input);
     }
 
     // Special handling for Fanpage.it

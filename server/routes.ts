@@ -1,10 +1,14 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { z } from "zod";
+import Stripe from "stripe";
+import { createClerkClient } from "@clerk/backend";
+import { Resend } from "resend";
 import prisma from "./services/database";
 import { enqueueScrapeJob, enqueueWeeklyScrapeJob, enqueueAggregatedNlpJob, enqueueAggregatedWeeklyNlpJob, getAllJobStatuses, getJobStatus } from "./jobs";
 import { ScraperInput, WeeklyScraperInput, ScraperOutput, WeeklyScraperOutput, OpenAIInput } from "@shared/schema";
 import { ZODIAC_SIGNS_IT_EN, ITALIAN_WEEKDAYS, ITALIAN_MONTHS } from "@shared/constants";
+import { format } from 'date-fns';
 import { getMondayOfWeek, formatWeekUrlParams, getCurrentWeekStart } from "./utils/weekUtils";
 import { runWeeklyScraperCycle, type SourceGroup } from "./services/weeklyScraperOrchestrator";
 import {
@@ -17,6 +21,12 @@ import {
   findStaleExecutions,
   markStaleExecutionsAsTimeout,
 } from "./utils/weeklyScraperQueries";
+
+function getStripe(): Stripe {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) throw new Error('STRIPE_SECRET_KEY non configurata');
+  return new Stripe(key, { apiVersion: '2026-04-22.dahlia' as any });
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
 
@@ -240,7 +250,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           },
         });
         executionId = execution.id;
-        console.log(`[Refresh All] Created execution record ID ${executionId}`);
 
         const [sources, zodiacSigns] = await Promise.all([
           prisma.source.findMany({ where: { is_active: true } }),
@@ -252,7 +261,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         for (let i = 0; i < zodiacSigns.length; i++) {
           const sign = zodiacSigns[i];
-          console.log(`[Refresh All] Processing sign ${i + 1}/${zodiacSigns.length}: ${sign.name_italian}`);
 
           const collected: Array<{ scraperOutput: ScraperOutput; nlpInput: OpenAIInput }> = [];
 
@@ -305,7 +313,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             failed_jobs: totalFailed,
           },
         });
-        console.log(`[Refresh All] Completed. Enqueued: ${totalEnqueued}, Failed: ${totalFailed}`);
 
       } catch (error) {
         console.error('[Refresh All] Critical error:', error);
@@ -506,7 +513,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           },
         });
         executionId = execution.id;
-        console.log(`[Weekly Refresh All] Created execution record ID ${executionId}`);
 
         const [sources, zodiacSigns] = await Promise.all([
           prisma.weeklySource.findMany({ where: { is_active: true } }),
@@ -519,7 +525,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         for (let i = 0; i < zodiacSigns.length; i++) {
           const sign = zodiacSigns[i];
-          console.log(`[Weekly Refresh All] Processing sign ${i + 1}/${zodiacSigns.length}: ${sign.name_italian}`);
 
           // Apply skip logic: exclude sources already scraped with non-empty summary
           const sourcesToProcess: typeof sources = [];
@@ -542,7 +547,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
 
           if (sourcesToProcess.length === 0) {
-            console.log(`[Weekly Refresh All] All sources skipped for ${sign.name_italian}`);
             if (i < zodiacSigns.length - 1) await new Promise(r => setTimeout(r, 3000));
             continue;
           }
@@ -587,7 +591,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             failed_jobs: totalFailed,
           },
         });
-        console.log(`[Weekly Refresh All] Completed. Enqueued: ${totalEnqueued}, Skipped: ${totalSkipped}, Failed: ${totalFailed}`);
 
       } catch (error) {
         console.error('[Weekly Refresh All] Critical error:', error);
@@ -643,7 +646,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         weekStart = getCurrentWeekStart();
       }
       
-      console.log(`[API Weekly Refresh Sign] Triggering for ${zodiacSign.name_italian}, week ${weekStart.toISOString().split('T')[0]}`);
       
       // Trigger weekly scrape for all sources but only this sign
       // We'll do this by enqueueing jobs directly for this sign
@@ -713,7 +715,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             urlPattern: source.url_pattern,
             scrapeStrategy: source.scrape_strategy,
             signSlugIt: zodiacSign.name_italian,
-            weekStartDate: weekStart.toISOString().split('T')[0],
+            weekStartDate: format(weekStart, 'yyyy-MM-dd'),
             startDay,
             endDay,
             month,
@@ -732,7 +734,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         success: true,
         sign: zodiacSign.name_italian,
-        weekStart: weekStart.toISOString().split('T')[0],
+        weekStart: format(weekStart, 'yyyy-MM-dd'),
         stats: {
           total: sources.length,
           enqueued,
@@ -973,7 +975,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      console.log(`[Retry Failed] Found ${failedEntries.length} failed entries for ${targetDate}`);
 
       const jobIds: string[] = [];
       const errors: string[] = [];
@@ -998,7 +999,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const entries = entriesBySign[signId];
           const signName = entries[0].zodiac_sign.name_italian;
           
-          console.log(`[Retry Failed] Processing sign ${i + 1}/${signIds.length}: ${signName} (${entries.length} failed sources)`);
           
           // Enqueue all failed sources for this sign
           for (const entry of entries) {
@@ -1014,11 +1014,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Wait 5 seconds before processing the next sign (except after the last one)
           if (i < signIds.length - 1) {
-            console.log(`[Retry Failed] Waiting 5 seconds before processing next sign...`);
             await new Promise(resolve => setTimeout(resolve, 5000));
           }
         }
-        console.log(`[Retry Failed] All failed sources enqueued. Total jobs: ${jobIds.length}, Errors: ${errors.length}`);
       })();
 
       res.json({
@@ -1065,7 +1063,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      console.log(`[Retry Failed Weekly] Found ${failedEntries.length} failed entries for week starting ${targetWeekStart}`);
 
       const jobIds: string[] = [];
       const errors: string[] = [];
@@ -1090,7 +1087,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const entries = entriesBySign[signId];
           const signName = entries[0].zodiac_sign.name_italian;
           
-          console.log(`[Retry Failed Weekly] Processing sign ${i + 1}/${signIds.length}: ${signName} (${entries.length} failed sources)`);
           
           // Enqueue all failed sources for this sign
           for (const entry of entries) {
@@ -1106,11 +1102,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Wait 5 seconds before processing the next sign (except after the last one)
           if (i < signIds.length - 1) {
-            console.log(`[Retry Failed Weekly] Waiting 5 seconds before processing next sign...`);
             await new Promise(resolve => setTimeout(resolve, 5000));
           }
         }
-        console.log(`[Retry Failed Weekly] All failed sources enqueued. Total jobs: ${jobIds.length}, Errors: ${errors.length}`);
       })();
 
       res.json({
@@ -1285,13 +1279,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { cleanupTracker } = await import('./services/cleanupTracker');
       
       const statsBefore = await cleanupService.getDataStats();
-      console.log('[API] Data stats before cleanup:', statsBefore);
       
       await cleanupService.cleanupHoroscopeData();
       await cleanupTracker.setLastCleanupDate(new Date());
       
       const statsAfter = await cleanupService.getDataStats();
-      console.log('[API] Data stats after cleanup:', statsAfter);
       
       res.json({
         success: true,
@@ -1573,14 +1565,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!dateRegex.test(dateToUse)) {
         return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
       }
-      
-      console.log('[Test] Running daily orchestrator with options:', {
-        targetDate: dateToUse,
-        forceRescrape: forceRescrape || false,
-        specificSources: specificSources || 'all',
-        dryRun: dryRun || false,
-      });
-      
+
       const result = await runDailyScraperCycle({
         targetDate: dateToUse,
         forceRescrape: forceRescrape || false,
@@ -1598,6 +1583,292 @@ export async function registerRoutes(app: Express): Promise<Server> {
         error: 'Failed to run daily orchestrator',
         details: error instanceof Error ? error.message : 'Unknown error'
       });
+    }
+  });
+
+  // GET /api/user/me
+  app.get("/api/user/me", async (req, res) => {
+    const clerkId = req.headers['x-clerk-user-id'] as string | undefined;
+    if (!clerkId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    try {
+      const user = await prisma.user.upsert({
+        where: { clerkId },
+        update: {},
+        create: { clerkId, email: `clerk_${clerkId}@noemail.local`, tier: 'free' },
+      });
+      return res.json({ id: user.id, clerkId: user.clerkId, tier: user.tier, email: user.email });
+    } catch (error) {
+      console.error('[User] Error in /api/user/me:', error);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // POST /api/stripe/webhook
+  app.post("/api/stripe/webhook", async (req, res) => {
+    const sig = req.headers['stripe-signature'] as string;
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+    if (!webhookSecret) {
+      console.error('[Stripe] STRIPE_WEBHOOK_SECRET not configured');
+      return res.status(500).json({ error: 'Webhook secret not configured' });
+    }
+
+    let event: Stripe.Event;
+    try {
+      event = getStripe().webhooks.constructEvent(req.body, sig, webhookSecret);
+    } catch (err) {
+      console.error('[Stripe] Webhook signature verification failed:', err);
+      return res.status(400).json({ error: 'Webhook signature verification failed' });
+    }
+
+    try {
+      const obj = event.data.object as { metadata?: { clerkId?: string }; status?: string };
+      const clerkId = obj.metadata?.clerkId;
+
+      switch (event.type) {
+        case 'customer.subscription.created':
+          if (clerkId) {
+            await prisma.user.update({ where: { clerkId }, data: { tier: 'premium' } });
+          }
+          break;
+
+        case 'checkout.session.completed': {
+          const session = event.data.object as Stripe.Checkout.Session;
+          const sessionClerkId = session.metadata?.clerkId;
+          if (sessionClerkId) {
+            // Tracking lato server (opzionale, per maggior accuratezza)
+            console.log('[Analytics] Purchase completed:', sessionClerkId);
+            await prisma.user.update({
+              where: { clerkId: sessionClerkId },
+              data: {
+                tier: 'premium',
+                stripe_customer_id: session.customer as string
+              }
+            });
+          }
+          break;
+        }
+
+        case 'customer.subscription.deleted':
+          if (clerkId) {
+            await prisma.user.update({ where: { clerkId }, data: { tier: 'free' } });
+          }
+          break;
+
+        case 'customer.subscription.updated':
+          if (clerkId && (obj.status === 'canceled' || obj.status === 'past_due')) {
+            await prisma.user.update({ where: { clerkId }, data: { tier: 'free' } });
+          }
+          break;
+      }
+    } catch (error) {
+      console.error('[Stripe] Error handling event:', error);
+      return res.status(500).json({ error: 'Failed to process webhook' });
+    }
+
+    return res.json({ received: true });
+  });
+
+  app.get("/api/user/preferences", async (req, res) => {
+    const clerkId = req.headers['x-clerk-user-id'] as string;
+    if (!clerkId) return res.status(401).json({ error: 'Unauthorized' });
+
+    try {
+      const user = await prisma.user.findUnique({
+        where: { clerkId },
+        include: { preferences: true },
+      });
+      if (!user) return res.status(404).json({ error: 'User not found' });
+
+      return res.json({
+        favoriteSigns: user.preferences?.favorite_signs ?? [],
+        favoriteSources: (user.preferences?.favorite_sources ?? []).map(Number),
+      });
+    } catch (error) {
+      console.error('[Preferences GET] Error:', error);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  app.post("/api/user/preferences", async (req, res) => {
+    const clerkId = req.headers['x-clerk-user-id'] as string;
+    if (!clerkId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { favoriteSigns, favoriteSources } = req.body;
+
+    try {
+      const user = await prisma.user.findUnique({ where: { clerkId } });
+      if (!user) return res.status(404).json({ error: 'User not found' });
+
+      await prisma.userPreferences.upsert({
+        where: { user_id: user.id },
+        update: {
+          favorite_signs: favoriteSigns ?? [],
+          favorite_sources: favoriteSources ?? [],
+        },
+        create: {
+          user_id: user.id,
+          favorite_signs: favoriteSigns ?? [],
+          favorite_sources: favoriteSources ?? [],
+        },
+      });
+
+      return res.json({ ok: true });
+    } catch (error) {
+      console.error('[Preferences] Error:', error);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // POST /api/stripe/portal
+  app.post("/api/stripe/portal", async (req, res) => {
+    const clerkId = req.headers['x-clerk-user-id'] as string;
+    if (!clerkId) return res.status(401).json({ error: 'Unauthorized' });
+
+    try {
+      const user = await prisma.user.findUnique({ where: { clerkId } });
+      if (!user) return res.status(404).json({ error: 'User not found' });
+      if (!user.stripe_customer_id) return res.status(400).json({ error: 'No Stripe customer found' });
+
+      const session = await getStripe().billingPortal.sessions.create({
+        customer: user.stripe_customer_id,
+        return_url: `${req.headers.origin}/account`
+      });
+
+      return res.json({ portalUrl: session.url });
+    } catch (error) {
+      console.error('[Stripe Portal] Error:', error);
+      return res.status(500).json({ error: 'Failed to create portal session' });
+    }
+  });
+
+  // POST /api/stripe/checkout
+  app.post("/api/stripe/checkout", async (req, res) => {
+    const clerkId = req.headers['x-clerk-user-id'] as string;
+    if (!clerkId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { priceId } = req.body;
+    if (!priceId) return res.status(400).json({ error: 'Price ID required' });
+
+    try {
+      const session = await getStripe().checkout.sessions.create({
+        mode: 'subscription',
+        payment_method_types: ['card'],
+        line_items: [{ price: priceId, quantity: 1 }],
+        success_url: `${req.headers.origin}/`,
+        cancel_url: `${req.headers.origin}/pricing`,
+        customer_email: (await prisma.user.findUnique({ where: { clerkId } }))?.email || undefined,
+        metadata: { clerkId }
+      });
+
+      return res.json({ sessionId: session.id, url: session.url });
+    } catch (error) {
+      console.error('[Stripe Checkout] Error:', error);
+      return res.status(500).json({ error: 'Failed to create checkout session' });
+    }
+  });
+
+  // POST /api/compatibility
+  app.post("/api/compatibility", async (req, res) => {
+    const clerkId = req.headers['x-clerk-user-id'] as string;
+    if (!clerkId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { sign1, sign2, date } = req.body;
+    if (!sign1 || !sign2) return res.status(400).json({ error: 'Both signs required' });
+
+    const targetDate = date ? new Date(date) : new Date();
+    const dateLabel = targetDate.toISOString().split('T')[0];
+
+    try {
+      const [horo1, horo2] = await Promise.all([
+        prisma.horoscopeData.findMany({
+          where: { zodiac_sign: { name_english: sign1 }, date: targetDate },
+          select: { summary: true },
+          take: 3,
+        }),
+        prisma.horoscopeData.findMany({
+          where: { zodiac_sign: { name_english: sign2 }, date: targetDate },
+          select: { summary: true },
+          take: 3,
+        }),
+      ]);
+
+      if (horo1.length === 0 || horo2.length === 0) {
+        return res.status(404).json({ error: 'Nessun oroscopo disponibile per quella data' });
+      }
+
+      const { Anthropic } = await import('@anthropic-ai/sdk');
+      const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+      const horoscope1 = horo1.map(h => h.summary).join(' ');
+      const horoscope2 = horo2.map(h => h.summary).join(' ');
+
+      const prompt = `Segno 1: ${sign1}
+Oroscopo: "${horoscope1}"
+
+Segno 2: ${sign2}
+Oroscopo: "${horoscope2}"
+
+Scrivi 1 sola frase breve sulla compatibilità amorosa tra questi due segni.
+- Non ripetere i nomi dei segni o la data
+- Usa linguaggio semplice e generico (no metafore sportive, no riferimenti specifici)
+- Tono: leggero e simpatico
+- Max 50 parole, 1 sola frase`;
+
+      const response = await client.messages.create({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 150,
+        messages: [{ role: 'user', content: prompt }],
+      });
+
+      const result = response.content[0].type === 'text' ? response.content[0].text.trim() : '';
+
+      return res.json({ result });
+    } catch (error) {
+      console.error('[Compatibility] Error:', error);
+      return res.status(500).json({ error: 'Failed to analyze compatibility' });
+    }
+  });
+
+  // POST /api/contact
+  app.post("/api/contact", async (req, res) => {
+    const { name, email, subject, message, captchaToken } = req.body;
+
+    if (!name?.trim() || !email?.trim() || !subject?.trim() || !message?.trim()) {
+      return res.status(400).json({ error: "Tutti i campi sono obbligatori" });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: "Email non valida" });
+    }
+    if (!captchaToken) {
+      return res.status(400).json({ error: "Captcha richiesto" });
+    }
+
+    try {
+      const hcaptchaResponse = await fetch('https://hcaptcha.com/siteverify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `secret=${process.env.HCAPTCHA_SECRET_KEY}&response=${captchaToken}`,
+      });
+      const { success: captchaOk } = await hcaptchaResponse.json() as { success: boolean };
+      if (!captchaOk) {
+        return res.status(400).json({ error: 'Captcha fallito' });
+      }
+
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      await resend.emails.send({
+        from: "Confronta Oroscopo <onboarding@resend.dev>",
+        to: "fed.fabiani@gmail.com",
+        subject: `[Contatto] ${subject}`,
+        text: `Da: ${name} <${email}>\nOggetto: ${subject}\n\n${message}`,
+      });
+
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("[Contact] Email send error:", error);
+      return res.status(500).json({ error: "Errore durante l'invio del messaggio" });
     }
   });
 

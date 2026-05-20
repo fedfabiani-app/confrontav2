@@ -77,7 +77,6 @@ export async function ensureScraperConfigExists(scraperType: ScraperType): Promi
           skip_already_processed: defaults.skipAlreadyProcessed,
         },
       });
-      console.log(`[ScraperConfig] Created missing ${scraperType} config row with defaults`);
     }
   } catch (error) {
     console.error(`[ScraperConfig] Error ensuring ${scraperType} config exists:`, error);
@@ -122,10 +121,8 @@ export async function getScraperConfig(scraperType: ScraperType): Promise<Scrape
   
   if (dbConfigFromDb) {
     dbConfig = dbConfigFromDb;
-    console.log(`[ScraperConfig] Using ${scraperType} configuration from database`);
   } else {
     dbConfig = scraperType === 'daily' ? DEFAULT_DAILY_CONFIG : DEFAULT_WEEKLY_CONFIG;
-    console.log(`[ScraperConfig] ${scraperType} config not in database, using defaults`);
   }
 
   return {

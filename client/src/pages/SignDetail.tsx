@@ -24,6 +24,11 @@ import { useLocation } from "wouter";
 import { useFavorites } from "@/hooks/use-favorites";
 import { apiRequest } from "@/lib/queryClient";
 import { ZODIAC_SIGNS_EN_IT } from "@shared/constants";
+import { useAccess } from '../hooks/use-access';
+import { PremiumGateOverlay } from '@/components/PremiumGateOverlay';
+import { WeekNavigator } from '@/components/WeekNavigator';
+import { CompatibilityWidget } from '@/components/CompatibilityWidget';
+import { UpgradeBanner } from '@/components/UpgradeBanner';
 
 interface SignDetailProps {
   sign: string;
@@ -79,6 +84,15 @@ const signColors = {
   pesci: "from-blue-500 to-purple-500",
 };
 
+function truncateAtMidWord(text: string): string {
+  const trimmed = text.trimEnd();
+  const lastSpace = trimmed.lastIndexOf(' ');
+  if (lastSpace === -1) return trimmed.slice(0, Math.ceil(trimmed.length / 2)) + '...';
+  const lastWord = trimmed.slice(lastSpace + 1).replace(/[.,!?;:]+$/, '');
+  const half = Math.ceil(lastWord.length / 2);
+  return trimmed.slice(0, lastSpace + 1) + lastWord.slice(0, half) + '...';
+}
+
 interface SourceIconProps {
   source: {
     id: number;
@@ -103,8 +117,8 @@ function SourceIcon({ source, "data-testid": dataTestId }: SourceIconProps) {
         // Invalid logo_url, fallback to domain favicon
       }
     }
-    // No logo_url or invalid, try domain favicon
-    return `https://${source.domain}/favicon.ico`;
+    // No logo_url or invalid: use Google favicon service (always HTTPS, no redirects)
+    return `https://www.google.com/s2/favicons?sz=64&domain=${source.domain}`;
   };
 
   const initialSrc = currentSrc || getInitialSrc();
@@ -113,25 +127,16 @@ function SourceIcon({ source, "data-testid": dataTestId }: SourceIconProps) {
     const img = e.target as HTMLImageElement;
     const currentUrl = img.src;
 
-    // Remove error handler to prevent loops
     img.onerror = null;
 
-    if (currentUrl.includes("favicon.ico")) {
-      // If favicon also failed, try Google's favicon service
-      const googleFaviconUrl = `https://www.google.com/s2/favicons?sz=64&domain=${source.domain}`;
-      if (currentUrl !== googleFaviconUrl) {
-        img.src = googleFaviconUrl;
-        img.onerror = () => setImgFailed(true);
-        return;
-      }
-    } else if (currentUrl !== `https://${source.domain}/favicon.ico`) {
-      // First fallback: try domain favicon
+    // Google favicon failed → last resort: direct favicon.ico
+    if (currentUrl.includes('google.com/s2/favicons')) {
       img.src = `https://${source.domain}/favicon.ico`;
       img.onerror = () => setImgFailed(true);
       return;
     }
 
-    // All image sources failed
+    // All sources failed
     setImgFailed(true);
   };
 
@@ -193,6 +198,9 @@ function SignDetail({ sign }: SignDetailProps) {
 
   // Daily/Weekly view state
   const [viewType, setViewType] = useState<"daily" | "weekly">("daily");
+  const [weekOffset, setWeekOffset] = useState(0);
+  const { canAccessDateWithOverlay, canAccessWeekWithOverlay } = useAccess();
+  const [premiumOverlay, setPremiumOverlay] = useState<{ type: 'daily' | 'weekly'; date: string } | null>(null);
 
   // Initialize date from URL parameter or use today
   const getInitialDate = (): Date => {
@@ -252,7 +260,9 @@ function SignDetail({ sign }: SignDetailProps) {
   };
 
   const today = selectedDate.toLocaleDateString('en-CA'); // YYYY-MM-DD format in local timezone
-  const currentWeekMonday = getMondayOfWeek(selectedDate);
+  const weeklyBaseDate = new Date();
+  weeklyBaseDate.setDate(weeklyBaseDate.getDate() - weekOffset * 7);
+  const currentWeekMonday = getMondayOfWeek(weeklyBaseDate);
   // Use local date string to avoid timezone conversion issues
   const weekStartDate = `${currentWeekMonday.getFullYear()}-${String(currentWeekMonday.getMonth() + 1).padStart(2, '0')}-${String(currentWeekMonday.getDate()).padStart(2, '0')}`;
   const weekRangeText = formatWeekRange(currentWeekMonday);
@@ -310,22 +320,38 @@ function SignDetail({ sign }: SignDetailProps) {
   };
 
   const handleDateSelect = (date: Date | undefined) => {
-    if (date) {
+    if (!date) return;
+    const access = canAccessDateWithOverlay(date);
+    if (access.canAccess) {
       setSelectedDate(date);
       setCalendarOpen(false);
-
-      // Update URL with selected date
       const dateParam = date.toLocaleDateString('en-CA');
       navigate(`/sign/${sign}?date=${dateParam}`, { replace: true });
+      queryClient.invalidateQueries({ queryKey: ["/api/horoscopes", today, sign] });
+      queryClient.invalidateQueries({ queryKey: ["/api/horoscopes/aggregate", today, sign] });
+    } else if (access.showOverlay) {
+      setCalendarOpen(false);
+      setPremiumOverlay({
+        type: 'daily',
+        date: date.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' }),
+      });
+    } else {
+      setCalendarOpen(false);
+    }
+  };
 
-      // Invalidate queries to fetch new data for selected date
-      if (viewType === "daily") {
-        queryClient.invalidateQueries({ queryKey: ["/api/horoscopes", today, sign] });
-        queryClient.invalidateQueries({ queryKey: ["/api/horoscopes/aggregate", today, sign] });
-      } else {
-        queryClient.invalidateQueries({ queryKey: ["/api/weekly-horoscopes", weekStartDate, sign] });
-        queryClient.invalidateQueries({ queryKey: ["/api/weekly-horoscopes/aggregate", weekStartDate, sign] });
-      }
+  const handleWeekOffsetChange = (n: number) => {
+    const access = canAccessWeekWithOverlay(n);
+    if (access.canAccess) {
+      setWeekOffset(n);
+    } else if (access.showOverlay) {
+      const monday = new Date();
+      const day = monday.getDay();
+      monday.setDate(monday.getDate() - (day === 0 ? 6 : day - 1) - n * 7);
+      setPremiumOverlay({
+        type: 'weekly',
+        date: monday.toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' }),
+      });
     }
   };
 
@@ -692,7 +718,11 @@ function SignDetail({ sign }: SignDetailProps) {
                       mode="single"
                       selected={selectedDate}
                       onSelect={handleDateSelect}
-                      disabled={(date) => date < earliestStart || date > todayStart}
+                      disabled={(date) => {
+                        const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+                        const diffDays = Math.round((todayStart.getTime() - d.getTime()) / 86_400_000);
+                        return date > todayStart || diffDays > 29;
+                      }}
                       toDate={todayStart}
                       defaultMonth={selectedDate}
                       className="border-0"
@@ -703,38 +733,15 @@ function SignDetail({ sign }: SignDetailProps) {
               </div>
             )}
 
-            {/* Week Range Display for Weekly View */}
+            {/* Week Navigator for Weekly View */}
             {viewType === "weekly" && (
-              <div className="w-full max-w-md">
-                <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-                  <PopoverTrigger asChild>
-                    <button
-                      className="w-full bg-white dark:bg-gray-800 rounded-full px-6 py-3 flex items-center justify-center gap-3 shadow-md hover:shadow-lg transition-shadow border border-gray-200 dark:border-gray-700"
-                      data-testid="date-selector-weekly"
-                    >
-                      <CalendarDays className="w-5 h-5 text-[#E1B64E]" />
-                      <span className="font-medium text-gray-900 dark:text-gray-100 truncate">
-                        Settimana: {weekRangeText}
-                      </span>
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="center">
-                    <div className="p-3 border-b border-border">
-                      <h4 className="text-sm font-medium">Seleziona Settimana</h4>
-                      <p className="text-xs text-muted-foreground">Seleziona un giorno, verrà usata la sua settimana</p>
-                    </div>
-                    <Calendar
-                      mode="single"
-                      selected={selectedDate}
-                      onSelect={handleDateSelect}
-                      disabled={(date) => date < earliestStart || date > todayStart}
-                      toDate={todayStart}
-                      defaultMonth={selectedDate}
-                      className="border-0"
-                      data-testid="date-calendar-weekly"
-                    />
-                  </PopoverContent>
-                </Popover>
+              <div className="w-full max-w-md space-y-3">
+                <WeekNavigator
+                  weekOffset={weekOffset}
+                  onOffsetChange={handleWeekOffsetChange}
+                  maxWeeksBack={3}
+                />
+                <UpgradeBanner context="weeks" />
               </div>
             )}
           </div>
@@ -814,7 +821,9 @@ function SignDetail({ sign }: SignDetailProps) {
             </Card>
           </div>
         )}
-
+       <div className="mb-8">
+  <CompatibilityWidget currentSign={sign} />
+        </div>
         {/* Individual Source Cards */}
         {!((viewType === "daily" ? horoscopesLoading : weeklyHoroscopesLoading)) &&
          (viewType === "daily" ? horoscopes : weeklyHoroscopes).length > 0 && (
@@ -907,16 +916,17 @@ function SignDetail({ sign }: SignDetailProps) {
                   </div>
 
                   {/* SUPERQUOTE - Always visible */}
-                  {horoscope.superquote && (
-                    <>
-                      <div className="px-4 py-3 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-950/30 dark:to-yellow-950/30 border-l-4" style={{ borderLeftColor: '#E1B64E' }}>
-                        <p className="text-sm font-italic text-gray-800 dark:text-gray-200 italic">
-                          "{horoscope.superquote}"
-                        </p>
-                      </div>
-                      <div className="border-t border-gray-200 dark:border-gray-700 my-3"></div>
-                    </>
-                  )}
+{horoscope.superquote && (
+  <>
+    <p className="text-xs text-muted-foreground mb-1 px-2">La nostra sintesi:</p>
+    <div className="px-4 py-3 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-950/30 dark:to-yellow-950/30 border-l-4" style={{ borderLeftColor: '#E1B64E' }}>
+      <p className="text-sm font-italic text-gray-800 dark:text-gray-200 italic">
+        {horoscope.superquote}
+      </p>
+    </div>
+    <div className="border-t border-gray-200 dark:border-gray-700 my-3"></div>
+  </>
+)}
 
                   {/* Collapsible Content */}
                   <div
@@ -926,7 +936,7 @@ function SignDetail({ sign }: SignDetailProps) {
                   >
                     {/* Horoscope Content */}
                     <p className="text-card-foreground leading-relaxed mb-4">
-                      {horoscope.summary}
+                      {truncateAtMidWord(horoscope.summary)}
                     </p>
 
                     {/* Read More Link */}
@@ -938,7 +948,7 @@ function SignDetail({ sign }: SignDetailProps) {
                         className="inline-flex items-center text-sm font-semibold text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
                         data-testid={`link-read-more-${horoscope.source.id}`}
                       >
-                        Leggi tutto
+                        Leggi tutto su {horoscope.source.name}
                         <ExternalLink className="w-3 h-3 ml-1" />
                       </a>
                     </div>
@@ -1034,6 +1044,14 @@ function SignDetail({ sign }: SignDetailProps) {
 
     {/* Bottom spacing for mobile navigation */}
     <div className="h-5 md:h-0"></div>
+
+    {premiumOverlay && (
+      <PremiumGateOverlay
+        type={premiumOverlay.type}
+        date={premiumOverlay.date}
+        onClose={() => setPremiumOverlay(null)}
+      />
+    )}
   </div>
 );
 }

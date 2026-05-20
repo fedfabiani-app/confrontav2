@@ -1,9 +1,7 @@
-const CACHE_NAME = 'oroscopo-italiano-v1';
+const CACHE_NAME = 'oroscopo-italiano-v2';
 const CACHE_URLS = [
   '/',
   '/manifest.json',
-  'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap',
-  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css'
 ];
 
 // Cache API routes that are safe to cache (read-only GET requests)
@@ -23,11 +21,17 @@ self.addEventListener('install', (event) => {
       return cache.addAll(CACHE_URLS);
     })
   );
+  self.skipWaiting();
 });
 
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
+
+  // Only intercept same-origin requests
+  if (url.origin !== self.location.origin) {
+    return;
+  }
 
   // Never cache refresh endpoints
   if (NEVER_CACHE_ROUTES.some(route => url.pathname.includes(route))) {
@@ -57,9 +61,11 @@ self.addEventListener('fetch', (event) => {
     } else {
       // Network-first for other API requests
       event.respondWith(
-        fetch(request).catch(() => {
-          return caches.match(request);
-        })
+        fetch(request).catch(() =>
+          caches.match(request).then(
+            (cached) => cached || new Response('', { status: 503, statusText: 'Service Unavailable' })
+          )
+        )
       );
     }
     return;
@@ -80,10 +86,10 @@ self.addEventListener('fetch', (event) => {
         }
         return response;
       }).catch(() => {
-        // Fallback to cached index.html for navigation requests
         if (request.mode === 'navigate') {
           return caches.match('/');
         }
+        return new Response('', { status: 503, statusText: 'Service Unavailable' });
       });
     })
   );
@@ -91,12 +97,15 @@ self.addEventListener('fetch', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames
-          .filter((cacheName) => cacheName !== CACHE_NAME)
-          .map((cacheName) => caches.delete(cacheName))
-      );
-    })
+    Promise.all([
+      caches.keys().then((cacheNames) =>
+        Promise.all(
+          cacheNames
+            .filter((cacheName) => cacheName !== CACHE_NAME)
+            .map((cacheName) => caches.delete(cacheName))
+        )
+      ),
+      self.clients.claim(),
+    ])
   );
 });

@@ -5,9 +5,6 @@ import * as cheerio from 'cheerio';
 
 export class WeeklyScraperWorker {
   async process(input: WeeklyScraperInput): Promise<WeeklyScraperOutput> {
-    console.log(`[WeeklyScraperWorker] Processing ${input.sourceName} - ${input.signSlugIt} for week starting ${input.weekStartDate}`);
-    console.log(`[WeeklyScraperWorker] Base URL: ${input.baseUrl}`);
-    console.log(`[WeeklyScraperWorker] URL Pattern: ${input.urlPattern}`);
 
     try {
       let modifiedInput = { ...input };
@@ -18,27 +15,25 @@ export class WeeklyScraperWorker {
                            input.baseUrl.includes('marieclaire.it');
 
       if (isMarieClair) {
-        console.log('[WeeklyScraperWorker] Detected Marie Claire source, resolving URL...');
         const resolvedUrl = await this.resolveMarieClairUrl(input.weekStartDate);
 
         if (resolvedUrl) {
-          console.log(`[WeeklyScraperWorker] Resolved URL: ${resolvedUrl}`);
-          // Sostituisci baseUrl con l'URL completo dell'articolo
-          modifiedInput = { 
-            ...input, 
+          modifiedInput = {
+            ...input,
             baseUrl: resolvedUrl,
-            urlPattern: '' // Pattern vuoto perché abbiamo già l'URL completo
+            urlPattern: '',
+            scrapeStrategy: 'pattern' // Prevent re-entering archive logic with the article URL
           };
         } else {
           console.warn('[WeeklyScraperWorker] Could not resolve URL from archive, trying fallback...');
           const fallbackUrl = await this.findMarieClairUrlFromLifestyle();
 
           if (fallbackUrl) {
-            console.log(`[WeeklyScraperWorker] Found fallback URL: ${fallbackUrl}`);
-            modifiedInput = { 
-              ...input, 
+            modifiedInput = {
+              ...input,
               baseUrl: fallbackUrl,
-              urlPattern: ''
+              urlPattern: '',
+              scrapeStrategy: 'pattern'
             };
           } else {
             throw new Error('Could not find valid Marie Claire horoscope URL');
@@ -46,12 +41,9 @@ export class WeeklyScraperWorker {
         }
       }
 
-      console.log(`[WeeklyScraperWorker] Final URL to scrape: ${modifiedInput.baseUrl}`);
 
       const result = await scrapeWeeklyWithRetry(modifiedInput, 3);
 
-      console.log(`[WeeklyScraperWorker] Successfully scraped ${input.sourceName} - ${input.signSlugIt}`);
-      console.log(`[WeeklyScraperWorker] Stored URL: ${result.original_url}`);
 
       return result;
     } catch (error) {
@@ -62,7 +54,6 @@ export class WeeklyScraperWorker {
 
   private async resolveMarieClairUrl(weekStartDate: string): Promise<string | null> {
     try {
-      console.log('[MarieClair] Fetching archive page...');
 
       const response = await axios.get('https://www.marieclaire.it/oroscopo/', {
         headers: {
@@ -73,7 +64,6 @@ export class WeeklyScraperWorker {
         timeout: 15000
       });
 
-      console.log(`[MarieClair] Response status: ${response.status}`);
 
       const $ = cheerio.load(response.data);
       const urls: string[] = [];
@@ -90,7 +80,6 @@ export class WeeklyScraperWorker {
         }
       });
 
-      console.log(`[MarieClair] Found ${urls.length} horoscope URLs`);
 
       if (urls.length > 0) {
         // Ordina per ID più alto (più recente)
@@ -102,7 +91,6 @@ export class WeeklyScraperWorker {
           return idB - idA;
         });
 
-        console.log(`[MarieClair] Selected most recent: ${urls[0]}`);
         return urls[0];
       }
 
@@ -116,7 +104,6 @@ export class WeeklyScraperWorker {
 
   private async findMarieClairUrlFromLifestyle(): Promise<string | null> {
     try {
-      console.log('[MarieClair] Trying lifestyle page...');
 
       const response = await axios.get('https://www.marieclaire.it/lifestyle/coolmix/', {
         headers: {
@@ -144,7 +131,6 @@ export class WeeklyScraperWorker {
         }
       });
 
-      console.log(`[MarieClair] Found ${urls.length} URLs in lifestyle`);
 
       if (urls.length > 0) {
         urls.sort((a, b) => {
@@ -155,7 +141,6 @@ export class WeeklyScraperWorker {
           return idB - idA;
         });
 
-        console.log(`[MarieClair] Selected: ${urls[0]}`);
         return urls[0];
       }
 
