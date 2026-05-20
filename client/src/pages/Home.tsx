@@ -18,7 +18,7 @@ import { UpgradeBanner } from "@/components/UpgradeBanner";
 import { PremiumGateOverlay } from "@/components/PremiumGateOverlay";
 import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
-import iconImage from "@assets/icon.png";
+import iconImage from "@assets/icon.webp";
 
 interface ZodiacSign {
   id: number;
@@ -97,25 +97,28 @@ export default function Home() {
   >({
     queryKey: ["/api/horoscopes/aggregates", selectedDateString],
     queryFn: async () => {
-      const results: Record<string, HoroscopeAggregate> = {};
-
-      for (const sign of zodiacSigns) {
-        try {
-          const response = await fetch(
-            `/api/horoscopes/aggregate?date=${selectedDateString}&sign=${sign.name_english}`,
-          );
-          if (response.ok) {
-            results[sign.name_english] = await response.json();
+      const entries = await Promise.all(
+        zodiacSigns.map(async (sign) => {
+          try {
+            const response = await fetch(
+              `/api/horoscopes/aggregate?date=${selectedDateString}&sign=${sign.name_english}`,
+            );
+            if (response.ok) {
+              return [sign.name_english, await response.json()] as const;
+            }
+          } catch (error) {
+            console.error(
+              `Failed to fetch aggregate for ${sign.name_english}:`,
+              error,
+            );
           }
-        } catch (error) {
-          console.error(
-            `Failed to fetch aggregate for ${sign.name_english}:`,
-            error,
-          );
-        }
-      }
+          return null;
+        }),
+      );
 
-      return results;
+      return Object.fromEntries(
+        entries.filter((e): e is [string, HoroscopeAggregate] => e !== null),
+      );
     },
     enabled: zodiacSigns.length > 0,
   });
