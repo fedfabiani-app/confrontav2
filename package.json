@@ -14,11 +14,10 @@
     "db:push": "drizzle-kit push",
     "db:seed": "tsx prisma/seed.ts",
     "db:setup": "prisma migrate deploy && tsx prisma/seed.ts",
-    "cap:build": "cross-env NODE_ENV=production vite build && npx cap copy",
-    "cap:sync": "npx cap sync",
+    "cap:build": "cross-env NODE_ENV=production CAPACITOR_SERVER_URL=https://confrontav2-production.up.railway.app vite build && cross-env CAPACITOR_SERVER_URL=https://confrontav2-production.up.railway.app npx cap copy",
+    "cap:sync": "cross-env CAPACITOR_SERVER_URL=https://confrontav2-production.up.railway.app npx cap sync",
     "cap:ios": "npm run cap:build && npx cap open ios",
-    "cap:android": "npm run cap:build && npx cap open android",
-    "cap:build:prod": "cross-env NODE_ENV=production CAPACITOR_SERVER_URL=$RAILWAY_URL vite build && CAPACITOR_SERVER_URL=$RAILWAY_URL npx cap copy"
+    "cap:android": "npm run cap:build && npx cap open android"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
