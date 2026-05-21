@@ -5,3 +5,10 @@ server/public
 vite.config.ts.*
 *.tar.gz
 .env
+
+# Capacitor
+ios/Pods/
+ios/.xcode.env.local
+android/.gradle/
+android/app/build/
+android/local.properties
