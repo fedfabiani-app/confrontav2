@@ -8,10 +8,9 @@ const config: CapacitorConfig = {
     androidScheme: 'https',
   },
   plugins: {
-    // PushNotifications placeholder — configure when adding @capacitor/push-notifications
-    // PushNotifications: {
-    //   presentationOptions: ['badge', 'sound', 'alert'],
-    // },
+    PushNotifications: {
+      presentationOptions: ['badge', 'sound', 'alert'],
+    },
     SplashScreen: {
       launchShowDuration: 0,
     },

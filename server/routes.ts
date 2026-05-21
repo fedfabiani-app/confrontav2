@@ -5,6 +5,7 @@ import Stripe from "stripe";
 import { createClerkClient } from "@clerk/backend";
 import { Resend } from "resend";
 import prisma from "./services/database";
+import { sendPushNotification } from "./services/firebase";
 import { enqueueScrapeJob, enqueueWeeklyScrapeJob, enqueueAggregatedNlpJob, enqueueAggregatedWeeklyNlpJob, getAllJobStatuses, getJobStatus } from "./jobs";
 import { ScraperInput, WeeklyScraperInput, ScraperOutput, WeeklyScraperOutput, OpenAIInput } from "@shared/schema";
 import { ZODIAC_SIGNS_IT_EN, ITALIAN_WEEKDAYS, ITALIAN_MONTHS } from "@shared/constants";
@@ -1869,6 +1870,72 @@ Scrivi 1 sola frase breve sulla compatibilità amorosa tra questi due segni.
     } catch (error) {
       console.error("[Contact] Email send error:", error);
       return res.status(500).json({ error: "Errore durante l'invio del messaggio" });
+    }
+  });
+
+  // ─── Push Notifications ──────────────────────────────────────────────────
+
+  // POST /api/notifications/register — save FCM token for the authenticated user
+  app.post('/api/notifications/register', async (req, res) => {
+    try {
+      const clerkId = req.headers['x-clerk-user-id'] as string | undefined;
+      if (!clerkId) return res.status(401).json({ error: 'Unauthorized' });
+
+      const { token } = req.body as { token?: string };
+      if (!token || typeof token !== 'string') {
+        return res.status(400).json({ error: 'FCM token required' });
+      }
+
+      await prisma.user.upsert({
+        where: { clerkId },
+        update: {
+          push_token: token,
+          push_token_updated_at: new Date(),
+        },
+        create: {
+          clerkId,
+          email: `clerk_${clerkId}@noemail.local`,
+          tier: 'free',
+          push_token: token,
+          push_token_updated_at: new Date(),
+        },
+      });
+
+      return res.json({ success: true });
+    } catch (error) {
+      console.error('[Notifications] Register error:', error);
+      return res.status(500).json({ error: 'Failed to register push token' });
+    }
+  });
+
+  // POST /api/notifications/test — send a test push notification (dev only)
+  app.post('/api/notifications/test', async (req, res) => {
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(404).json({ error: 'Not found' });
+    }
+
+    try {
+      const adminSecret = req.headers['x-admin-secret'] as string | undefined;
+      if (adminSecret !== process.env.ADMIN_SECRET) {
+        return res.status(401).json({ error: 'Unauthorized - X-Admin-Secret header required' });
+      }
+
+      const { token, title, body, data } = req.body as {
+        token?: string;
+        title?: string;
+        body?: string;
+        data?: Record<string, string>;
+      };
+
+      if (!token || !title || !body) {
+        return res.status(400).json({ error: 'token, title, and body are required' });
+      }
+
+      const messageId = await sendPushNotification(token, title, body, data);
+      return res.json({ success: true, messageId });
+    } catch (error) {
+      console.error('[Notifications] Test send error:', error);
+      return res.status(500).json({ error: 'Failed to send test notification' });
     }
   });
 
