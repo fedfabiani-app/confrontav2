@@ -1,11 +1,18 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
+// Set CAPACITOR_SERVER_URL to your Railway production URL when building for store release.
+// Example: CAPACITOR_SERVER_URL=https://your-app.railway.app npx cap sync
+// When unset, the app serves from the bundled dist/public folder.
+const serverUrl = process.env.CAPACITOR_SERVER_URL;
+
 const config: CapacitorConfig = {
   appId: 'com.confrontaoroscopo.app',
   appName: 'Confronta Oroscopo',
   webDir: 'dist/public',
   server: {
     androidScheme: 'https',
+    // cleartext: true — uncomment only for debug builds connecting to HTTP
+    ...(serverUrl ? { url: serverUrl } : {}),
   },
   plugins: {
     PushNotifications: {

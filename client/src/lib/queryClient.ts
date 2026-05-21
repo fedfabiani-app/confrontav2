@@ -1,5 +1,15 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+// In Capacitor native builds, relative URLs resolve to https://localhost (the Capacitor local
+// server) instead of the real backend. Set VITE_API_BASE_URL to the Railway production URL at
+// build time so all API calls reach the correct host.
+// Example: VITE_API_BASE_URL=https://your-app.railway.app npm run cap:build
+const API_BASE = ((import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '').replace(/\/$/, '');
+
+function resolveUrl(url: string): string {
+  return API_BASE && url.startsWith('/') ? `${API_BASE}${url}` : url;
+}
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
@@ -12,7 +22,7 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  const res = await fetch(url, {
+  const res = await fetch(resolveUrl(url), {
     method,
     headers: data ? { "Content-Type": "application/json" } : {},
     body: data ? JSON.stringify(data) : undefined,
@@ -29,7 +39,7 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey.join("/") as string, {
+    const res = await fetch(resolveUrl(queryKey.join("/") as string), {
       credentials: "include",
     });
 
