@@ -1,12 +1,29 @@
 import { ReactNode, useState, useEffect } from 'react';
 import { ClerkProvider, useUser } from '@clerk/clerk-react';
+import { useLocation } from 'wouter';
 import { AuthContext, AuthContextValue, defaultAuthState } from '../contexts/auth-context';
+import { initPushNotifications } from '../services/pushNotifications';
 
 function ClerkAuthSync({ children }: { children: ReactNode }) {
   const { isLoaded, isSignedIn, user } = useUser();
+  const [, navigate] = useLocation();
   const [state, setState] = useState<AuthContextValue>({ ...defaultAuthState, isLoading: true });
 
   const userId = user?.id;
+
+  // Initialize push notifications once per authenticated user session.
+  // No-op on web (guarded by Capacitor.isNativePlatform() inside the service).
+  useEffect(() => {
+    if (!userId) return;
+    initPushNotifications(userId, {
+      onTapped: (action) => {
+        const route = (action.notification.data as Record<string, string> | undefined)?.route;
+        if (route) navigate(route);
+      },
+    }).catch((err) => {
+      console.error('[PushNotifications] Init error:', err);
+    });
+  }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!isLoaded) return;
