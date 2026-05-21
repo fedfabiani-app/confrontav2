@@ -1,5 +1,5 @@
 export function trackEvent(eventName: string, params?: Record<string, any>) {
-  if (window.gtag) {
+  if (typeof window !== 'undefined' && window.gtag) {
     window.gtag('event', eventName, params);
   }
 }
