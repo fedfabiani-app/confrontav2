@@ -31,6 +31,13 @@ function getStripe(): Stripe {
 
 export async function registerRoutes(app: Express): Promise<Server> {
 
+  // Native Android Google OAuth callback — Clerk redirects here after OAuth completes.
+  // Immediately redirects to the custom deep-link scheme so Chrome Custom Tabs closes
+  // and the Capacitor app regains focus (browserFinished fires).
+  app.get("/sso-callback", (_req, res) => {
+    res.redirect(301, "confrontaoroscopo://clerk-callback");
+  });
+
   // GET /api/zodiac-signs
   app.get("/api/zodiac-signs", async (req, res) => {
     try {
