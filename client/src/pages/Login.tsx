@@ -171,9 +171,9 @@ function NativeSignInForm() {
   // Flow:
   //   1. signIn.create({ strategy: 'oauth_google' }) → get externalVerificationRedirectURL
   //   2. Browser.open() → Chrome Custom Tabs (avoids Google's WebView block)
-  //   3. Google → Clerk backend → deep link confrontaoroscopo://clerk-callback
-  //   4. Android fires appUrlOpen, Chrome Custom Tab closes → browserFinished
-  //   5. signIn.reload() → status === 'complete' → setActive
+  //   3. Google → Clerk backend → /sso-callback → deep link confrontaoroscopo://clerk-callback
+  //   4. Chrome Custom Tab closes → browserFinished fires
+  //   5. window.location.reload() → Clerk detects session from cookies → user logged in
   async function handleGoogleSignIn() {
     if (!isLoaded || googleBusy) return;
     setError('');
@@ -195,29 +195,15 @@ function NativeSignInForm() {
         return;
       }
 
-      // Listen for Chrome Custom Tab closure (fires after deep link returns to app)
+      // After Chrome Custom Tab closes (either OAuth completed or user cancelled),
+      // force a full page reload so Clerk re-initializes from cookies/storage.
+      // If OAuth was completed, Clerk finds the new session and logs the user in.
+      // If cancelled, user lands back on the login page.
       const listener = await Browser.addListener('browserFinished', async () => {
         await listener.remove();
         browserListenerRef.current = null;
-        console.log('[Login] browserFinished — reloading sign-in state');
-
-        try {
-          const updated = await (signIn as any).reload();
-          console.log('[Login] reloaded status:', updated?.status);
-          if (updated?.status === 'complete') {
-            await setActive!({ session: updated.createdSessionId });
-            trackLogin('oauth_google', true);
-          } else {
-            setError('Accesso Google non completato. Riprova.');
-            setStage('email');
-            setGoogleBusy(false);
-          }
-        } catch (reloadErr: any) {
-          console.log('[Login] reload error:', reloadErr?.message);
-          setError('Errore durante il login con Google.');
-          setStage('email');
-          setGoogleBusy(false);
-        }
+        console.log('[Login] browserFinished — reloading page to sync Clerk session');
+        window.location.reload();
       });
       browserListenerRef.current = listener;
 
