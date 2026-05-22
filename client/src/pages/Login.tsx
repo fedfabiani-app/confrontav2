@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, FormEvent } from 'react';
 import { SignIn, useSignIn } from '@clerk/clerk-react';
 import { Capacitor } from '@capacitor/core';
+import { Browser } from '@capacitor/browser';
 import { useLocation } from 'wouter';
 import { useAuth } from '../hooks/use-auth';
 import { trackLogin } from '../lib/analytics';
@@ -54,19 +55,43 @@ const ghostBtnStyle: React.CSSProperties = {
   width: '100%',
 };
 
-// Handles both email_link (magic link) and email_code (OTP) strategies.
+const googleBtnStyle = (disabled: boolean): React.CSSProperties => ({
+  alignItems: 'center',
+  background: disabled ? 'rgba(255,255,255,0.7)' : '#ffffff',
+  border: 'none',
+  borderRadius: 8,
+  color: '#1a1a1a',
+  cursor: disabled ? 'not-allowed' : 'pointer',
+  display: 'flex',
+  fontSize: 15,
+  fontWeight: 600,
+  gap: 10,
+  justifyContent: 'center',
+  opacity: disabled ? 0.7 : 1,
+  padding: '12px',
+  width: '100%',
+});
+
+// Handles email_link (magic link), email_code (OTP) and oauth_google strategies.
 function NativeSignInForm() {
   const { signIn, setActive, isLoaded } = useSignIn();
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
-  const [stage, setStage] = useState<'email' | 'waiting' | 'otp'>('email');
-  const [strategy, setStrategy] = useState<'email_link' | 'email_code' | null>(null);
+  const [stage, setStage] = useState<'email' | 'waiting' | 'otp' | 'google_pending'>('email');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
   const cancelRef = useRef<(() => void) | null>(null);
+  const browserListenerRef = useRef<{ remove: () => Promise<void> } | null>(null);
 
-  useEffect(() => () => { cancelRef.current?.(); }, []);
+  useEffect(() => {
+    return () => {
+      cancelRef.current?.();
+      browserListenerRef.current?.remove();
+    };
+  }, []);
 
+  // ── Email / magic-link / OTP submit ────────────────────────────────────────
   async function handleEmailSubmit(e: FormEvent) {
     e.preventDefault();
     if (!isLoaded || busy) return;
@@ -82,7 +107,6 @@ function NativeSignInForm() {
       const codeFactor = factors.find((f: any) => f.strategy === 'email_code') as any;
 
       if (linkFactor) {
-        setStrategy('email_link');
         const { startEmailLinkFlow, cancelEmailLinkFlow } = si.createEmailLinkFlow();
         cancelRef.current = cancelEmailLinkFlow;
         setStage('waiting');
@@ -101,7 +125,6 @@ function NativeSignInForm() {
           setStage('email');
         }
       } else if (codeFactor) {
-        setStrategy('email_code');
         await si.prepareFirstFactor({
           strategy: 'email_code',
           emailAddressId: codeFactor.emailAddressId,
@@ -109,20 +132,19 @@ function NativeSignInForm() {
         setStage('otp');
         setBusy(false);
       } else {
-        console.log('[Login] No supported factor found. Factors:', JSON.stringify(factors));
+        console.log('[Login] No supported factor. Factors:', JSON.stringify(factors));
         setError('Metodo di accesso non disponibile. Contatta il supporto.');
         setBusy(false);
       }
     } catch (err: any) {
-      const msg = err?.errors?.[0]?.longMessage
-        ?? err?.errors?.[0]?.message
-        ?? 'Errore durante il login.';
+      const msg = err?.errors?.[0]?.longMessage ?? err?.errors?.[0]?.message ?? 'Errore durante il login.';
       console.log('[Login] handleEmailSubmit error:', msg);
       setError(msg);
       setBusy(false);
     }
   }
 
+  // ── OTP verify ─────────────────────────────────────────────────────────────
   async function handleOtpSubmit(e: FormEvent) {
     e.preventDefault();
     if (!isLoaded || busy) return;
@@ -130,11 +152,7 @@ function NativeSignInForm() {
     setBusy(true);
 
     try {
-      const result = await signIn!.attemptFirstFactor({
-        strategy: 'email_code',
-        code: otp,
-      });
-
+      const result = await signIn!.attemptFirstFactor({ strategy: 'email_code', code: otp });
       if (result.status === 'complete') {
         await setActive!({ session: result.createdSessionId });
         trackLogin('email_code', true);
@@ -143,24 +161,90 @@ function NativeSignInForm() {
         setBusy(false);
       }
     } catch (err: any) {
-      const msg = err?.errors?.[0]?.longMessage
-        ?? err?.errors?.[0]?.message
-        ?? 'Codice non valido.';
+      const msg = err?.errors?.[0]?.longMessage ?? err?.errors?.[0]?.message ?? 'Codice non valido.';
       setError(msg);
       setBusy(false);
     }
   }
 
+  // ── Google OAuth ────────────────────────────────────────────────────────────
+  // Flow:
+  //   1. signIn.create({ strategy: 'oauth_google' }) → get externalVerificationRedirectURL
+  //   2. Browser.open() → Chrome Custom Tabs (avoids Google's WebView block)
+  //   3. Google → Clerk backend → deep link confrontaoroscopo://clerk-callback
+  //   4. Android fires appUrlOpen, Chrome Custom Tab closes → browserFinished
+  //   5. signIn.reload() → status === 'complete' → setActive
+  async function handleGoogleSignIn() {
+    if (!isLoaded || googleBusy) return;
+    setError('');
+    setGoogleBusy(true);
+
+    try {
+      const si = await signIn!.create({
+        strategy: 'oauth_google',
+        redirectUrl: 'confrontaoroscopo://clerk-callback',
+        actionCompleteRedirectUrl: 'confrontaoroscopo://clerk-callback',
+      } as any);
+
+      const oauthUrl = (si as any).firstFactorVerification?.externalVerificationRedirectURL?.toString();
+      console.log('[Login] Google OAuth URL:', oauthUrl ? 'obtained' : 'missing');
+
+      if (!oauthUrl) {
+        setError('Impossibile avviare Google Sign-In. Riprova.');
+        setGoogleBusy(false);
+        return;
+      }
+
+      // Listen for Chrome Custom Tab closure (fires after deep link returns to app)
+      const listener = await Browser.addListener('browserFinished', async () => {
+        await listener.remove();
+        browserListenerRef.current = null;
+        console.log('[Login] browserFinished — reloading sign-in state');
+
+        try {
+          const updated = await (signIn as any).reload();
+          console.log('[Login] reloaded status:', updated?.status);
+          if (updated?.status === 'complete') {
+            await setActive!({ session: updated.createdSessionId });
+            trackLogin('oauth_google', true);
+          } else {
+            setError('Accesso Google non completato. Riprova.');
+            setStage('email');
+            setGoogleBusy(false);
+          }
+        } catch (reloadErr: any) {
+          console.log('[Login] reload error:', reloadErr?.message);
+          setError('Errore durante il login con Google.');
+          setStage('email');
+          setGoogleBusy(false);
+        }
+      });
+      browserListenerRef.current = listener;
+
+      setStage('google_pending');
+      await Browser.open({ url: oauthUrl });
+    } catch (err: any) {
+      const msg = err?.errors?.[0]?.longMessage ?? err?.errors?.[0]?.message ?? 'Errore Google Sign-In.';
+      console.log('[Login] handleGoogleSignIn error:', msg);
+      setError(msg);
+      setGoogleBusy(false);
+    }
+  }
+
+  // ── Back / cancel helpers ───────────────────────────────────────────────────
   function handleBack() {
     cancelRef.current?.();
     cancelRef.current = null;
+    browserListenerRef.current?.remove();
+    browserListenerRef.current = null;
+    Browser.close().catch(() => {});
     setStage('email');
     setOtp('');
     setError('');
-    setStrategy(null);
+    setGoogleBusy(false);
   }
 
-  // Magic link waiting screen
+  // ── Magic link waiting ──────────────────────────────────────────────────────
   if (stage === 'waiting') {
     return (
       <div style={cardStyle}>
@@ -176,15 +260,29 @@ function NativeSignInForm() {
         <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, lineHeight: 1.5, marginBottom: 24, textAlign: 'center' }}>
           Apri l'email e tocca il link. Questa schermata si aggiornerà automaticamente.
         </p>
-        {error && (
-          <p style={{ color: '#ff8080', fontSize: 13, marginBottom: 16, textAlign: 'center' }}>{error}</p>
-        )}
+        {error && <p style={{ color: '#ff8080', fontSize: 13, marginBottom: 16, textAlign: 'center' }}>{error}</p>}
         <button onClick={handleBack} style={ghostBtnStyle}>← Cambia email</button>
       </div>
     );
   }
 
-  // OTP code entry screen
+  // ── Google pending ──────────────────────────────────────────────────────────
+  if (stage === 'google_pending') {
+    return (
+      <div style={cardStyle}>
+        <h2 style={{ color: '#ffffff', fontSize: 20, fontWeight: 700, marginBottom: 12, textAlign: 'center' }}>
+          Accesso con Google
+        </h2>
+        <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 14, lineHeight: 1.5, marginBottom: 24, textAlign: 'center' }}>
+          Completa l'accesso nel browser. Questa schermata si aggiornerà automaticamente.
+        </p>
+        {error && <p style={{ color: '#ff8080', fontSize: 13, marginBottom: 16, textAlign: 'center' }}>{error}</p>}
+        <button onClick={handleBack} style={ghostBtnStyle}>← Annulla</button>
+      </div>
+    );
+  }
+
+  // ── OTP entry ───────────────────────────────────────────────────────────────
   if (stage === 'otp') {
     return (
       <div style={cardStyle}>
@@ -213,9 +311,7 @@ function NativeSignInForm() {
               style={{ ...inputStyle, letterSpacing: 4, textAlign: 'center', fontSize: 20 }}
             />
           </div>
-          {error && (
-            <p style={{ color: '#ff8080', fontSize: 13, margin: 0 }}>{error}</p>
-          )}
+          {error && <p style={{ color: '#ff8080', fontSize: 13, margin: 0 }}>{error}</p>}
           <button type="submit" disabled={busy || otp.length < 6} style={primaryBtnStyle(busy || otp.length < 6)}>
             {busy ? 'Verifica in corso…' : 'Verifica'}
           </button>
@@ -225,12 +321,35 @@ function NativeSignInForm() {
     );
   }
 
-  // Email entry screen
+  // ── Email entry (default) ───────────────────────────────────────────────────
   return (
     <div style={cardStyle}>
       <h2 style={{ color: '#ffffff', fontSize: 20, fontWeight: 700, marginBottom: 24, textAlign: 'center' }}>
         Accedi
       </h2>
+
+      {/* Google OAuth button */}
+      <button
+        type="button"
+        onClick={handleGoogleSignIn}
+        disabled={googleBusy || !isLoaded}
+        style={googleBtnStyle(googleBusy || !isLoaded)}
+      >
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+          <path d="M17.64 9.205c0-.639-.057-1.252-.164-1.841H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z" fill="#4285F4"/>
+          <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18Z" fill="#34A853"/>
+          <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332Z" fill="#FBBC05"/>
+          <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58Z" fill="#EA4335"/>
+        </svg>
+        {googleBusy ? 'Attendere…' : 'Continua con Google'}
+      </button>
+
+      <div style={{ alignItems: 'center', display: 'flex', gap: 12, margin: '20px 0' }}>
+        <div style={{ background: 'rgba(255,255,255,0.2)', flex: 1, height: 1 }} />
+        <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>oppure</span>
+        <div style={{ background: 'rgba(255,255,255,0.2)', flex: 1, height: 1 }} />
+      </div>
+
       <form onSubmit={handleEmailSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <label style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13 }}>Email</label>
@@ -244,15 +363,14 @@ function NativeSignInForm() {
             style={inputStyle}
           />
         </div>
-        {error && (
-          <p style={{ color: '#ff8080', fontSize: 13, margin: 0 }}>{error}</p>
-        )}
+        {error && <p style={{ color: '#ff8080', fontSize: 13, margin: 0 }}>{error}</p>}
         <button type="submit" disabled={busy || !isLoaded} style={primaryBtnStyle(busy || !isLoaded)}>
-          {busy ? 'Invio in corso…' : 'Continua'}
+          {busy ? 'Invio in corso…' : 'Continua con email'}
         </button>
       </form>
+
       <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, marginTop: 20, textAlign: 'center' }}>
-        Riceverai un'email per accedere senza password.
+        Riceverai un codice o un link per accedere senza password.
       </p>
     </div>
   );
