@@ -191,6 +191,13 @@ function isWithinMondayWindow(): boolean {
 }
 
 // ============================================================================
+// SOURCES WITH DELAYED SCRAPING
+// Vogue.it (ID 13) publishes the daily horoscope after 9:00 AM — scraping
+// earlier retrieves the previous day's content.
+// ============================================================================
+const LATE_START_SOURCES: number[] = [13];
+
+// ============================================================================
 // MAIN DAILY SCRAPER
 // ============================================================================
 
@@ -228,9 +235,10 @@ async function executeDailyScraper() {
       return;
     }
     
-    // Execute orchestrator
-    const result = await runDailyScraperCycle({ 
+    // Execute orchestrator — skip late-start sources (e.g. Vogue, scraped at 9 AM)
+    const result = await runDailyScraperCycle({
       targetDate,
+      excludeSources: LATE_START_SOURCES,
       triggerType: 'scheduled'
     });
     
@@ -238,6 +246,50 @@ async function executeDailyScraper() {
   } catch (error) {
     console.error('[DailyScraper] ✗ Error:', error);
     // Don't throw - let cron continue
+  }
+}
+
+// ============================================================================
+// LATE-START SCRAPER (9:00 AM CET)
+// Runs sources that publish after the main window (e.g. Vogue.it)
+// ============================================================================
+
+async function executeLateStartSources() {
+  try {
+    const config = await getDailyScraperConfig();
+    if (!config.enabled) return;
+
+    const targetDate = getItalyToday();
+
+    // Guard: skip if a late-start run already completed today
+    const targetDateObj = new Date(targetDate + 'T00:00:00.000Z');
+    const alreadyRan = await prisma.scraperExecution.findFirst({
+      where: {
+        target_date: targetDateObj,
+        trigger_type: 'late_start',
+        status: 'completed',
+      },
+    });
+    if (alreadyRan) return;
+
+    // Guard: skip if a late-start run is currently in progress
+    const running = await prisma.scraperExecution.findFirst({
+      where: {
+        target_date: targetDateObj,
+        trigger_type: 'late_start',
+        status: 'running',
+      },
+    });
+    if (running) return;
+
+    await runDailyScraperCycle({
+      targetDate,
+      specificSources: LATE_START_SOURCES,
+      forceRescrape: true,
+      triggerType: 'late_start',
+    });
+  } catch (error) {
+    console.error('[LateStartScraper] ✗ Error:', error);
   }
 }
 
@@ -617,6 +669,14 @@ export async function initializeScheduledTasks() {
     timezone: 'Europe/Rome'
   });
   
+  // ============================================================================
+  // LATE-START SCRAPER - 9:00 AM CET
+  // Sources (e.g. Vogue.it ID 13) that publish after the main window
+  // ============================================================================
+  cron.schedule('0 9 * * *', executeLateStartSources, {
+    timezone: 'Europe/Rome'
+  });
+
   // ============================================================================
   // FALLBACK RETRY - PRODUCTION SCHEDULE
   // Runs 1 hour after scraping window ends
