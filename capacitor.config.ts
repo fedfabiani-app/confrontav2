@@ -12,6 +12,15 @@ const config: CapacitorConfig = {
   server: {
     androidScheme: 'https',
     // cleartext: true — uncomment only for debug builds connecting to HTTP
+    // allowNavigation lets the WebView follow Clerk's post-OAuth redirect chain
+    // (accounts.clerk.dev → Railway app URL) without being intercepted by the OS.
+    // Note: Google OAuth itself still requires Chrome Custom Tabs (@capacitor/browser).
+    allowNavigation: [
+      '*.clerk.accounts.dev',
+      '*.accounts.dev',
+      '*.clerk.com',
+      'clerk.confrontaoroscopo.com',
+    ],
     ...(serverUrl ? { url: serverUrl } : {}),
   },
   plugins: {

@@ -1,5 +1,6 @@
 import { ReactNode, useState, useEffect } from 'react';
 import { ClerkProvider, useUser } from '@clerk/clerk-react';
+import { Capacitor } from '@capacitor/core';
 import { useLocation } from 'wouter';
 import { AuthContext, AuthContextValue, defaultAuthState } from '../contexts/auth-context';
 import { initPushNotifications } from '../services/pushNotifications';
@@ -123,8 +124,19 @@ export function ClerkAuthProvider({
   publishableKey: string;
   children: ReactNode;
 }) {
+  // On native (Capacitor), Clerk needs to know it can redirect back to the
+  // Railway production URL loaded inside the WebView. Without this, Clerk's
+  // post-OAuth redirect may be rejected as an untrusted origin.
+  const isNative = Capacitor.isNativePlatform();
+  const allowedRedirectOrigins = isNative
+    ? [window.location.origin, 'confrontaoroscopo://']
+    : undefined;
+
   return (
-    <ClerkProvider publishableKey={publishableKey}>
+    <ClerkProvider
+      publishableKey={publishableKey}
+      {...(allowedRedirectOrigins ? { allowedRedirectOrigins } : {})}
+    >
       <ClerkAuthSync>{children}</ClerkAuthSync>
     </ClerkProvider>
   );
