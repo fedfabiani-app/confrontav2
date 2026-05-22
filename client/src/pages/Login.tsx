@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/use-auth';
 import { trackLogin } from '../lib/analytics';
 
 const isNative = Capacitor.isNativePlatform();
+console.log('[Login] isNative:', isNative, '| platform:', Capacitor.getPlatform());
 
 // Email-link (magic link) flow for native Android.
 //
