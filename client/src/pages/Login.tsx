@@ -182,8 +182,8 @@ function NativeSignInForm() {
     try {
       const si = await signIn!.create({
         strategy: 'oauth_google',
-        redirectUrl: 'confrontaoroscopo://clerk-callback',
-        actionCompleteRedirectUrl: 'confrontaoroscopo://clerk-callback',
+        redirectUrl: 'https://staging.confrontaoroscopo.it/sso-callback',
+        actionCompleteRedirectUrl: 'https://staging.confrontaoroscopo.it/sso-callback',
       } as any);
 
       const oauthUrl = (si as any).firstFactorVerification?.externalVerificationRedirectURL?.toString();
