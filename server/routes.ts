@@ -1768,7 +1768,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const user = await prisma.user.findUnique({ where: { clerkId } });
       if (!user) return res.status(404).json({ error: 'User not found' });
-      if (!user.stripe_customer_id) return res.status(400).json({ error: 'No Stripe customer found' });
+
+      let stripeCustomerId = user.stripe_customer_id;
+
+      // If stripe_customer_id is missing (e.g. webhook never fired or subscription
+      // was created manually in the Stripe Dashboard), try to recover it by email.
+      if (!stripeCustomerId && user.email) {
+        const customers = await getStripe().customers.list({ email: user.email, limit: 1 });
+        if (customers.data.length > 0) {
+          stripeCustomerId = customers.data[0].id;
+          // Persist so future calls don't need the lookup
+          await prisma.user.update({
+            where: { clerkId },
+            data: { stripe_customer_id: stripeCustomerId }
+          });
+          console.log(`[Stripe Portal] Recovered stripe_customer_id for ${user.email}: ${stripeCustomerId}`);
+        }
+      }
+
+      if (!stripeCustomerId) {
+        return res.status(400).json({ error: 'No Stripe customer found' });
+      }
 
       const origin =
         (req.headers.origin && req.headers.origin !== 'null')
@@ -1776,7 +1796,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           : 'https://confrontaoroscopo.it';
 
       const session = await getStripe().billingPortal.sessions.create({
-        customer: user.stripe_customer_id,
+        customer: stripeCustomerId,
         return_url: `${origin}/account`
       });
 
