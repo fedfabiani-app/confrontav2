@@ -12,7 +12,20 @@
           "package_name": "com.confrontaoroscopo.app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "275200197049-g7aq97jjcb4q9rj6d0oavnim6l299pi3.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.confrontaoroscopo.app",
+            "certificate_hash": "305923a1f49f40156a7ec0a08b0bfa9366ad4fb2"
+          }
+        },
+        {
+          "client_id": "275200197049-fq0joiag0s3i6bjqngb6dc7v9g10jgkm.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDIcELhTsrlx-Ro7Q_r88Re9k-UOuCYq8w"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "275200197049-fq0joiag0s3i6bjqngb6dc7v9g10jgkm.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
