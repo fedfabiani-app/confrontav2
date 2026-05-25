@@ -87,12 +87,20 @@ export default function Account() {
               <p className="text-white/80 text-sm">Hai accesso a tutte le funzionalità</p>
               <button
                 onClick={async () => {
-                  const res = await fetch('/api/stripe/portal', {
-                    method: 'POST',
-                    headers: { 'x-clerk-user-id': clerkUserId || '' }
-                  });
-                  const { portalUrl } = await res.json();
-                  window.location.href = portalUrl;
+                  try {
+                    const res = await fetch('/api/stripe/portal', {
+                      method: 'POST',
+                      headers: { 'x-clerk-user-id': clerkUserId || '' }
+                    });
+                    const data = await res.json();
+                    if (!res.ok || !data.portalUrl) {
+                      alert(data.error || 'Impossibile aprire il portale. Riprova.');
+                      return;
+                    }
+                    window.location.href = data.portalUrl;
+                  } catch {
+                    alert('Errore di rete. Riprova.');
+                  }
                 }}
                 className="text-sm text-[#E1B64E] hover:underline"
               >

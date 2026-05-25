@@ -1770,9 +1770,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user) return res.status(404).json({ error: 'User not found' });
       if (!user.stripe_customer_id) return res.status(400).json({ error: 'No Stripe customer found' });
 
+      const origin =
+        (req.headers.origin && req.headers.origin !== 'null')
+          ? req.headers.origin
+          : 'https://confrontaoroscopo.it';
+
       const session = await getStripe().billingPortal.sessions.create({
         customer: user.stripe_customer_id,
-        return_url: `${req.headers.origin}/account`
+        return_url: `${origin}/account`
       });
 
       return res.json({ portalUrl: session.url });
