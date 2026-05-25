@@ -20,10 +20,11 @@ const app = express();
 // Allows the Capacitor native WebView (https://localhost) and the configured frontend origin.
 const ALLOWED_ORIGINS = new Set(
   [
-    'https://localhost',        // Capacitor Android (androidScheme: https)
-    'capacitor://localhost',    // Capacitor iOS
-    'http://localhost:5000',    // local Express dev
-    'http://localhost:5173',    // Vite dev server
+    'https://confrontaoroscopo.it',   // production site & Capacitor server.url
+    'https://localhost',              // Capacitor Android local assets (androidScheme: https)
+    'capacitor://localhost',          // Capacitor iOS local assets
+    'http://localhost:5000',          // local Express dev
+    'http://localhost:5173',          // Vite dev server
     process.env.BASE_URL_FRONTEND,
   ].filter((o): o is string => Boolean(o))
 );
