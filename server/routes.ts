@@ -1952,7 +1952,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const targetDate = date ? new Date(date) : new Date();
     const dateLabel = targetDate.toISOString().split('T')[0];
 
+    // Normalize pair so (A,B) and (B,A) share the same cache entry
+    const [s1, s2] = [sign1 as string, sign2 as string].sort();
+
     try {
+      // 1. Cache lookup — skip Claude if already generated for this pair+date
+      const cached = await prisma.compatibilityCache.findUnique({
+        where: { sign1_sign2_date_label: { sign1: s1, sign2: s2, date_label: dateLabel } },
+      });
+      if (cached) return res.json({ result: cached.result });
+
       const [horo1, horo2] = await Promise.all([
         prisma.horoscopeData.findMany({
           where: { zodiac_sign: { name_english: sign1 }, date: targetDate },
@@ -1995,6 +2004,11 @@ Scrivi 1 sola frase breve sulla compatibilità amorosa tra questi due segni.
       });
 
       const result = response.content[0].type === 'text' ? response.content[0].text.trim() : '';
+
+      // 2. Persist to cache (fire-and-forget — don't block the response)
+      prisma.compatibilityCache.create({
+        data: { sign1: s1, sign2: s2, date_label: dateLabel, result },
+      }).catch((err: unknown) => console.error('[Compatibility] Cache write failed:', err));
 
       return res.json({ result });
     } catch (error) {
