@@ -258,10 +258,12 @@ function NativeSignInForm() {
     setGoogleBusy(true);
 
     try {
-      // Use the current origin so the redirectUrl domain matches Clerk's allowed origins.
-      // ?native=1 tells SsoCallback.tsx to run the relay flow instead of the standard
-      // web OAuth callback flow.
-      const redirectUrl = window.location.origin + '/sso-callback?native=1';
+      // Use the plain /sso-callback URL (no query params) so Clerk accepts it as an
+      // allowed redirect destination.  SsoCallback.tsx detects the native context via
+      // Capacitor.isNativePlatform() instead of the ?native=1 query param, so the
+      // same URL works for both web and Android without requiring two separate entries
+      // in Clerk's Allowed redirect URLs list.
+      const redirectUrl = window.location.origin + '/sso-callback';
 
       const si = await signIn!.create({
         strategy: 'oauth_google',

@@ -1,11 +1,14 @@
 import { useEffect, useRef } from 'react';
 import { useUser, useClerk, AuthenticateWithRedirectCallback } from '@clerk/clerk-react';
+import { Capacitor } from '@capacitor/core';
 
 // ── Native Android OAuth relay ──────────────────────────────────────────────
 // When the app uses Chrome Custom Tabs for Google OAuth, Clerk redirects here
 // after the flow completes.  The redirectUrl in signIn.create() is
-//   <origin>/sso-callback?native=1
-// so we detect the ?native=1 flag and run the relay path.
+//   <origin>/sso-callback
+// We detect the native context via Capacitor.isNativePlatform() (not via a
+// ?native=1 query param) so Clerk only needs one URL in its Allowed redirect
+// URLs list and the same URL serves both web and Android.
 //
 // Why this works:
 //  • Clerk's FAPI sets a session cookie for .confrontaoroscopo.it when it
@@ -88,9 +91,10 @@ function NativeRelay() {
 }
 
 export default function SsoCallback() {
-  const isNative =
-    typeof window !== 'undefined' &&
-    new URLSearchParams(window.location.search).get('native') === '1';
+  // Detect native Android/iOS via Capacitor rather than a ?native=1 query param.
+  // This lets us use the same clean /sso-callback URL for both web and native,
+  // avoiding Clerk's strict URL allowlist rejecting a URL with unknown query params.
+  const isNative = Capacitor.isNativePlatform();
 
   if (isNative) {
     return <NativeRelay />;
