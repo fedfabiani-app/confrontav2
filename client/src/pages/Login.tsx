@@ -277,10 +277,10 @@ function NativeSignInForm() {
     if (isNative) {
       // ── Native Android path ─────────────────────────────────────────────────
       try {
-        const result = await SocialLogin.login({
-          provider: 'google',
-          options: { scopes: ['email', 'profile'] },
-        });
+        // email, profile, openid are included by default — no need to list them explicitly
+        // (passing custom scopes requires the MainActivity interface, which we have, but
+        //  we leave this empty to keep things simple)
+        const result = await SocialLogin.login({ provider: 'google' } as any);
 
         const googleResult = result.result as { idToken?: string | null };
         const idToken = googleResult?.idToken;
