@@ -4,10 +4,29 @@ import { useLocation } from 'wouter';
 import { useAuth } from '../hooks/use-auth';
 import { useAccess } from '../hooks/use-access';
 
+// Isolated sub-component so useClerk() is only called when the user
+// is already authenticated (i.e. ClerkProvider is guaranteed to be in
+// the tree).  If this component never mounts there is no crash.
+function SignOutMenuItem({ onBeforeSignOut }: { onBeforeSignOut: () => void }) {
+  const { signOut } = useClerk();
+  const [, navigate] = useLocation();
+  return (
+    <MenuItem
+      onClick={async () => {
+        onBeforeSignOut();
+        await signOut();
+        navigate('/');
+      }}
+      className="text-white/50 hover:text-white/80"
+    >
+      Esci
+    </MenuItem>
+  );
+}
+
 export function UserMenu() {
   const { isLoggedIn, isLoading, user } = useAuth();
   const { userTier } = useAccess();
-  const { signOut } = useClerk();
   const [, navigate] = useLocation();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -86,12 +105,7 @@ export function UserMenu() {
 
           {/* Separator + logout */}
           <div className="border-t border-white/10 mt-1 pt-1">
-            <MenuItem
-              onClick={async () => { setOpen(false); await signOut(); navigate('/'); }}
-              className="text-white/50 hover:text-white/80"
-            >
-              Esci
-            </MenuItem>
+            <SignOutMenuItem onBeforeSignOut={() => setOpen(false)} />
           </div>
         </div>
       )}
