@@ -31,11 +31,41 @@ function getStripe(): Stripe {
 
 export async function registerRoutes(app: Express): Promise<Server> {
 
-  // Native Android Google OAuth callback — Clerk redirects here after OAuth completes.
-  // Immediately redirects to the custom deep-link scheme so Chrome Custom Tabs closes
-  // and the Capacitor app regains focus (browserFinished fires).
-  app.get("/sso-callback", (_req, res) => {
-    res.redirect(301, "confrontaoroscopo://clerk-callback");
+  // Native Android Google OAuth relay.
+  // Called by SsoCallback.tsx running inside the Chrome Custom Tab after Clerk has
+  // established a session there.  We validate the Clerk session from the request
+  // (cookies are sent because Chrome Tab and our server share the same domain), mint
+  // a short-lived Clerk sign-in token for the authenticated user, and return it.
+  // The client then passes the token via a deep-link so the Capacitor WebView can
+  // call signIn.create({ strategy: 'ticket', ticket }) and log the user in natively.
+  app.post("/api/native-auth-relay", async (req, res) => {
+    try {
+      const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
+
+      // authenticateRequest validates the Clerk session from cookies / Bearer token
+      const requestState = await clerk.authenticateRequest(req as any, {
+        authorizedParties: [
+          'https://confrontaoroscopo.it',
+          'https://staging.confrontaoroscopo.it',
+        ],
+      });
+
+      const auth = requestState.toAuth();
+      if (!auth?.userId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+
+      // Create a one-time sign-in token (expires in 60 s) for the WebView to use
+      const tokenRes = await clerk.signInTokens.createSignInToken({
+        userId: auth.userId,
+        expiresInSeconds: 60,
+      });
+
+      return res.json({ ticket: tokenRes.token });
+    } catch (err: any) {
+      console.error('[native-auth-relay] error:', err?.message ?? err);
+      return res.status(500).json({ error: 'Failed to create sign-in token' });
+    }
   });
 
   // GET /api/zodiac-signs

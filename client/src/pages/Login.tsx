@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, FormEvent } from 'react';
 import { SignIn, useSignIn } from '@clerk/clerk-react';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
+import { App } from '@capacitor/app';
 import { useLocation } from 'wouter';
 import { useAuth } from '../hooks/use-auth';
 import { trackLogin } from '../lib/analytics';
@@ -85,11 +86,69 @@ function NativeSignInForm() {
   const browserListenerRef = useRef<{ remove: () => Promise<void> } | null>(null);
 
   useEffect(() => {
+    // Deep-link handler: receives the sign-in ticket from the Chrome Custom Tab
+    // after the /api/native-auth-relay endpoint minted it.
+    //
+    // Happy path:  confrontaoroscopo://clerk-callback?ticket=<token>
+    //   → signIn.create({ strategy: 'ticket', ticket })
+    //   → setActive({ session: createdSessionId })
+    //   → Clerk marks the user as signed-in in the WebView context
+    //
+    // Error path:  confrontaoroscopo://clerk-callback?error=<reason>
+    //   → show an error message (or just reload for the user to retry)
+    const listenerPromise = App.addListener('appUrlOpen', async ({ url }) => {
+      try {
+        const u = new URL(url);
+        if (u.host !== 'clerk-callback') return;
+
+        const ticket = u.searchParams.get('ticket');
+        const error  = u.searchParams.get('error');
+
+        if (ticket && signIn && isLoaded) {
+          console.log('[Login] appUrlOpen — exchanging ticket for session');
+          try {
+            const result = await signIn.create({
+              strategy: 'ticket',
+              ticket,
+            } as any);
+            if (result.status === 'complete') {
+              await setActive!({ session: result.createdSessionId });
+              // Login component detects isLoggedIn and navigates to '/'
+            } else {
+              console.warn('[Login] ticket exchange incomplete:', result.status);
+              setError('Accesso non completato. Riprova.');
+              setGoogleBusy(false);
+              setStage('email');
+            }
+          } catch (err: any) {
+            const msg = err?.errors?.[0]?.longMessage ?? err?.errors?.[0]?.message ?? 'Errore ticket.';
+            console.error('[Login] ticket exchange error:', msg);
+            setError(msg);
+            setGoogleBusy(false);
+            setStage('email');
+          }
+        } else if (error) {
+          console.error('[Login] appUrlOpen — OAuth error:', error);
+          setError('Accesso Google non riuscito. Riprova.');
+          setGoogleBusy(false);
+          setStage('email');
+        } else {
+          // No ticket and no error — OAuth may have been cancelled
+          setGoogleBusy(false);
+          setStage('email');
+        }
+      } catch {
+        setGoogleBusy(false);
+        setStage('email');
+      }
+    });
+
     return () => {
       cancelRef.current?.();
       browserListenerRef.current?.remove();
+      listenerPromise.then(l => l.remove());
     };
-  }, []);
+  }, [isLoaded, signIn, setActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Email / magic-link / OTP submit ────────────────────────────────────────
   async function handleEmailSubmit(e: FormEvent) {
@@ -169,25 +228,31 @@ function NativeSignInForm() {
 
   // ── Google OAuth ────────────────────────────────────────────────────────────
   // Flow:
-  //   1. signIn.create({ strategy: 'oauth_google' }) → get externalVerificationRedirectURL
-  //   2. Browser.open() → Chrome Custom Tabs (avoids Google's WebView block)
-  //   3. Google → Clerk backend → /sso-callback → deep link confrontaoroscopo://clerk-callback
-  //   4. Chrome Custom Tab closes → browserFinished fires
-  //   5. window.location.reload() → Clerk detects session from cookies → user logged in
+  //   1. signIn.create({ strategy: 'oauth_google', redirectUrl: origin/sso-callback })
+  //   2. Browser.open() → Chrome Custom Tabs (avoids Google WebView block)
+  //   3. Google → Clerk backend → /sso-callback?__clerk_db_jwt=…&__clerk_handshake=…
+  //   4. Server redirects → confrontaoroscopo://clerk-callback?jwt=…&hs=…
+  //   5. appUrlOpen fires with those params
+  //   6. WebView navigates to /login?__clerk_db_jwt=…&__clerk_handshake=…
+  //   7. Clerk's SDK processes the handshake on init → session established
   async function handleGoogleSignIn() {
     if (!isLoaded || googleBusy) return;
     setError('');
     setGoogleBusy(true);
 
     try {
+      // Use the current origin so the redirectUrl domain matches Clerk's allowed origins.
+      // ?native=1 tells SsoCallback.tsx to run the relay flow instead of the standard
+      // web OAuth callback flow.
+      const redirectUrl = window.location.origin + '/sso-callback?native=1';
+
       const si = await signIn!.create({
         strategy: 'oauth_google',
-        redirectUrl: 'https://confrontaoroscopo.it/sso-callback',
-        actionCompleteRedirectUrl: 'https://confrontaoroscopo.it/sso-callback',
+        redirectUrl,
       } as any);
 
       const oauthUrl = (si as any).firstFactorVerification?.externalVerificationRedirectURL?.toString();
-      console.log('[Login] Google OAuth URL:', oauthUrl ? 'obtained' : 'missing');
+      console.log('[Login] Google OAuth URL:', oauthUrl ? 'obtained' : 'missing', '| redirectUrl:', redirectUrl);
 
       if (!oauthUrl) {
         setError('Impossibile avviare Google Sign-In. Riprova.');
@@ -195,15 +260,16 @@ function NativeSignInForm() {
         return;
       }
 
-      // After Chrome Custom Tab closes (either OAuth completed or user cancelled),
-      // force a full page reload so Clerk re-initializes from cookies/storage.
-      // If OAuth was completed, Clerk finds the new session and logs the user in.
-      // If cancelled, user lands back on the login page.
+      // browserFinished fires when the Chrome Custom Tab closes.
+      // If OAuth succeeded, appUrlOpen will have already fired and exchanged the
+      // ticket, so these setters are harmless no-ops on the already-navigating page.
+      // If the user manually closed the tab, this resets the form.
       const listener = await Browser.addListener('browserFinished', async () => {
         await listener.remove();
         browserListenerRef.current = null;
-        console.log('[Login] browserFinished — reloading page to sync Clerk session');
-        window.location.reload();
+        console.log('[Login] browserFinished — tab closed (cancel or complete)');
+        setStage('email');
+        setGoogleBusy(false);
       });
       browserListenerRef.current = listener;
 
@@ -211,7 +277,7 @@ function NativeSignInForm() {
       await Browser.open({ url: oauthUrl });
     } catch (err: any) {
       const msg = err?.errors?.[0]?.longMessage ?? err?.errors?.[0]?.message ?? 'Errore Google Sign-In.';
-      console.log('[Login] handleGoogleSignIn error:', msg);
+      console.log('[Login] handleGoogleSignIn error:', msg, JSON.stringify(err?.errors));
       setError(msg);
       setGoogleBusy(false);
     }
