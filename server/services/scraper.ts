@@ -1175,125 +1175,81 @@ async function scrapeGazzettaHoroscopeText(url: string, input: ScraperInput): Pr
     const html = await fetchHtml(url, input.userAgent);
     const $ = cheerio.load(html);
 
-    $('script, style, nav, header, footer, iframe, noscript').remove();
-
     const zodiacName = input.signSlugIt.toLowerCase();
-    const domain = 'gazzetta.it';
+    const signCapitalized = zodiacName.charAt(0).toUpperCase() + zodiacName.slice(1);
 
+    // ── Strategy 1: JSON-LD articleBody ──────────────────────────────────────
+    // Gazzetta embeds the full 12-sign article in a JSON-LD <script>.
+    // The articleBody is a single string concatenating all 12 signs, each block
+    // starting with "Nato sotto il segno ...".  Split on that delimiter and find
+    // the chunk whose first ~100 chars contain our sign name.
     let bestContent = '';
-    let highestScore = 0;
 
-    // Look for the main article content that contains all sections
-    const articlePatterns = [
-      /<article[^>]*>([\s\S]*?)<\/article>/gi,
-      /<div[^>]*class="[^"]*story[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
-      /<div[^>]*class="[^"]*article[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
-      /<main[^>]*>([\s\S]*?)<\/main>/gi
-    ];
+    $('script[type="application/ld+json"]').each((_, el) => {
+      if (bestContent) return; // already found
+      try {
+        const json = JSON.parse($(el).html() || '');
+        const articleBody: string = json.articleBody || '';
+        if (!articleBody) return;
 
-    for (const pattern of articlePatterns) {
-      let match;
-      while ((match = pattern.exec(html)) !== null) {
-        let content = match[1];
-
-        // Extract text content while preserving section structure
-        let processedContent = content
-          // Convert section headers to clear markers
-          .replace(/(?:<[^>]*>)*\s*La tua giornata\s*[:\s]*(?:<[^>]*>)*/gi, '\n\nLA TUA GIORNATA:\n')
-          .replace(/(?:<[^>]*>)*\s*Amore\s*[:\s]*(?:<[^>]*>)*/gi, '\n\nAMORE:\n')
-          .replace(/(?:<[^>]*>)*\s*Amicizia\s*[:\s]*(?:<[^>]*>)*/gi, '\n\nAMICIZIA:\n')
-          .replace(/(?:<[^>]*>)*\s*Lavoro\s*[:\s]*(?:<[^>]*>)*/gi, '\n\nLAVORO:\n')
-          .replace(/(?:<[^>]*>)*\s*Valutazione\s+generale\s*[:\s]*(?:<[^>]*>)*/gi, '\n\nVALUTAZIONE GENERALE:\n')
-          // Clean HTML tags and entities
-          .replace(/<br[^>]*>/gi, '\n')
-          .replace(/<\/p>\s*<p[^>]*>/gi, '\n\n')
-          .replace(/<p[^>]*>/gi, '\n')
-          .replace(/<\/p>/gi, '\n')
-          .replace(/<[^>]*>/g, ' ')
-          .replace(/&nbsp;/g, ' ')
-          .replace(/&amp;/g, '&')
-          .replace(/&lt;/g, '<')
-          .replace(/&gt;/g, '>')
-          .replace(/&quot;/g, '"')
-          .replace(/&#39;/g, "'")
-          .replace(/&#8217;/g, "'")
-          .replace(/&#8220;/g, '"')
-          .replace(/&#8221;/g, '"')
-          .replace(/&#8211;/g, '-')
-          .replace(/&#8212;/g, '—')
-          .replace(/&hellip;/g, '...')
-          .replace(/\s+/g, ' ')
-          .replace(/\n[ \t]+/g, '\n')
-          .replace(/\n{3,}/g, '\n\n')
-          .trim();
-
-        // Check if this content contains the key sections
-        const hasMainSections = /LA TUA GIORNATA[\s\S]*AMORE[\s\S]*AMICIZIA[\s\S]*LAVORO/i.test(processedContent);
-        const containsZodiacSign = processedContent.toLowerCase().includes(input.signSlugIt.toLowerCase());
-
-        if (hasMainSections && containsZodiacSign && processedContent.length > 200) {
-          const currentScore = scoreHoroscopeContent(processedContent, zodiacName, domain);
-          console.log(`Gazzetta.it - Found structured content with score ${currentScore} (length: ${processedContent.length})`);
-
-          if (currentScore > highestScore) {
-            highestScore = currentScore;
-            bestContent = processedContent;
+        // Split on every "Nato sotto il segno" occurrence
+        const sections = articleBody.split(/Nato sotto il segno/i);
+        for (const section of sections) {
+          // The sign name appears within the first ~80 chars of each chunk
+          if (new RegExp(signCapitalized, 'i').test(section.substring(0, 80))) {
+            bestContent = ('Nato sotto il segno' + section).replace(/\s+/g, ' ').trim();
+            console.log(`Gazzetta.it - Extracted from JSON-LD articleBody, length: ${bestContent.length}`);
+            break;
           }
         }
+      } catch {
+        // JSON parse failed, continue to next strategy
       }
-    }
+    });
 
-    // If no structured content found, try extracting all paragraphs in order
-    if (!bestContent || highestScore < 50) {
-      console.log('Gazzetta.it - Trying paragraph extraction fallback');
-
-      const paragraphPattern = /<p[^>]*>([^<]*(?:<[^>]*>[^<]*)*)<\/p>/gi;
-      const paragraphs = [];
-      let match;
-
-      while ((match = paragraphPattern.exec(html)) !== null) {
-        const pContent = match[1]
-          .replace(/<[^>]*>/g, ' ')
-          .replace(/&[^;]+;/g, ' ')
-          .replace(/\s+/g, ' ')
-          .trim();
-
-        if (pContent.length > 20) {
-          paragraphs.push(pContent);
-        }
-      }
-
-      if (paragraphs.length > 0) {
-        const combinedContent = paragraphs.join('\n\n');
-        const combinedScore = scoreHoroscopeContent(combinedContent, zodiacName, domain);
-
-        if (combinedScore > highestScore) {
-          bestContent = combinedContent;
-          highestScore = combinedScore;
-        }
-      }
-    }
-
-    if (!bestContent || highestScore < 20) {
+    if (bestContent) {
       return {
-        success: false,
-        error: `No substantial horoscope content found for ${input.signSlugIt} on Gazzetta.it`
+        success: true,
+        text: bestContent.substring(0, 3500),
+        url,
+        actualUrl: url,
       };
     }
 
-    console.log(`Gazzetta.it - Final extraction score: ${highestScore}, length: ${bestContent.length}`);
+    // ── Strategy 2: p.paragraph cheerio extraction ───────────────────────────
+    // Each Gazzetta sign page has its horoscope text inside <p class="paragraph">
+    // elements within the card module.  After stripping chrome (nav/header/footer)
+    // these paragraphs contain only the relevant sign's content.
+    console.log('Gazzetta.it - JSON-LD strategy failed, trying p.paragraph extraction');
+
+    $('script, style, nav, header, footer, iframe, noscript').remove();
+
+    const paragraphs: string[] = [];
+    $('p.paragraph').each((_, el) => {
+      const text = $(el).text().replace(/\s+/g, ' ').trim();
+      if (text.length > 10) paragraphs.push(text);
+    });
+
+    if (paragraphs.length >= 3) {
+      bestContent = paragraphs.join('\n\n');
+      console.log(`Gazzetta.it - Extracted ${paragraphs.length} paragraphs via cheerio, length: ${bestContent.length}`);
+      return {
+        success: true,
+        text: bestContent.substring(0, 3500),
+        url,
+        actualUrl: url,
+      };
+    }
 
     return {
-      success: true,
-      text: bestContent.substring(0, 3500),
-      url,
-      actualUrl: url
+      success: false,
+      error: `No substantial horoscope content found for ${input.signSlugIt} on Gazzetta.it`,
     };
 
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown Gazzetta.it scraping error'
+      error: error instanceof Error ? error.message : 'Unknown Gazzetta.it scraping error',
     };
   }
 }
