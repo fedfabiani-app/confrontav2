@@ -76,6 +76,20 @@ const googleBtnStyle = (disabled: boolean): React.CSSProperties => ({
 // Handles email_link (magic link), email_code (OTP) and oauth_google strategies.
 function NativeSignInForm() {
   const { signIn, setActive, isLoaded } = useSignIn();
+
+  // Keep refs current so the appUrlOpen handler always has the latest Clerk API
+  // objects without adding them as useEffect dependencies.  Adding signIn/setActive
+  // as deps caused the effect to re-run every time signIn.create() updated Clerk's
+  // internal state (e.g. right after Browser.open for Google OAuth), which triggered
+  // the cleanup and removed the browserFinished listener mid-flow, permanently
+  // blocking the OAuth callback from completing.
+  const signInRef = useRef(signIn);
+  const setActiveRef = useRef(setActive);
+  useEffect(() => {
+    signInRef.current = signIn;
+    setActiveRef.current = setActive;
+  }, [signIn, setActive]);
+
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [stage, setStage] = useState<'email' | 'waiting' | 'otp' | 'google_pending'>('email');
@@ -104,15 +118,15 @@ function NativeSignInForm() {
         const ticket = u.searchParams.get('ticket');
         const error  = u.searchParams.get('error');
 
-        if (ticket && signIn && isLoaded) {
+        if (ticket && signInRef.current && isLoaded) {
           console.log('[Login] appUrlOpen — exchanging ticket for session');
           try {
-            const result = await signIn.create({
+            const result = await signInRef.current.create({
               strategy: 'ticket',
               ticket,
             } as any);
             if (result.status === 'complete') {
-              await setActive!({ session: result.createdSessionId });
+              await setActiveRef.current!({ session: result.createdSessionId });
               // Login component detects isLoggedIn and navigates to '/'
             } else {
               console.warn('[Login] ticket exchange incomplete:', result.status);
@@ -145,10 +159,13 @@ function NativeSignInForm() {
 
     return () => {
       cancelRef.current?.();
-      browserListenerRef.current?.remove();
+      cancelRef.current = null;
+      // Do NOT remove browserListenerRef here — it is managed by handleBack() and
+      // the browserFinished listener itself.  Removing it on every effect re-run
+      // (e.g. when isLoaded transitions false→true) would kill an in-flight OAuth.
       listenerPromise.then(l => l.remove());
     };
-  }, [isLoaded, signIn, setActive]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isLoaded]); // Re-register only when Clerk finishes loading, not on every signIn update
 
   // ── Email / magic-link / OTP submit ────────────────────────────────────────
   async function handleEmailSubmit(e: FormEvent) {
