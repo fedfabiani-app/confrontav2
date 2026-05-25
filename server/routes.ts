@@ -1631,10 +1631,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(401).json({ error: 'Unauthorized' });
     }
     try {
+      // Fetch real email from Clerk backend so we never store fake placeholders.
+      // This also heals existing rows that were created with @noemail.local.
+      let realEmail: string | undefined;
+      try {
+        const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
+        const clerkUser = await clerk.users.getUser(clerkId);
+        realEmail = clerkUser.emailAddresses[0]?.emailAddress;
+      } catch {
+        // Non-fatal: fall back to the placeholder below
+      }
+
+      const fakeEmail = `clerk_${clerkId}@noemail.local`;
       const user = await prisma.user.upsert({
         where: { clerkId },
-        update: {},
-        create: { clerkId, email: `clerk_${clerkId}@noemail.local`, tier: 'free' },
+        // Always overwrite with the real email when we have it (heals fake rows)
+        update: realEmail ? { email: realEmail } : {},
+        create: { clerkId, email: realEmail ?? fakeEmail, tier: 'free' },
       });
       return res.json({ id: user.id, clerkId: user.clerkId, tier: user.tier, email: user.email });
     } catch (error) {
@@ -1771,18 +1784,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       let stripeCustomerId = user.stripe_customer_id;
 
-      // If stripe_customer_id is missing (e.g. webhook never fired or subscription
-      // was created manually in the Stripe Dashboard), try to recover it by email.
-      if (!stripeCustomerId && user.email) {
-        const customers = await getStripe().customers.list({ email: user.email, limit: 1 });
-        if (customers.data.length > 0) {
-          stripeCustomerId = customers.data[0].id;
-          // Persist so future calls don't need the lookup
-          await prisma.user.update({
-            where: { clerkId },
-            data: { stripe_customer_id: stripeCustomerId }
-          });
-          console.log(`[Stripe Portal] Recovered stripe_customer_id for ${user.email}: ${stripeCustomerId}`);
+      // If stripe_customer_id is missing (webhook missed, or subscription created
+      // manually in Stripe Dashboard), recover it by searching Stripe by email.
+      // We ask Clerk for the authoritative email list instead of trusting the DB
+      // value, which may be a fake placeholder (clerk_xxx@noemail.local).
+      if (!stripeCustomerId) {
+        const emailsToSearch: string[] = [];
+        try {
+          const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
+          const clerkUser = await clerk.users.getUser(clerkId);
+          for (const ea of clerkUser.emailAddresses) {
+            emailsToSearch.push(ea.emailAddress);
+          }
+        } catch {
+          // Clerk lookup failed — fall back to DB email if it isn't a placeholder
+        }
+        if (
+          user.email &&
+          !user.email.includes('@noemail.local') &&
+          !emailsToSearch.includes(user.email)
+        ) {
+          emailsToSearch.push(user.email);
+        }
+
+        for (const email of emailsToSearch) {
+          const customers = await getStripe().customers.list({ email, limit: 1 } as any);
+          if (customers.data.length > 0) {
+            stripeCustomerId = customers.data[0].id;
+            await prisma.user.update({
+              where: { clerkId },
+              data: { stripe_customer_id: stripeCustomerId, email }
+            });
+            console.log(`[Stripe Portal] Recovered customer via ${email}: ${stripeCustomerId}`);
+            break;
+          }
         }
       }
 
