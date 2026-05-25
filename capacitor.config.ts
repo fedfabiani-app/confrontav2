@@ -11,7 +11,13 @@ const config: CapacitorConfig = {
   webDir: 'dist/public',
   server: {
     androidScheme: 'https',
-    // cleartext: true — uncomment only for debug builds connecting to HTTP
+    // hostname makes the WebView appear to be served from confrontaoroscopo.it instead of
+    // https://localhost.  Two effects:
+    //   1. Clerk accepts Origin: https://confrontaoroscopo.it (production key requires it).
+    //   2. fetch('/api/...') resolves to https://confrontaoroscopo.it/api/... — Capacitor
+    //      passes through any request whose path has no matching local file, so API calls
+    //      reach the real Railway server automatically.
+    hostname: 'confrontaoroscopo.it',
     // allowNavigation lets the WebView follow Clerk's post-OAuth redirect chain
     // (accounts.clerk.dev → Railway app URL) without being intercepted by the OS.
     // Note: Google OAuth itself still requires Chrome Custom Tabs (@capacitor/browser).
