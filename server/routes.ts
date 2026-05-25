@@ -68,6 +68,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Native Android Google Sign-In.
+  // The @capgo/capacitor-social-login plugin calls Google's native SDK and returns a
+  // Google ID token (no browser / Chrome Custom Tab involved).  We verify the token
+  // with Google's tokeninfo endpoint, find or create the corresponding Clerk user,
+  // then mint a short-lived sign-in ticket — same mechanism used by native-auth-relay.
+  app.post('/api/native-google-auth', async (req, res) => {
+    try {
+      const { idToken } = req.body;
+      if (!idToken || typeof idToken !== 'string') {
+        return res.status(400).json({ error: 'Missing idToken' });
+      }
+
+      // Verify with Google — tokeninfo returns claims (email, sub, aud, …)
+      const tokenInfoRes = await fetch(
+        `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`
+      );
+      if (!tokenInfoRes.ok) {
+        console.error('[native-google-auth] tokeninfo failed:', tokenInfoRes.status);
+        return res.status(401).json({ error: 'Invalid Google token' });
+      }
+      const tokenInfo = await tokenInfoRes.json() as {
+        email?: string; given_name?: string; family_name?: string;
+        aud?: string; sub?: string; error_description?: string;
+      };
+
+      if (tokenInfo.error_description) {
+        console.error('[native-google-auth] tokeninfo error:', tokenInfo.error_description);
+        return res.status(401).json({ error: 'Google token invalid or expired' });
+      }
+
+      // Verify audience matches our Web Client ID (if configured)
+      const webClientId = process.env.GOOGLE_WEB_CLIENT_ID;
+      if (webClientId && tokenInfo.aud !== webClientId) {
+        console.error('[native-google-auth] audience mismatch — got:', tokenInfo.aud);
+        return res.status(401).json({ error: 'Token audience mismatch' });
+      }
+
+      const { email, given_name, family_name } = tokenInfo;
+      if (!email) {
+        return res.status(401).json({ error: 'No email in token' });
+      }
+
+      const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
+
+      // Find existing Clerk user by email, or create a new one
+      const userList = await clerk.users.getUserList({ emailAddress: [email] });
+      let clerkUser = userList.data[0];
+
+      if (!clerkUser) {
+        clerkUser = await clerk.users.createUser({
+          emailAddress: [email],
+          firstName: given_name ?? '',
+          lastName: family_name ?? '',
+          skipPasswordRequirement: true,
+        });
+        console.log('[native-google-auth] created new Clerk user:', clerkUser.id, email);
+      } else {
+        console.log('[native-google-auth] found existing Clerk user:', clerkUser.id, email);
+      }
+
+      // Mint one-time sign-in ticket (60 s TTL)
+      const tokenRes = await clerk.signInTokens.createSignInToken({
+        userId: clerkUser.id,
+        expiresInSeconds: 60,
+      });
+
+      return res.json({ ticket: tokenRes.token });
+    } catch (err: any) {
+      console.error('[native-google-auth] error:', err?.message ?? err);
+      return res.status(500).json({ error: 'Authentication failed' });
+    }
+  });
+
   // GET /api/zodiac-signs
   app.get("/api/zodiac-signs", async (req, res) => {
     try {

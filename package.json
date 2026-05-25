@@ -31,6 +31,7 @@
     "@capacitor/core": "^8.3.4",
     "@capacitor/ios": "^8.3.4",
     "@capacitor/push-notifications": "^8.1.1",
+    "@capgo/capacitor-social-login": "^8.3.22",
     "@clerk/backend": "^3.4.8",
     "@clerk/clerk-react": "^5.61.6",
     "@hcaptcha/react-hcaptcha": "^2.0.2",
