@@ -9,14 +9,16 @@ datasource db {
 }
 
 model User {
-  id                 Int       @id @default(autoincrement())
-  email              String    @unique
-  clerkId            String?   @unique
-  tier               String    @default("free")
-  stripe_customer_id String?   @unique
-  last_signed_in_at  DateTime?
-  created_at         DateTime  @default(now())
-  updated_at         DateTime  @updatedAt
+  id                    Int       @id @default(autoincrement())
+  email                 String    @unique
+  clerkId               String?   @unique
+  tier                  String    @default("free")
+  stripe_customer_id    String?   @unique
+  last_signed_in_at     DateTime?
+  push_token            String?
+  push_token_updated_at DateTime?
+  created_at            DateTime  @default(now())
+  updated_at            DateTime  @updatedAt
 
   preferences UserPreferences?
 

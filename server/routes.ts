@@ -5,6 +5,7 @@ import Stripe from "stripe";
 import { createClerkClient } from "@clerk/backend";
 import { Resend } from "resend";
 import prisma from "./services/database";
+import { sendPushNotification } from "./services/firebase";
 import { enqueueScrapeJob, enqueueWeeklyScrapeJob, enqueueAggregatedNlpJob, enqueueAggregatedWeeklyNlpJob, getAllJobStatuses, getJobStatus } from "./jobs";
 import { ScraperInput, WeeklyScraperInput, ScraperOutput, WeeklyScraperOutput, OpenAIInput } from "@shared/schema";
 import { ZODIAC_SIGNS_IT_EN, ITALIAN_WEEKDAYS, ITALIAN_MONTHS } from "@shared/constants";
@@ -29,6 +30,116 @@ function getStripe(): Stripe {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+
+  // Native Android Google OAuth relay.
+  // Called by SsoCallback.tsx running inside the Chrome Custom Tab after Clerk has
+  // established a session there.  We validate the Clerk session from the request
+  // (cookies are sent because Chrome Tab and our server share the same domain), mint
+  // a short-lived Clerk sign-in token for the authenticated user, and return it.
+  // The client then passes the token via a deep-link so the Capacitor WebView can
+  // call signIn.create({ strategy: 'ticket', ticket }) and log the user in natively.
+  app.post("/api/native-auth-relay", async (req, res) => {
+    try {
+      const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
+
+      // authenticateRequest validates the Clerk session from cookies / Bearer token
+      const requestState = await clerk.authenticateRequest(req as any, {
+        authorizedParties: [
+          'https://confrontaoroscopo.it',
+          'https://staging.confrontaoroscopo.it',
+        ],
+      });
+
+      const auth = requestState.toAuth();
+      if (!auth?.userId) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+
+      // Create a one-time sign-in token (expires in 60 s) for the WebView to use
+      const tokenRes = await clerk.signInTokens.createSignInToken({
+        userId: auth.userId,
+        expiresInSeconds: 60,
+      });
+
+      return res.json({ ticket: tokenRes.token });
+    } catch (err: any) {
+      console.error('[native-auth-relay] error:', err?.message ?? err);
+      return res.status(500).json({ error: 'Failed to create sign-in token' });
+    }
+  });
+
+  // Native Android Google Sign-In.
+  // The @capgo/capacitor-social-login plugin calls Google's native SDK and returns a
+  // Google ID token (no browser / Chrome Custom Tab involved).  We verify the token
+  // with Google's tokeninfo endpoint, find or create the corresponding Clerk user,
+  // then mint a short-lived sign-in ticket — same mechanism used by native-auth-relay.
+  app.post('/api/native-google-auth', async (req, res) => {
+    try {
+      const { idToken } = req.body;
+      if (!idToken || typeof idToken !== 'string') {
+        return res.status(400).json({ error: 'Missing idToken' });
+      }
+
+      // Verify with Google — tokeninfo returns claims (email, sub, aud, …)
+      const tokenInfoRes = await fetch(
+        `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`
+      );
+      if (!tokenInfoRes.ok) {
+        console.error('[native-google-auth] tokeninfo failed:', tokenInfoRes.status);
+        return res.status(401).json({ error: 'Invalid Google token' });
+      }
+      const tokenInfo = await tokenInfoRes.json() as {
+        email?: string; given_name?: string; family_name?: string;
+        aud?: string; sub?: string; error_description?: string;
+      };
+
+      if (tokenInfo.error_description) {
+        console.error('[native-google-auth] tokeninfo error:', tokenInfo.error_description);
+        return res.status(401).json({ error: 'Google token invalid or expired' });
+      }
+
+      // Verify audience matches our Web Client ID (if configured)
+      const webClientId = process.env.GOOGLE_WEB_CLIENT_ID;
+      if (webClientId && tokenInfo.aud !== webClientId) {
+        console.error('[native-google-auth] audience mismatch — got:', tokenInfo.aud);
+        return res.status(401).json({ error: 'Token audience mismatch' });
+      }
+
+      const { email, given_name, family_name } = tokenInfo;
+      if (!email) {
+        return res.status(401).json({ error: 'No email in token' });
+      }
+
+      const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
+
+      // Find existing Clerk user by email, or create a new one
+      const userList = await clerk.users.getUserList({ emailAddress: [email] });
+      let clerkUser = userList.data[0];
+
+      if (!clerkUser) {
+        clerkUser = await clerk.users.createUser({
+          emailAddress: [email],
+          firstName: given_name ?? '',
+          lastName: family_name ?? '',
+          skipPasswordRequirement: true,
+        });
+        console.log('[native-google-auth] created new Clerk user:', clerkUser.id, email);
+      } else {
+        console.log('[native-google-auth] found existing Clerk user:', clerkUser.id, email);
+      }
+
+      // Mint one-time sign-in ticket (60 s TTL)
+      const tokenRes = await clerk.signInTokens.createSignInToken({
+        userId: clerkUser.id,
+        expiresInSeconds: 60,
+      });
+
+      return res.json({ ticket: tokenRes.token });
+    } catch (err: any) {
+      console.error('[native-google-auth] error:', err?.message ?? err);
+      return res.status(500).json({ error: 'Authentication failed' });
+    }
+  });
 
   // GET /api/zodiac-signs
   app.get("/api/zodiac-signs", async (req, res) => {
@@ -1593,10 +1704,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(401).json({ error: 'Unauthorized' });
     }
     try {
+      // Fetch real email from Clerk backend so we never store fake placeholders.
+      // This also heals existing rows that were created with @noemail.local.
+      let realEmail: string | undefined;
+      try {
+        const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
+        const clerkUser = await clerk.users.getUser(clerkId);
+        realEmail = clerkUser.emailAddresses[0]?.emailAddress;
+      } catch {
+        // Non-fatal: fall back to the placeholder below
+      }
+
+      const fakeEmail = `clerk_${clerkId}@noemail.local`;
       const user = await prisma.user.upsert({
         where: { clerkId },
-        update: {},
-        create: { clerkId, email: `clerk_${clerkId}@noemail.local`, tier: 'free' },
+        // Always overwrite with the real email when we have it (heals fake rows)
+        update: realEmail ? { email: realEmail } : {},
+        create: { clerkId, email: realEmail ?? fakeEmail, tier: 'free' },
       });
       return res.json({ id: user.id, clerkId: user.clerkId, tier: user.tier, email: user.email });
     } catch (error) {
@@ -1730,11 +1854,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const user = await prisma.user.findUnique({ where: { clerkId } });
       if (!user) return res.status(404).json({ error: 'User not found' });
-      if (!user.stripe_customer_id) return res.status(400).json({ error: 'No Stripe customer found' });
+
+      let stripeCustomerId = user.stripe_customer_id;
+
+      // If stripe_customer_id is missing (webhook missed, or subscription created
+      // manually in Stripe Dashboard), recover it by searching Stripe by email.
+      // We ask Clerk for the authoritative email list instead of trusting the DB
+      // value, which may be a fake placeholder (clerk_xxx@noemail.local).
+      if (!stripeCustomerId) {
+        const emailsToSearch: string[] = [];
+        try {
+          const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
+          const clerkUser = await clerk.users.getUser(clerkId);
+          for (const ea of clerkUser.emailAddresses) {
+            emailsToSearch.push(ea.emailAddress);
+          }
+        } catch {
+          // Clerk lookup failed — fall back to DB email if it isn't a placeholder
+        }
+        if (
+          user.email &&
+          !user.email.includes('@noemail.local') &&
+          !emailsToSearch.includes(user.email)
+        ) {
+          emailsToSearch.push(user.email);
+        }
+
+        for (const email of emailsToSearch) {
+          const customers = await getStripe().customers.list({ email, limit: 1 } as any);
+          if (customers.data.length > 0) {
+            stripeCustomerId = customers.data[0].id;
+            await prisma.user.update({
+              where: { clerkId },
+              data: { stripe_customer_id: stripeCustomerId, email }
+            });
+            console.log(`[Stripe Portal] Recovered customer via ${email}: ${stripeCustomerId}`);
+            break;
+          }
+        }
+      }
+
+      if (!stripeCustomerId) {
+        return res.status(400).json({ error: 'No Stripe customer found' });
+      }
+
+      const origin =
+        (req.headers.origin && req.headers.origin !== 'null')
+          ? req.headers.origin
+          : 'https://confrontaoroscopo.it';
 
       const session = await getStripe().billingPortal.sessions.create({
-        customer: user.stripe_customer_id,
-        return_url: `${req.headers.origin}/account`
+        customer: stripeCustomerId,
+        return_url: `${origin}/account`
       });
 
       return res.json({ portalUrl: session.url });
@@ -1869,6 +2040,72 @@ Scrivi 1 sola frase breve sulla compatibilità amorosa tra questi due segni.
     } catch (error) {
       console.error("[Contact] Email send error:", error);
       return res.status(500).json({ error: "Errore durante l'invio del messaggio" });
+    }
+  });
+
+  // ─── Push Notifications ──────────────────────────────────────────────────
+
+  // POST /api/notifications/register — save FCM token for the authenticated user
+  app.post('/api/notifications/register', async (req, res) => {
+    try {
+      const clerkId = req.headers['x-clerk-user-id'] as string | undefined;
+      if (!clerkId) return res.status(401).json({ error: 'Unauthorized' });
+
+      const { token } = req.body as { token?: string };
+      if (!token || typeof token !== 'string') {
+        return res.status(400).json({ error: 'FCM token required' });
+      }
+
+      await prisma.user.upsert({
+        where: { clerkId },
+        update: {
+          push_token: token,
+          push_token_updated_at: new Date(),
+        },
+        create: {
+          clerkId,
+          email: `clerk_${clerkId}@noemail.local`,
+          tier: 'free',
+          push_token: token,
+          push_token_updated_at: new Date(),
+        },
+      });
+
+      return res.json({ success: true });
+    } catch (error) {
+      console.error('[Notifications] Register error:', error);
+      return res.status(500).json({ error: 'Failed to register push token' });
+    }
+  });
+
+  // POST /api/notifications/test — send a test push notification (dev only)
+  app.post('/api/notifications/test', async (req, res) => {
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(404).json({ error: 'Not found' });
+    }
+
+    try {
+      const adminSecret = req.headers['x-admin-secret'] as string | undefined;
+      if (adminSecret !== process.env.ADMIN_SECRET) {
+        return res.status(401).json({ error: 'Unauthorized - X-Admin-Secret header required' });
+      }
+
+      const { token, title, body, data } = req.body as {
+        token?: string;
+        title?: string;
+        body?: string;
+        data?: Record<string, string>;
+      };
+
+      if (!token || !title || !body) {
+        return res.status(400).json({ error: 'token, title, and body are required' });
+      }
+
+      const messageId = await sendPushNotification(token, title, body, data);
+      return res.json({ success: true, messageId });
+    } catch (error) {
+      console.error('[Notifications] Test send error:', error);
+      return res.status(500).json({ error: 'Failed to send test notification' });
     }
   });
 

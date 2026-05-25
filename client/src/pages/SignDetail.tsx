@@ -382,35 +382,13 @@ function SignDetail({ sign }: SignDetailProps) {
     enabled: viewType === "daily",
   });
 
-  // Collapse/expand functionality with sessionStorage persistence
+  // Collapse/expand state — in-memory only (intentionally not persisted).
+  // Cards always start collapsed when the user enters the page; the state resets
+  // automatically whenever the component unmounts (i.e. the user leaves the page).
   const [collapsedCards, setCollapsedCards] = useState<Record<number, boolean>>({});
 
-  // Load collapsed state from sessionStorage on mount
-  useEffect(() => {
-    if (!horoscopes || horoscopes.length === 0) return;
-
-    const loadCollapsedState = () => {
-      const savedState: Record<number, boolean> = {};
-      horoscopes.forEach(horoscope => {
-        const key = `signDetail_collapsed_${horoscope.source.id}`;
-        const saved = sessionStorage.getItem(key);
-        if (saved !== null) {
-          savedState[horoscope.source.id] = saved === 'true';
-        }
-      });
-      setCollapsedCards(savedState);
-    };
-
-    loadCollapsedState();
-  }, [horoscopes]);
-
-  // Toggle collapse state and save to sessionStorage
   const toggleCollapse = (sourceId: number) => {
-    setCollapsedCards(prev => {
-      const newState = !prev[sourceId];
-      sessionStorage.setItem(`signDetail_collapsed_${sourceId}`, newState.toString());
-      return { ...prev, [sourceId]: newState };
-    });
+    setCollapsedCards(prev => ({ ...prev, [sourceId]: !prev[sourceId] }));
   };
 
   // Fetch aggregates for this sign

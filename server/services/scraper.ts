@@ -951,7 +951,7 @@ async function scrapeOnlyOroscopoHoroscopeText(url: string, input: ScraperInput)
 
 async function scrapeRepubblicaHoroscopeText(url: string, input: ScraperInput): Promise<ScrapeResult> {
   try {
-    // Special handling for Repubblica.it - first find the actual article URL
+    // Step 1: resolve the index page → actual article URL when needed
     if (url.includes('repubblica.it/oroscopo/') && !url.includes('/news/')) {
       const articleUrl = await findRepubblicaArticleUrl(url, input.dateISO);
 
@@ -965,12 +965,44 @@ async function scrapeRepubblicaHoroscopeText(url: string, input: ScraperInput): 
       url = articleUrl;
     }
 
-    const result = await scrapeHoroscopeText(url, input);
+    // Step 2: fetch and parse with cheerio
+    // d.repubblica.it marks each sign's section with:
+    //   <h2 class="segno-ariete">ARIETE</h2>
+    //   <p>…horoscope text…</p>
+    // The class slug is the lowercased Italian sign name.
+    const html = await fetchHtml(url, input.userAgent);
+    const $ = cheerio.load(html);
 
-    if (result.success) {
-      result.actualUrl = url;
+    const signSlug = input.signSlugIt.toLowerCase(); // e.g. "ariete"
+    const heading = $(`h2.segno-${signSlug}`);
+
+    if (heading.length > 0) {
+      // Collect all consecutive <p> tags that follow the heading until the next h2
+      const paragraphs: string[] = [];
+      let node = heading.next();
+      while (node.length > 0 && !node.is('h2')) {
+        if (node.is('p')) {
+          const text = node.text().trim();
+          if (text) paragraphs.push(text);
+        }
+        node = node.next();
+      }
+
+      const text = paragraphs.join(' ').trim();
+
+      if (text.length > 30) {
+        console.log(`Repubblica.it - Extracted ${text.length} chars for ${input.signSlugIt}`);
+        return { success: true, text, actualUrl: url };
+      }
+
+      console.warn(`Repubblica.it - Heading found for ${input.signSlugIt} but no text after it`);
+    } else {
+      console.warn(`Repubblica.it - h2.segno-${signSlug} not found, falling back to generic scraper`);
     }
 
+    // Step 3: fallback to generic scraper
+    const result = await scrapeHoroscopeText(url, input);
+    if (result.success) result.actualUrl = url;
     return result;
   } catch (error) {
     return {
@@ -1143,125 +1175,87 @@ async function scrapeGazzettaHoroscopeText(url: string, input: ScraperInput): Pr
     const html = await fetchHtml(url, input.userAgent);
     const $ = cheerio.load(html);
 
-    $('script, style, nav, header, footer, iframe, noscript').remove();
-
     const zodiacName = input.signSlugIt.toLowerCase();
-    const domain = 'gazzetta.it';
+    const signCapitalized = zodiacName.charAt(0).toUpperCase() + zodiacName.slice(1);
 
+    // ── Strategy 1: JSON-LD articleBody ──────────────────────────────────────
+    // Gazzetta embeds the full 12-sign article in a JSON-LD <script>.
+    // The articleBody is a single string concatenating all 12 signs, each block
+    // starting with "Nato sotto il segno ...".  Split on that delimiter and find
+    // the chunk whose first ~100 chars contain our sign name.
     let bestContent = '';
-    let highestScore = 0;
 
-    // Look for the main article content that contains all sections
-    const articlePatterns = [
-      /<article[^>]*>([\s\S]*?)<\/article>/gi,
-      /<div[^>]*class="[^"]*story[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
-      /<div[^>]*class="[^"]*article[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
-      /<main[^>]*>([\s\S]*?)<\/main>/gi
-    ];
+    $('script[type="application/ld+json"]').each((_, el) => {
+      if (bestContent) return; // already found
+      try {
+        const json = JSON.parse($(el).html() || '');
+        const articleBody: string = json.articleBody || '';
+        if (!articleBody) return;
 
-    for (const pattern of articlePatterns) {
-      let match;
-      while ((match = pattern.exec(html)) !== null) {
-        let content = match[1];
-
-        // Extract text content while preserving section structure
-        let processedContent = content
-          // Convert section headers to clear markers
-          .replace(/(?:<[^>]*>)*\s*La tua giornata\s*[:\s]*(?:<[^>]*>)*/gi, '\n\nLA TUA GIORNATA:\n')
-          .replace(/(?:<[^>]*>)*\s*Amore\s*[:\s]*(?:<[^>]*>)*/gi, '\n\nAMORE:\n')
-          .replace(/(?:<[^>]*>)*\s*Amicizia\s*[:\s]*(?:<[^>]*>)*/gi, '\n\nAMICIZIA:\n')
-          .replace(/(?:<[^>]*>)*\s*Lavoro\s*[:\s]*(?:<[^>]*>)*/gi, '\n\nLAVORO:\n')
-          .replace(/(?:<[^>]*>)*\s*Valutazione\s+generale\s*[:\s]*(?:<[^>]*>)*/gi, '\n\nVALUTAZIONE GENERALE:\n')
-          // Clean HTML tags and entities
-          .replace(/<br[^>]*>/gi, '\n')
-          .replace(/<\/p>\s*<p[^>]*>/gi, '\n\n')
-          .replace(/<p[^>]*>/gi, '\n')
-          .replace(/<\/p>/gi, '\n')
-          .replace(/<[^>]*>/g, ' ')
-          .replace(/&nbsp;/g, ' ')
-          .replace(/&amp;/g, '&')
-          .replace(/&lt;/g, '<')
-          .replace(/&gt;/g, '>')
-          .replace(/&quot;/g, '"')
-          .replace(/&#39;/g, "'")
-          .replace(/&#8217;/g, "'")
-          .replace(/&#8220;/g, '"')
-          .replace(/&#8221;/g, '"')
-          .replace(/&#8211;/g, '-')
-          .replace(/&#8212;/g, '—')
-          .replace(/&hellip;/g, '...')
-          .replace(/\s+/g, ' ')
-          .replace(/\n[ \t]+/g, '\n')
-          .replace(/\n{3,}/g, '\n\n')
-          .trim();
-
-        // Check if this content contains the key sections
-        const hasMainSections = /LA TUA GIORNATA[\s\S]*AMORE[\s\S]*AMICIZIA[\s\S]*LAVORO/i.test(processedContent);
-        const containsZodiacSign = processedContent.toLowerCase().includes(input.signSlugIt.toLowerCase());
-
-        if (hasMainSections && containsZodiacSign && processedContent.length > 200) {
-          const currentScore = scoreHoroscopeContent(processedContent, zodiacName, domain);
-          console.log(`Gazzetta.it - Found structured content with score ${currentScore} (length: ${processedContent.length})`);
-
-          if (currentScore > highestScore) {
-            highestScore = currentScore;
-            bestContent = processedContent;
+        // Split on every "Nato sotto il segno" occurrence
+        const sections = articleBody.split(/Nato sotto il segno/i);
+        for (const section of sections) {
+          // The sign name appears within the first ~80 chars of each chunk
+          if (new RegExp(signCapitalized, 'i').test(section.substring(0, 80))) {
+            let raw = ('Nato sotto il segno' + section).replace(/\s+/g, ' ').trim();
+            // Strip the "Nato sotto il segno X: PersonName" intro — start from
+            // "La tua giornata" which is the first real horoscope paragraph.
+            const laTuaIdx = raw.search(/La tua giornata/i);
+            if (laTuaIdx > 0) raw = raw.substring(laTuaIdx);
+            bestContent = raw;
+            console.log(`Gazzetta.it - Extracted from JSON-LD articleBody, length: ${bestContent.length}`);
+            break;
           }
         }
+      } catch {
+        // JSON parse failed, continue to next strategy
       }
-    }
+    });
 
-    // If no structured content found, try extracting all paragraphs in order
-    if (!bestContent || highestScore < 50) {
-      console.log('Gazzetta.it - Trying paragraph extraction fallback');
-
-      const paragraphPattern = /<p[^>]*>([^<]*(?:<[^>]*>[^<]*)*)<\/p>/gi;
-      const paragraphs = [];
-      let match;
-
-      while ((match = paragraphPattern.exec(html)) !== null) {
-        const pContent = match[1]
-          .replace(/<[^>]*>/g, ' ')
-          .replace(/&[^;]+;/g, ' ')
-          .replace(/\s+/g, ' ')
-          .trim();
-
-        if (pContent.length > 20) {
-          paragraphs.push(pContent);
-        }
-      }
-
-      if (paragraphs.length > 0) {
-        const combinedContent = paragraphs.join('\n\n');
-        const combinedScore = scoreHoroscopeContent(combinedContent, zodiacName, domain);
-
-        if (combinedScore > highestScore) {
-          bestContent = combinedContent;
-          highestScore = combinedScore;
-        }
-      }
-    }
-
-    if (!bestContent || highestScore < 20) {
+    if (bestContent) {
       return {
-        success: false,
-        error: `No substantial horoscope content found for ${input.signSlugIt} on Gazzetta.it`
+        success: true,
+        text: bestContent.substring(0, 3500),
+        url,
+        actualUrl: url,
       };
     }
 
-    console.log(`Gazzetta.it - Final extraction score: ${highestScore}, length: ${bestContent.length}`);
+    // ── Strategy 2: p.paragraph cheerio extraction ───────────────────────────
+    // Each Gazzetta sign page has its horoscope text inside <p class="paragraph">
+    // elements within the card module.  After stripping chrome (nav/header/footer)
+    // these paragraphs contain only the relevant sign's content.
+    console.log('Gazzetta.it - JSON-LD strategy failed, trying p.paragraph extraction');
+
+    $('script, style, nav, header, footer, iframe, noscript').remove();
+
+    const paragraphs: string[] = [];
+    $('p.paragraph').each((_, el) => {
+      const text = $(el).text().replace(/\s+/g, ' ').trim();
+      // Skip the "Nato sotto il segno X: PersonName" intro paragraph
+      if (text.length > 10 && !/^Nato sotto il segno/i.test(text)) paragraphs.push(text);
+    });
+
+    if (paragraphs.length >= 3) {
+      bestContent = paragraphs.join('\n\n');
+      console.log(`Gazzetta.it - Extracted ${paragraphs.length} paragraphs via cheerio, length: ${bestContent.length}`);
+      return {
+        success: true,
+        text: bestContent.substring(0, 3500),
+        url,
+        actualUrl: url,
+      };
+    }
 
     return {
-      success: true,
-      text: bestContent.substring(0, 3500),
-      url,
-      actualUrl: url
+      success: false,
+      error: `No substantial horoscope content found for ${input.signSlugIt} on Gazzetta.it`,
     };
 
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown Gazzetta.it scraping error'
+      error: error instanceof Error ? error.message : 'Unknown Gazzetta.it scraping error',
     };
   }
 }
@@ -1933,70 +1927,82 @@ async function scrapeVogueHoroscopeText(url: string, input: ScraperInput): Promi
     const zodiacNameLower = input.signSlugIt.toLowerCase();
     let extractedText = '';
 
-    // STRATEGIA: Trova H2 che contiene "Oroscopo di oggi dell'[Segno]"
-    // e prendi il PRIMO <p> dopo quell'H2 (ma PRIMA del prossimo H2/H3)
-    
-    const h2Elements = $('h2');
-    let targetH2: any = null;
-
-    h2Elements.each((_, h2) => {
-      const text = $(h2).text().trim().toLowerCase();
-      // Cerca "oroscopo di oggi" + nome segno
-      if (text.includes('oroscopo di oggi') && text.includes(zodiacNameLower)) {
-        targetH2 = h2;
-        return false; // break
-      }
+    // Strategy 1: JSON-LD articleBody — most reliable, unaffected by CSS class changes
+    $('script[type="application/ld+json"]').each((_, el) => {
+      if (extractedText) return;
+      try {
+        const rawData = JSON.parse($(el).html() || '{}');
+        const data = Array.isArray(rawData) ? rawData[0] : rawData;
+        const body: string = data?.articleBody || '';
+        if (!body) return;
+        // articleBody starts with "Oroscopo di oggi del [Sign]\n" — skip the heading line
+        const newlineIdx = body.indexOf('\n');
+        const textAfterHeading = newlineIdx !== -1 ? body.slice(newlineIdx + 1).trim() : body.trim();
+        if (textAfterHeading.length > 50) {
+          extractedText = textAfterHeading;
+          console.log(`Vogue.it - JSON-LD articleBody extracted: ${extractedText.length} chars`);
+        }
+      } catch { /* malformed JSON-LD, skip */ }
     });
 
-    if (targetH2) {
-      console.log(`Vogue.it - Found target H2: "${$(targetH2).text().trim()}"`);
+    // Strategy 2: Trova H2 che contiene "Oroscopo di oggi dell'[Segno]"
+    // e prendi i <p> dopo quell'H2 dentro lo stesso container (body__inner-container)
+    if (!extractedText || extractedText.length < 50) {
+      let targetH2: any = null;
 
-      // Estrai i paragrafi immediatamente dopo questo H2
-      const paragraphs: string[] = [];
-      let foundEnough = false;
-
-      $(targetH2).nextAll().each((_, elem) => {
-        const tag = ((elem as any).tagName || '').toLowerCase();
-
-        // Stop se incontri un altro H2 o H3
-        if (tag === 'h2' || tag === 'h3') {
-          foundEnough = true;
+      $('h2').each((_, h2) => {
+        const text = $(h2).text().trim().toLowerCase();
+        if (text.includes('oroscopo di oggi') && text.includes(zodiacNameLower)) {
+          targetH2 = h2;
           return false; // break
-        }
-
-        if (tag === 'p') {
-          const text = $(elem).text().trim().replace(/\s+/g, ' ');
-          if (text.length > 30) {
-            paragraphs.push(text);
-          }
         }
       });
 
-      if (paragraphs.length > 0) {
-        extractedText = paragraphs.join('\n\n');
-        console.log(`Vogue.it - Extracted ${paragraphs.length} paragraphs, ${extractedText.length} chars`);
+      if (targetH2) {
+        console.log(`Vogue.it - Found target H2: "${$(targetH2).text().trim()}"`);
+
+        const paragraphs: string[] = [];
+
+        // Try direct siblings first
+        $(targetH2).nextAll().each((_, elem) => {
+          const tag = ((elem as any).tagName || '').toLowerCase();
+          if (tag === 'h2' || tag === 'h3') return false; // break
+          if (tag === 'p') {
+            const text = $(elem).text().trim().replace(/\s+/g, ' ');
+            if (text.length > 30) paragraphs.push(text);
+          }
+        });
+
+        // If nothing found as siblings, look within the parent container
+        if (paragraphs.length === 0) {
+          const parent = $(targetH2).parent();
+          parent.find('p').each((_, p) => {
+            const text = $(p).text().trim().replace(/\s+/g, ' ');
+            if (text.length > 30) paragraphs.push(text);
+          });
+        }
+
+        if (paragraphs.length > 0) {
+          extractedText = paragraphs.join('\n\n');
+          console.log(`Vogue.it - H2 strategy extracted ${paragraphs.length} paragraphs, ${extractedText.length} chars`);
+        }
       }
     }
 
-    // Fallback: se non trovi il pattern, usa la strategia generica
+    // Strategy 3: .body__inner-container — find the p immediately after the sign heading
     if (!extractedText || extractedText.length < 50) {
-      console.log('Vogue.it - Fallback to generic paragraph extraction');
-      
-      const allParagraphs: string[] = [];
-      $('p').each((_, p) => {
-        const text = $(p).text().trim();
-        if (text.length > 30) {
-          allParagraphs.push(text);
+      console.log('Vogue.it - Trying body__inner-container strategy');
+      const container = $('[class*="body__inner-container"]').first();
+      if (container.length > 0) {
+        const paragraphs: string[] = [];
+        container.find('p').each((_, p) => {
+          const text = $(p).text().trim().replace(/\s+/g, ' ');
+          if (text.length > 30) paragraphs.push(text);
+        });
+        if (paragraphs.length > 0) {
+          extractedText = paragraphs.join('\n\n');
+          console.log(`Vogue.it - body__inner-container extracted ${paragraphs.length} paragraphs`);
         }
-      });
-
-      if (allParagraphs.length > 0) {
-        const bestScore = Math.max(
-          ...allParagraphs.map(t => scoreHoroscopeContent(t, zodiacNameLower, 'vogue.it'))
-        );
-        extractedText = allParagraphs[
-          allParagraphs.findIndex(t => scoreHoroscopeContent(t, zodiacNameLower, 'vogue.it') === bestScore)
-        ];
       }
     }
 

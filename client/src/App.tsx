@@ -17,6 +17,7 @@ const Privacy = lazy(() => import("@/pages/Privacy"));
 const Terms = lazy(() => import("@/pages/Terms"));
 const Contact = lazy(() => import("@/pages/Contact"));
 const Editoriale = lazy(() => import("@/pages/Editoriale"));
+const SsoCallback = lazy(() => import("@/pages/SsoCallback"));
 
 function Footer() {
   return (
@@ -82,6 +83,7 @@ function Router() {
           <Route path="/terms" component={Terms} />
           <Route path="/editoriale" component={Editoriale} />
           <Route path="/contact" component={Contact} />
+          <Route path="/sso-callback" component={SsoCallback} />
           <Route component={NotFound} />
         </Switch>
       </Suspense>

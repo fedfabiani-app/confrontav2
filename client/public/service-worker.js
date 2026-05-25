@@ -1,4 +1,4 @@
-const CACHE_NAME = 'oroscopo-italiano-v2';
+const CACHE_NAME = 'oroscopo-italiano-v3';
 const CACHE_URLS = [
   '/',
   '/manifest.json',

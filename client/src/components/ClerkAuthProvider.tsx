@@ -1,12 +1,30 @@
 import { ReactNode, useState, useEffect } from 'react';
 import { ClerkProvider, useUser } from '@clerk/clerk-react';
+import { Capacitor } from '@capacitor/core';
+import { useLocation } from 'wouter';
 import { AuthContext, AuthContextValue, defaultAuthState } from '../contexts/auth-context';
+import { initPushNotifications } from '../services/pushNotifications';
 
 function ClerkAuthSync({ children }: { children: ReactNode }) {
   const { isLoaded, isSignedIn, user } = useUser();
+  const [, navigate] = useLocation();
   const [state, setState] = useState<AuthContextValue>({ ...defaultAuthState, isLoading: true });
 
   const userId = user?.id;
+
+  // Initialize push notifications once per authenticated user session.
+  // No-op on web (guarded by Capacitor.isNativePlatform() inside the service).
+  useEffect(() => {
+    if (!userId) return;
+    initPushNotifications(userId, {
+      onTapped: (action) => {
+        const route = (action.notification.data as Record<string, string> | undefined)?.route;
+        if (route) navigate(route);
+      },
+    }).catch((err) => {
+      console.error('[PushNotifications] Init error:', err);
+    });
+  }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -106,8 +124,19 @@ export function ClerkAuthProvider({
   publishableKey: string;
   children: ReactNode;
 }) {
+  // On native (Capacitor), Clerk needs to know it can redirect back to the
+  // Railway production URL loaded inside the WebView. Without this, Clerk's
+  // post-OAuth redirect may be rejected as an untrusted origin.
+  const isNative = Capacitor.isNativePlatform();
+  const allowedRedirectOrigins = isNative
+    ? [window.location.origin, 'confrontaoroscopo://']
+    : undefined;
+
   return (
-    <ClerkProvider publishableKey={publishableKey}>
+    <ClerkProvider
+      publishableKey={publishableKey}
+      {...(allowedRedirectOrigins ? { allowedRedirectOrigins } : {})}
+    >
       <ClerkAuthSync>{children}</ClerkAuthSync>
     </ClerkProvider>
   );

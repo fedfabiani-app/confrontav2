@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "8017658699",
+    "project_id": "confronta-oroscopo",
+    "storage_bucket": "confronta-oroscopo.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:8017658699:android:938e04719ba3e53f82dece",
+        "android_client_info": {
+          "package_name": "com.confrontaoroscopo.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "275200197049-g7aq97jjcb4q9rj6d0oavnim6l299pi3.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.confrontaoroscopo.app",
+            "certificate_hash": "305923a1f49f40156a7ec0a08b0bfa9366ad4fb2"
+          }
+        },
+        {
+          "client_id": "275200197049-fq0joiag0s3i6bjqngb6dc7v9g10jgkm.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDIcELhTsrlx-Ro7Q_r88Re9k-UOuCYq8w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "275200197049-fq0joiag0s3i6bjqngb6dc7v9g10jgkm.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

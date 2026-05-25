@@ -1,13 +1,33 @@
 import { useRef, useState, useEffect } from 'react';
 import { useClerk } from '@clerk/clerk-react';
 import { useLocation } from 'wouter';
+import { User } from 'lucide-react';
 import { useAuth } from '../hooks/use-auth';
 import { useAccess } from '../hooks/use-access';
+
+// Isolated sub-component so useClerk() is only called when the user
+// is already authenticated (i.e. ClerkProvider is guaranteed to be in
+// the tree).  If this component never mounts there is no crash.
+function SignOutMenuItem({ onBeforeSignOut }: { onBeforeSignOut: () => void }) {
+  const { signOut } = useClerk();
+  const [, navigate] = useLocation();
+  return (
+    <MenuItem
+      onClick={async () => {
+        onBeforeSignOut();
+        await signOut();
+        navigate('/');
+      }}
+      className="text-white/50 hover:text-white/80"
+    >
+      Esci
+    </MenuItem>
+  );
+}
 
 export function UserMenu() {
   const { isLoggedIn, isLoading, user } = useAuth();
   const { userTier } = useAccess();
-  const { signOut } = useClerk();
   const [, navigate] = useLocation();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -27,10 +47,11 @@ export function UserMenu() {
     return (
       <button
         onClick={() => navigate('/login')}
-        className="px-3 py-1.5 rounded-full text-sm font-medium text-white transition-colors hover:bg-white/10"
+        className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 text-white/70 hover:text-white transition-colors focus:outline-none"
         style={{ border: '1px solid rgba(255,255,255,0.3)' }}
+        aria-label="Accedi"
       >
-        Accedi
+        <User size={18} strokeWidth={1.75} />
       </button>
     );
   }
@@ -86,12 +107,7 @@ export function UserMenu() {
 
           {/* Separator + logout */}
           <div className="border-t border-white/10 mt-1 pt-1">
-            <MenuItem
-              onClick={async () => { setOpen(false); await signOut(); navigate('/'); }}
-              className="text-white/50 hover:text-white/80"
-            >
-              Esci
-            </MenuItem>
+            <SignOutMenuItem onBeforeSignOut={() => setOpen(false)} />
           </div>
         </div>
       )}

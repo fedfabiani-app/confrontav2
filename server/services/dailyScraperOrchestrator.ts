@@ -10,8 +10,9 @@ export interface DailyScraperOptions {
   targetDate: string;
   forceRescrape?: boolean;
   specificSources?: number[];
+  excludeSources?: number[];
   dryRun?: boolean;
-  triggerType?: 'scheduled' | 'fallback' | 'manual';
+  triggerType?: 'scheduled' | 'fallback' | 'manual' | 'late_start';
 }
 
 export interface DailyScraperStats {
@@ -88,7 +89,7 @@ function isAlreadyProcessed(
 
 async function createExecutionRecord(
   targetDate: string,
-  triggerType: 'scheduled' | 'fallback' | 'manual'
+  triggerType: 'scheduled' | 'fallback' | 'manual' | 'late_start'
 ): Promise<number> {
   const targetDateObj = new Date(targetDate + 'T00:00:00.000Z');
   
@@ -220,6 +221,8 @@ export async function runDailyScraperCycle(
         is_active: true,
         ...(options.specificSources && options.specificSources.length > 0
           ? { id: { in: options.specificSources } }
+          : options.excludeSources && options.excludeSources.length > 0
+          ? { id: { notIn: options.excludeSources } }
           : {}),
       },
       orderBy: { id: 'asc' },
