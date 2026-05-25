@@ -1197,7 +1197,12 @@ async function scrapeGazzettaHoroscopeText(url: string, input: ScraperInput): Pr
         for (const section of sections) {
           // The sign name appears within the first ~80 chars of each chunk
           if (new RegExp(signCapitalized, 'i').test(section.substring(0, 80))) {
-            bestContent = ('Nato sotto il segno' + section).replace(/\s+/g, ' ').trim();
+            let raw = ('Nato sotto il segno' + section).replace(/\s+/g, ' ').trim();
+            // Strip the "Nato sotto il segno X: PersonName" intro — start from
+            // "La tua giornata" which is the first real horoscope paragraph.
+            const laTuaIdx = raw.search(/La tua giornata/i);
+            if (laTuaIdx > 0) raw = raw.substring(laTuaIdx);
+            bestContent = raw;
             console.log(`Gazzetta.it - Extracted from JSON-LD articleBody, length: ${bestContent.length}`);
             break;
           }
@@ -1227,7 +1232,8 @@ async function scrapeGazzettaHoroscopeText(url: string, input: ScraperInput): Pr
     const paragraphs: string[] = [];
     $('p.paragraph').each((_, el) => {
       const text = $(el).text().replace(/\s+/g, ' ').trim();
-      if (text.length > 10) paragraphs.push(text);
+      // Skip the "Nato sotto il segno X: PersonName" intro paragraph
+      if (text.length > 10 && !/^Nato sotto il segno/i.test(text)) paragraphs.push(text);
     });
 
     if (paragraphs.length >= 3) {
