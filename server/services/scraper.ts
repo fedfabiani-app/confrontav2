@@ -951,7 +951,7 @@ async function scrapeOnlyOroscopoHoroscopeText(url: string, input: ScraperInput)
 
 async function scrapeRepubblicaHoroscopeText(url: string, input: ScraperInput): Promise<ScrapeResult> {
   try {
-    // Special handling for Repubblica.it - first find the actual article URL
+    // Step 1: resolve the index page → actual article URL when needed
     if (url.includes('repubblica.it/oroscopo/') && !url.includes('/news/')) {
       const articleUrl = await findRepubblicaArticleUrl(url, input.dateISO);
 
@@ -965,12 +965,44 @@ async function scrapeRepubblicaHoroscopeText(url: string, input: ScraperInput): 
       url = articleUrl;
     }
 
-    const result = await scrapeHoroscopeText(url, input);
+    // Step 2: fetch and parse with cheerio
+    // d.repubblica.it marks each sign's section with:
+    //   <h2 class="segno-ariete">ARIETE</h2>
+    //   <p>…horoscope text…</p>
+    // The class slug is the lowercased Italian sign name.
+    const html = await fetchHtml(url, input.userAgent);
+    const $ = cheerio.load(html);
 
-    if (result.success) {
-      result.actualUrl = url;
+    const signSlug = input.signSlugIt.toLowerCase(); // e.g. "ariete"
+    const heading = $(`h2.segno-${signSlug}`);
+
+    if (heading.length > 0) {
+      // Collect all consecutive <p> tags that follow the heading until the next h2
+      const paragraphs: string[] = [];
+      let node = heading.next();
+      while (node.length > 0 && !node.is('h2')) {
+        if (node.is('p')) {
+          const text = node.text().trim();
+          if (text) paragraphs.push(text);
+        }
+        node = node.next();
+      }
+
+      const text = paragraphs.join(' ').trim();
+
+      if (text.length > 30) {
+        console.log(`Repubblica.it - Extracted ${text.length} chars for ${input.signSlugIt}`);
+        return { success: true, text, actualUrl: url };
+      }
+
+      console.warn(`Repubblica.it - Heading found for ${input.signSlugIt} but no text after it`);
+    } else {
+      console.warn(`Repubblica.it - h2.segno-${signSlug} not found, falling back to generic scraper`);
     }
 
+    // Step 3: fallback to generic scraper
+    const result = await scrapeHoroscopeText(url, input);
+    if (result.success) result.actualUrl = url;
     return result;
   } catch (error) {
     return {
