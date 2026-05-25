@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect } from 'react';
 import { useClerk } from '@clerk/clerk-react';
 import { useLocation } from 'wouter';
+import { User } from 'lucide-react';
 import { useAuth } from '../hooks/use-auth';
 import { useAccess } from '../hooks/use-access';
 
@@ -46,10 +47,11 @@ export function UserMenu() {
     return (
       <button
         onClick={() => navigate('/login')}
-        className="px-3 py-1.5 rounded-full text-sm font-medium text-white transition-colors hover:bg-white/10"
+        className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 text-white/70 hover:text-white transition-colors focus:outline-none"
         style={{ border: '1px solid rgba(255,255,255,0.3)' }}
+        aria-label="Accedi"
       >
-        Accedi
+        <User size={18} strokeWidth={1.75} />
       </button>
     );
   }
