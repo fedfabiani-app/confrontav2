@@ -1911,14 +1911,18 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
       console.log(`[FALLBACK] JSON-LD Strategy 0 insufficient (<50 chars), using DOM Strategy 1+`);
 
       // Strategy 1: Try H3 headings (most likely for Fanpage)
+      // Use startsWith to avoid matching intro paragraphs that mention the sign in passing
+      // e.g. "Scorpione (23 ottobre – 21 novembre)" → correct
+      // e.g. intro text containing "Scorpione e Acquario" → skip (those are in <p> not <h3>, but be safe)
       $('h3').each((_, h3) => {
         const $h3 = $(h3);
         const h3Text = $h3.text().trim().toLowerCase();
+        const signLower = input.signSlugIt.toLowerCase();
 
-        // Check for exact match or "Oroscopo [sign]" pattern
-        if (h3Text === input.signSlugIt.toLowerCase() ||
-            h3Text === `oroscopo ${input.signSlugIt.toLowerCase()}` ||
-            h3Text.includes(input.signSlugIt.toLowerCase())) {
+        // Exact match or "Oroscopo [sign]" or starts-with (covers "Sign (dates)" format)
+        if (h3Text === signLower ||
+            h3Text === `oroscopo ${signLower}` ||
+            h3Text.startsWith(signLower)) {
           signHeading = $h3;
           console.log(`[Strategy 1 H3] Found heading: "${h3Text}"`);
           return false; // Break loop
@@ -1959,12 +1963,16 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
 
       // If we found a heading, extract content
       if (signHeading.length > 0) {
-        let currentElement = signHeading.parent();
+        // Start from the h3 itself; the loop immediately calls .next() so the first
+        // element examined will be the first sibling AFTER the h3 (the actual paragraphs).
+        // Previously this was signHeading.parent(), which caused .next() to jump to
+        // siblings of the container div instead of the h3's own next-siblings.
+        let currentElement = signHeading;
         let paragraphCount = 0;
         let searchDepth = 0;
         const maxDepth = 20;
 
-        // Start from the parent and look for siblings
+        // Walk the siblings that follow the sign heading
         while (currentElement.length > 0 && searchDepth < maxDepth) {
           searchDepth++;
           currentElement = currentElement.next();
