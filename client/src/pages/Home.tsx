@@ -358,8 +358,6 @@ export default function Home() {
             </div>
           </div>
         )}
-        
-
         <UpgradeBanner context="sync" className="mb-4" />
 
         {/* Loading State */}
@@ -432,7 +430,7 @@ export default function Home() {
       />
 
       {/* Bottom spacing for mobile navigation */}
-      <div className="h-5 md:h-0"></div>
+      <div className="h-2 md:h-0"></div>
 
       {premiumOverlay && (
         <PremiumGateOverlay

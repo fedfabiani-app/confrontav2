@@ -2077,6 +2077,58 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
     }
     // FINE CODICE FANPAGE
 
+    // CODICE PER HARPER'S BAZAAR
+    // Special handling for Harper's Bazaar - single page with all signs.
+    // Structure: <p><strong>SignName</strong></p> followed by intervening divs
+    // (piano paywall, lazy-load breakpoints) then <p>horoscope text</p>.
+    // The generic scorer incorrectly picks the intro paragraph (high keyword density).
+    if (url.includes('harpersbazaar.com')) {
+      const signId = (SIGN_MAP[input.signSlugIt] || input.signSlugIt).toLowerCase();
+      const zodiacSignsLower = [
+        'ariete','toro','gemelli','cancro','leone','vergine',
+        'bilancia','scorpione','sagittario','capricorno','acquario','pesci'
+      ];
+
+      // Target the article body container to avoid nav/footer paragraphs
+      const $body = $('[data-journey-body], .article-body-content, .article-body').first();
+      const container = $body.length > 0 ? $body : $('main, article').first();
+
+      // Collect all <p> elements in document order (skips intervening divs automatically)
+      const allParagraphs = container.find('p').toArray();
+
+      // Find the sign header paragraph: <p><strong>SignName</strong></p>
+      let signParagraphIndex = -1;
+      for (let i = 0; i < allParagraphs.length; i++) {
+        const $p = $(allParagraphs[i]);
+        const pText = $p.text().trim().toLowerCase();
+        if (pText === signId) {
+          signParagraphIndex = i;
+          break;
+        }
+      }
+
+      if (signParagraphIndex >= 0) {
+        // Walk forward through paragraphs to find the first substantial one
+        for (let i = signParagraphIndex + 1; i < allParagraphs.length; i++) {
+          const $p = $(allParagraphs[i]);
+          const text = $p.text().trim();
+          // Stop at the next sign's header paragraph
+          const isNextSignHeader = zodiacSignsLower.some(s => text.toLowerCase() === s);
+          if (isNextSignHeader) break;
+          // Return the first substantial paragraph
+          if (text.length > 30) {
+            return { success: true, text: text.substring(0, 3500), url };
+          }
+        }
+      }
+
+      return {
+        success: false,
+        error: `Could not extract weekly content for ${input.signSlugIt} from Harper's Bazaar page`
+      };
+    }
+    // FINE CODICE HARPER'S BAZAAR
+
     // Special handling for OnlyOroscopo - single page with weekly content
     if (url.includes('onlyoroscopo.it') || url.includes('onlyoroscopo.com')) {
 
