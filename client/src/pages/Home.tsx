@@ -358,32 +358,34 @@ export default function Home() {
             </div>
           </div>
         )}
+        
+<UpgradeBanner context="sync" />
 
-        <UpgradeBanner context="sync" />
-
-        {/* Loading State */}
-        {isLoading && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-            {Array.from({ length: 12 }, (_, i) => (
-              <div
-                key={i}
-                className="bg-card border border-border rounded-lg p-4 animate-pulse"
-              >
-                <div className="flex items-center space-x-3 mb-4">
-                  <div className="w-10 h-10 bg-muted rounded-full"></div>
-                  <div>
-                    <div className="h-4 bg-muted rounded w-20 mb-1"></div>
-                    <div className="h-3 bg-muted rounded w-24"></div>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <div className="h-3 bg-muted rounded"></div>
-                  <div className="h-3 bg-muted rounded w-3/4"></div>
-                </div>
-              </div>
-            ))}
+{/* Loading State */}
+{isLoading && (
+  <div className="pt-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+      {Array.from({ length: 12 }, (_, i) => (
+        <div
+          key={i}
+          className="bg-card border border-border rounded-lg p-4 animate-pulse"
+        >
+          <div className="flex items-center space-x-3 mb-4">
+            <div className="w-10 h-10 bg-muted rounded-full"></div>
+            <div>
+              <div className="h-4 bg-muted rounded w-20 mb-1"></div>
+              <div className="h-3 bg-muted rounded w-24"></div>
+            </div>
           </div>
-        )}
+          <div className="space-y-2">
+            <div className="h-3 bg-muted rounded"></div>
+            <div className="h-3 bg-muted rounded w-3/4"></div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
 
         {/* Zodiac Grid */}
         {!isLoading && (
