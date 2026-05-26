@@ -2204,6 +2204,76 @@ async function scrapeHoroscopeText(url: string, input: ScraperInput): Promise<Sc
     if (url.includes('fanpage.it')) {
       return await scrapeFanpageHoroscopeText(url, input);
     }
+
+    // Special handling for Il Gazzettino
+    if (url.includes('ilgazzettino.it')) {
+      return await scrapeIlGazzettinoHoroscopeText(url, input);
+    }
+
+// ============================================================================
+// IL GAZZETTINO — Handler dedicato
+// ============================================================================
+async function scrapeIlGazzettinoHoroscopeText(url: string, input: ScraperInput): Promise<ScrapeResult> {
+  try {
+    console.log('Il Gazzettino - Starting dedicated scraping for:', input.signSlugIt);
+
+    const html = await fetchHtml(url, input.userAgent);
+    const $ = cheerio.load(html);
+
+    // The horoscope text lives in <div id="oroscopo"> → <article> → <p class="testo">
+    // The page also has a poll sidebar with <p class="titolo"> that must NOT be picked up.
+    let extractedText = '';
+
+    // Strategy 1: precise selector — <p class="testo"> inside #oroscopo
+    const preciseParagraphs: string[] = [];
+    $('#oroscopo p.testo').each((_, el) => {
+      const text = $(el).text().trim();
+      if (text.length > 20) preciseParagraphs.push(text);
+    });
+
+    if (preciseParagraphs.length > 0) {
+      extractedText = preciseParagraphs.join('\n\n');
+      console.log(`Il Gazzettino - ✓ Strategy 1 (#oroscopo p.testo): ${extractedText.length} chars`);
+    }
+
+    // Strategy 2: any <p> inside #oroscopo (excluding titolo/caption classes)
+    if (!extractedText || extractedText.length < 50) {
+      console.log('Il Gazzettino - Trying Strategy 2: #oroscopo p (excluding .titolo)...');
+      const fallbackParagraphs: string[] = [];
+      $('#oroscopo p').each((_, el) => {
+        const classes = ($(el).attr('class') || '').split(/\s+/);
+        // Skip poll/title/caption paragraphs
+        if (classes.some(c => ['titolo', 'title', 'caption', 'didascalia'].includes(c))) return;
+        const text = $(el).text().trim();
+        if (text.length > 30) fallbackParagraphs.push(text);
+      });
+      if (fallbackParagraphs.length > 0) {
+        extractedText = fallbackParagraphs.join('\n\n');
+        console.log(`Il Gazzettino - ✓ Strategy 2 (#oroscopo p): ${extractedText.length} chars`);
+      }
+    }
+
+    if (!extractedText || extractedText.length < 30) {
+      return {
+        success: false,
+        error: `Il Gazzettino - no horoscope text found for ${input.signSlugIt}`,
+      };
+    }
+
+    return {
+      success: true,
+      text: extractedText.substring(0, 3500),
+      url,
+      actualUrl: url,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown Il Gazzettino scraping error',
+    };
+  }
+}
+
 // ============================================================================
 // GRAZIA.IT — Handler dedicato
 // ============================================================================
