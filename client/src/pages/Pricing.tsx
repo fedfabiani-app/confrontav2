@@ -35,12 +35,16 @@ export default function Pricing() {
   const { user } = useUser();
 
   const handleCheckout = async (priceId: string) => {
+    if (!user) {
+      navigate('/login?redirect=/pricing');
+      return;
+    }
     try {
       const response = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-clerk-user-id': user?.id || ''
+          'x-clerk-user-id': user.id
         },
         body: JSON.stringify({ priceId })
       });

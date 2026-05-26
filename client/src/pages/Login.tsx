@@ -528,12 +528,15 @@ export default function Login() {
   const { isLoggedIn, isLoading } = useAuth();
   const [, navigate] = useLocation();
 
+  // Support ?redirect=<path> so callers can bounce the user back after login
+  const redirectTo = new URLSearchParams(window.location.search).get('redirect') || '/';
+
   useEffect(() => {
     if (!isLoading && isLoggedIn) {
       trackLogin('google', true);
-      navigate('/');
+      navigate(redirectTo);
     }
-  }, [isLoggedIn, isLoading, navigate]);
+  }, [isLoggedIn, isLoading, navigate, redirectTo]);
 
   if (isLoading || isLoggedIn) return null;
 
@@ -544,8 +547,8 @@ export default function Login() {
       ) : (
         <SignIn
           routing="virtual"
-          fallbackRedirectUrl="/"
-          signUpFallbackRedirectUrl="/"
+          fallbackRedirectUrl={redirectTo}
+          signUpFallbackRedirectUrl={redirectTo}
           appearance={{
             variables: {
               colorPrimary: '#E1B64E',
