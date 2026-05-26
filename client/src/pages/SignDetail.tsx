@@ -616,18 +616,16 @@ function SignDetail({ sign }: SignDetailProps) {
           </Button>
 
           <div className="flex items-center space-x-4">
-            {/* Simbolo zodiacale con glow e animazione */}
-            <div
-              className={`w-12 h-12 bg-gradient-to-br ${colorClass} rounded-full flex items-center justify-center transition-transform hover:scale-110 duration-300`}
+            {/* Icona zodiacale SVG con glow e animazione */}
+            <img
+              src={`/icons/zodiac/${currentSign.name_english.toLowerCase()}.svg`}
+              alt={currentSign.name_italian}
+              className="w-12 h-12 object-contain transition-transform hover:scale-110 duration-300"
+              draggable={false}
               style={{
-                boxShadow: '0 0 20px rgba(225, 182, 78, 0.4), 0 0 40px rgba(225, 182, 78, 0.2)',
-                border: '2px solid rgba(225, 182, 78, 0.3)'
+                filter: 'drop-shadow(0 0 8px rgba(225, 182, 78, 0.5))'
               }}
-            >
-              <span className="text-white font-bold text-xl">
-                {currentSign.symbol}
-              </span>
-            </div>
+            />
 
             <div>
               {/* Nome segno con effetto glow */}
