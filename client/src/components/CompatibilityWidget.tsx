@@ -76,7 +76,7 @@ export function CompatibilityWidget({ currentSign }: CompatibilityWidgetProps) {
 
   return (
     <div
-      className="rounded-xl p-4 space-y-4"
+      className="relative rounded-xl p-4 space-y-4"
       style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}
     >
       <h3 className="text-white font-semibold text-sm">Affinità tra segni</h3>
@@ -137,40 +137,17 @@ export function CompatibilityWidget({ currentSign }: CompatibilityWidgetProps) {
 
       {/* Result */}
       {status === 'result' && result && (
-        <div className="relative">
-          <div
-            className="rounded-lg p-4 text-sm leading-relaxed"
-            style={{
-              background: 'rgba(225,182,78,0.08)',
-              border: '1px solid rgba(225,182,78,0.3)',
-              filter: isPremium ? 'none' : 'blur(4px)',
-              userSelect: isPremium ? 'auto' : 'none',
-            }}
-          >
-            <p className="text-[#E1B64E] text-xs font-semibold mb-2 uppercase tracking-wide">
-              {sign1Label} + {sign2Label}
-            </p>
-            <p className="text-white">{result}</p>
-          </div>
-
-          {!isPremium && (
-            <div
-              className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-lg"
-              style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(1px)' }}
-            >
-              <Lock className="text-white" size={22} strokeWidth={1.8} />
-              <p className="text-white text-xs font-medium text-center px-4">
-                Upgrade per analisi completa
-              </p>
-              <button
-                onClick={() => navigate('/pricing')}
-                className="px-4 py-1.5 rounded-full text-xs font-semibold"
-                style={{ background: '#E1B64E', color: '#1a1a1a' }}
-              >
-                Scopri Premium
-              </button>
-            </div>
-          )}
+        <div
+          className="rounded-lg p-4 text-sm leading-relaxed"
+          style={{
+            background: 'rgba(225,182,78,0.08)',
+            border: '1px solid rgba(225,182,78,0.3)',
+          }}
+        >
+          <p className="text-[#E1B64E] text-xs font-semibold mb-2 uppercase tracking-wide">
+            {sign1Label} + {sign2Label}
+          </p>
+          <p className="text-white">{result}</p>
         </div>
       )}
 
@@ -179,6 +156,33 @@ export function CompatibilityWidget({ currentSign }: CompatibilityWidgetProps) {
         <p className="text-red-400 text-sm text-center py-2">
           Analisi non disponibile. Controlla la data o riprova.
         </p>
+      )}
+
+      {/* Premium gate overlay — covers the entire widget */}
+      {!isPremium && (
+        <div
+          className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-xl"
+          style={{
+            background: 'rgba(10,7,30,0.82)',
+            backdropFilter: 'blur(4px)',
+            WebkitBackdropFilter: 'blur(4px)',
+          }}
+        >
+          <Lock className="text-[#E1B64E]" size={28} strokeWidth={1.6} />
+          <p className="text-white text-sm font-semibold text-center px-4">
+            Affinità tra segni
+          </p>
+          <p className="text-white/60 text-xs text-center px-6 leading-relaxed">
+            Scopri la compatibilità astrologica con Premium
+          </p>
+          <button
+            onClick={() => navigate('/pricing')}
+            className="mt-1 px-5 py-2 rounded-full text-xs font-semibold transition-opacity hover:opacity-90"
+            style={{ background: '#E1B64E', color: '#1a1a1a' }}
+          >
+            Scopri Premium
+          </button>
+        </div>
       )}
     </div>
   );
