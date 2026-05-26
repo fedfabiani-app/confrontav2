@@ -13,6 +13,32 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { initializeScheduledTasks } from "./scheduler";
+import prisma from "./services/database";
+
+/**
+ * One-time idempotent DB patches applied on every server start.
+ * Safe to run multiple times — each patch only writes if the value is wrong.
+ */
+async function runStartupPatches(): Promise<void> {
+  try {
+    // Fix Starbene (weekly_sources): url_pattern was set to the old
+    // "previsioni-settimana" path which doesn't include the sign slug or "dal/al".
+    // Correct pattern: /oroscopo/{sign}-dal-{start_day}-al-{end_day}-{month}-{year}/
+    const starbeneFixed = await prisma.weeklySource.updateMany({
+      where: {
+        domain: 'starbene.it',
+        url_pattern: { not: '/oroscopo/{sign}-dal-{start_day}-al-{end_day}-{month}-{year}/' },
+      },
+      data: { url_pattern: '/oroscopo/{sign}-dal-{start_day}-al-{end_day}-{month}-{year}/' },
+    });
+    if (starbeneFixed.count > 0) {
+      log(`[startup] patched Starbene url_pattern (${starbeneFixed.count} row)`);
+    }
+  } catch (err) {
+    // Non-fatal: log but don't crash the server
+    console.error('[startup] runStartupPatches error:', err);
+  }
+}
 
 const app = express();
 
@@ -76,6 +102,7 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  await runStartupPatches();
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
