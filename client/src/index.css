@@ -126,6 +126,9 @@
     background-attachment: fixed;
     background-position: top center;
     background-repeat: repeat-y;
+    /* NOTE: bg-background (via @apply above) ≈ #1e1440; the SVG base rect uses
+       the same color so there is no visible seam when the browser treats
+       background-attachment as scroll (e.g. mobile WebView). */
   }
 }
 

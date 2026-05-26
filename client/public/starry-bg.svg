@@ -25,7 +25,7 @@
       <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
   </defs>
-  <rect width="1920" height="3000" fill="#120d2e"/>
+  <rect width="1920" height="3000" fill="#1e1440"/>
   <ellipse cx="420" cy="480" rx="520" ry="390" fill="url(#n1)"/>
   <ellipse cx="1560" cy="900" rx="600" ry="450" fill="url(#n2)"/>
   <ellipse cx="800" cy="1800" rx="550" ry="413" fill="url(#n3)"/>
