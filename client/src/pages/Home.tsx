@@ -358,7 +358,8 @@ export default function Home() {
             </div>
           </div>
         )}
-        <UpgradeBanner context="sync" className="mb-4" />
+        
+        <UpgradeBanner context="sync"/>
 
         {/* Loading State */}
         {isLoading && (
