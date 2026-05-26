@@ -359,7 +359,9 @@ export default function Home() {
           </div>
         )}
         
-        <UpgradeBanner context="sync"/>
+        <div className="py-0.5">
+          <UpgradeBanner context="sync"/>
+        </div>
 
         {/* Loading State */}
         {isLoading && (
