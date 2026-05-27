@@ -359,7 +359,7 @@ export default function Home() {
           </div>
         )}
         
-        <div className="py-0.5">
+        <div className="pb-0.5">
           <UpgradeBanner context="sync"/>
         </div>
 
