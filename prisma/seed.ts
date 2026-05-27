@@ -124,6 +124,16 @@ const WEEKLY_SOURCES = [
     slug: null,
     is_active: true,
   },
+  {
+    name: 'ELLE',
+    domain: 'elle.com',
+    logo_url: 'https://www.elle.com/favicon.ico',
+    base_url: 'https://www.elle.com/it',
+    url_pattern: '/oroscopo/',
+    scrape_strategy: 'archive',
+    slug: 'elle',
+    is_active: true,
+  },
 ];
 
 async function main() {
@@ -177,7 +187,12 @@ async function main() {
   for (const source of WEEKLY_SOURCES) {
     await prisma.weeklySource.upsert({
       where: { domain: source.domain },
-      update: {},
+      update: {
+        // Keep slug, url_pattern and strategy in sync on re-seed
+        slug: source.slug,
+        url_pattern: source.url_pattern,
+        scrape_strategy: source.scrape_strategy,
+      },
       create: {
         name: source.name,
         domain: source.domain,
