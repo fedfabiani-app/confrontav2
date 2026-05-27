@@ -49,7 +49,7 @@ const WEEKLY_SOURCES = [
     domain: 'tg24.sky.it',
     logo_url: null,
     base_url: 'https://tg24.sky.it',
-    url_pattern: '/lifestyle/oroscopo/settimana',
+    url_pattern: '/lifestyle/oroscopo/{sign}/settimana',
     scrape_strategy: 'pattern',
     slug: null,
     is_active: true,

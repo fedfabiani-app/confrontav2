@@ -1392,6 +1392,49 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
 
     $('script, style, nav, header, footer, iframe, noscript').remove();
 
+    // Special handling for Sky TG24 weekly - per-sign static page (/lifestyle/oroscopo/{sign}/settimana)
+    // Same CMS structure as the daily page: content in .c-article-section p elements
+    if (url.includes('tg24.sky.it')) {
+      let extractedText = '';
+
+      // Strategy 1: .c-article-section p (current Sky TG24 per-sign page structure)
+      const paras = $('.c-article-section p').map((_, el) => {
+        const $p = $(el);
+        const t = $p.text().trim();
+        const isOnlyLink = $p.find('a').length > 0 && t === $p.find('a').text().trim();
+        return isOnlyLink ? '' : t;
+      }).get().filter(t => t.length > 30 &&
+        !/^(leggi anche|pubblicità|condividi|cookie|scopri|newsletter|abbonati)/i.test(t));
+
+      if (paras.length > 0) {
+        extractedText = paras.join('\n\n');
+        console.log(`Sky TG24 Weekly - Strategy 1 (.c-article-section): ${extractedText.length} chars`);
+      }
+
+      // Strategy 2: broader article selectors as fallback
+      if (!extractedText) {
+        for (const sel of ['.c-article-text p', '.c-article__body p', 'article p', 'main p']) {
+          const fallbackParas = $(sel).map((_, el) => {
+            const $p = $(el);
+            const t = $p.text().trim();
+            const isOnlyLink = $p.find('a').length > 0 && t === $p.find('a').text().trim();
+            return isOnlyLink ? '' : t;
+          }).get().filter(t => t.length > 30 &&
+            !/^(leggi anche|pubblicità|condividi|cookie|scopri|newsletter|abbonati)/i.test(t));
+          if (fallbackParas.length > 0) {
+            extractedText = fallbackParas.join('\n\n');
+            console.log(`Sky TG24 Weekly - Strategy 2 (${sel}): ${extractedText.length} chars`);
+            break;
+          }
+        }
+      }
+
+      if (extractedText.length > 50) {
+        return { success: true, text: extractedText.substring(0, 3500), url };
+      }
+      return { success: false, error: `Could not extract weekly content for ${input.signSlugIt} from Sky TG24` };
+    }
+
     // Special handling for Cosmopolitan - single article with all signs
     if (url.includes('cosmopolitan.com') && url.includes('/oroscopo-settimana/a')) {
 
