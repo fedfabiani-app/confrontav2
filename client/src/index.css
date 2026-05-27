@@ -122,10 +122,10 @@
     @apply font-sans antialiased bg-background text-foreground;
     font-family: var(--font-sans);
     background-image: url('/starry-bg.svg');
-    background-size: 100% auto;
+    background-size: cover;
     background-attachment: fixed;
     background-position: top center;
-    background-repeat: repeat-y;
+    background-repeat: no-repeat;
     /* NOTE: bg-background (via @apply above) ≈ #1e1440; the SVG base rect uses
        the same color so there is no visible seam when the browser treats
        background-attachment as scroll (e.g. mobile WebView). */
