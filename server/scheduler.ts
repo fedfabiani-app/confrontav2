@@ -68,6 +68,23 @@ async function hasFallbackRunToday(): Promise<boolean> {
 }
 
 /**
+ * Check if late fallback already ran today
+ */
+async function hasLateFallbackRunToday(): Promise<boolean> {
+  const targetDate = getItalyToday();
+  const targetDateObj = new Date(targetDate + 'T00:00:00.000Z');
+
+  const fallback = await prisma.scraperExecution.findFirst({
+    where: {
+      target_date: targetDateObj,
+      trigger_type: 'fallback_late',
+    },
+  });
+
+  return fallback !== null;
+}
+
+/**
  * Get IDs of sources that failed during scraping today
  */
 async function getFailedSourceIds(targetDate: string): Promise<number[]> {
@@ -345,6 +362,39 @@ async function executeFallbackRetry() {
     
   } catch (error) {
     console.error('[Fallback] ✗ Error:', error);
+  }
+}
+
+// ============================================================================
+// LATE FALLBACK (9:15 AM CET)
+// Riprova tutte le fonti senza HoroscopeData valido oggi (summary mancante o vuoto).
+// buildProcessedCache skippa automaticamente le coppie source+sign con dati corretti.
+// ============================================================================
+
+async function executeLateDailyFallback() {
+  try {
+    const config = await getDailyScraperConfig();
+    if (!config.enabled) return;
+
+    const targetDate = getItalyToday();
+
+    // Guard: skip se il fallback tardivo è già girato oggi
+    if (await hasLateFallbackRunToday()) return;
+
+    // Guard: skip se c'è un'esecuzione in corso
+    if (await hasRunningExecution(targetDate)) return;
+
+    // forceRescrape: false → buildProcessedCache skippa le coppie con summary valido
+    // e riprova tutto ciò che non ha dati corretti (no record, summary vuoto, failed)
+    const result = await runDailyScraperCycle({
+      targetDate,
+      forceRescrape: false,
+      triggerType: 'fallback_late',
+    });
+
+    console.log(`[LateFallback] Enqueued ${result.stats.enqueued}, skipped ${result.stats.skipped}`);
+  } catch (error) {
+    console.error('[LateFallback] ✗ Error:', error);
   }
 }
 
@@ -682,6 +732,14 @@ export async function initializeScheduledTasks() {
   // Runs 1 hour after scraping window ends
   // ============================================================================
   cron.schedule(`${endMinute} ${fallbackHour} * * *`, executeFallbackRetry, {
+    timezone: 'Europe/Rome'
+  });
+
+  // ============================================================================
+  // LATE FALLBACK - 9:15 AM CET
+  // Riprova fonti senza HoroscopeData valido (published after main window / fallback)
+  // ============================================================================
+  cron.schedule('15 9 * * *', executeLateDailyFallback, {
     timezone: 'Europe/Rome'
   });
 
