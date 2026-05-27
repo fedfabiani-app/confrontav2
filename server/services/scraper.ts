@@ -1276,6 +1276,7 @@ async function scrapeSkyTG24HoroscopeText(url: string, input: ScraperInput): Pro
     // Strategy 2: Sky TG24 article body selectors
     if (!extractedText) {
       const skySelectors = [
+        '.c-article-section p',      // Current Sky TG24 per-sign page structure
         '.c-article-text p',
         '.c-article__body p',
         '.article-body p',
