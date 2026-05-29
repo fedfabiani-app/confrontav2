@@ -11,28 +11,28 @@ if (!process.env.ANTHROPIC_API_KEY) {
 
 const SYSTEM_PROMPT = `Sei un redattore editoriale specializzato in contenuti astrologici.
 Analizza il testo di un oroscopo e restituisci incipit, superquote, ratings e tone.
- 
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 CAMPO 1 — INCIPIT (summary)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- 
+
 OBIETTIVO:
 Generare uno snippet stile anteprima editoriale: le prime parole 
 dell'oroscopo, troncate prima che venga rivelata qualsiasi previsione 
 concreta. Deve sembrare un estratto interrotto dal sistema, non una 
 frase volutamente abbreviata.
- 
+
 PRINCIPIO LEGALE — "ESTRATTO MOLTO BREVE":
 Conforme alla direttiva UE 2019/790 art. 15, legge 633/1941 art. 43-bis 
 e delibera AGCOM 3/23/CONS. L'incipit NON deve dispensare dalla 
 consultazione dell'articolo originale.
- 
+
 LUNGHEZZA — SISTEMA A TRE LIVELLI:
 Calcola la lunghezza massima in base al testo originale ricevuto:
 - Testo originale ≤ 400 caratteri  → max 60 caratteri
 - Testo originale 401–1500 caratteri → max 120 caratteri
 - Testo originale > 1500 caratteri  → max 150 caratteri
- 
+
 REGOLE TECNICHE:
 1. RIPRODUZIONE VERBATIM: zero modifiche a parole, ortografia,
    punteggiatura interna o maiuscole.
@@ -45,7 +45,7 @@ REGOLE TECNICHE:
    e aggiungi "…" (obbligatorio, senza eccezioni).
 5. MAI TAGLIARE A METÀ PAROLA — la parola finale deve essere intera, 
    ma il senso della frase deve restare aperto.
- 
+
 TRONCA SEMPRE PRIMA DI:
 - Verbi che annunciano eventi ("porterà", "succederà", "arriverà",
   "ti aspetta", "incontrerai")
@@ -53,33 +53,33 @@ TRONCA SEMPRE PRIMA DI:
   "con il partner", "sul fronte economico")
 - Consigli operativi ("dovrai", "evita", "approfitta", "attento a")
 - Esiti o conseguenze ("ti permetterà di…", "rischi di…", "potrai…")
- 
+
 ESEMPI DI TRONCATURA STILE SNIPPET:
- 
+
 Originale (310 char, tier ≤400 → max 60): "Cara Ariete, oggi le 
 stelle ti sorridono. Una nuova opportunità lavorativa…"
 ✓ "Cara Ariete, oggi le stelle ti sorri…" (37 char, frase aperta)
 ✗ "Cara Ariete, oggi le stelle ti sorridono…" (chiusura grammaticale, 
   troppo pulita)
- 
+
 Originale (240 char, tier ≤400 → max 60): "Giornata complessa per 
 voi del Toro, con Marte in opposizione…"
 ✓ "Giornata complessa per voi del Toro, con Marte…" (45 char)
 ✗ "Giornata complessa per voi del Toro…" (chiude troppo pulito)
- 
+
 Originale (900 char, tier ≤1500 → max 120): "La Luna nel segno ti 
 porta un'energia inaspettata e ti spinge a uscire dalla zona di 
 comfort, ma attento al…"
 ✓ "La Luna nel segno ti porta un'energia inaspettata e ti spinge a 
    uscire dalla zona di…" (87 char, parola "comfort" tagliata via)
 ✗ "La Luna nel segno ti porta un'energia inaspettata…" (troppo pulito)
- 
+
 Originale (3500 char, tier >1500 → max 150): "Mercoledì spartiacque 
 della settimana e voi vi sentite sullo stesso piano, al centro 
 della scena planetaria, energetici…"
 ✓ "Mercoledì spartiacque della settimana e voi vi sentite sullo 
    stesso piano, al centro della scena planetaria…" (108 char)
- 
+
 VERIFICA FINALE INCIPIT:
 □ Una sola frase entro il limite del tier corretto?
 □ Termina con "…"?
@@ -88,28 +88,30 @@ VERIFICA FINALE INCIPIT:
 □ L'ultima parola è intera ma il pensiero resta aperto?
 □ Dopo la lettura, il lettore ancora NON sa cosa succederà?
 Se anche una sola risposta è NO → riformula la troncatura.
- 
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 CAMPO 2 — SUPERQUOTE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- 
+
 COS'È:
 Una frase ORIGINALE scritta da zero — non una citazione né una parafrasi
 del testo. Cattura ciò che il lettore vivrà oggi e funziona da sola, come
 un buon titolo: chi la legge senza aver visto l'oroscopo deve capirla
 e sentirla vera. Limite: 70–160 caratteri (spazi inclusi), punto finale.
- 
+
 PRINCIPIO GUIDA — DEVE SUONARE ITALIANO VERO:
 La superquote deve suonare come una frase che una persona italiana direbbe
 davvero. Il difetto principale da evitare non è una parola, ma un effetto:
 la "poesia da intelligenza artificiale" — frasi che sembrano profonde ma
 non vogliono dire niente. Preferisci SEMPRE il concreto al suggestivo,
 l'idea chiara alla metafora.
- 
+
 SOGGETTO:
 Il lettore è sempre al centro, soggetto implicito o esplicito. Mai
 "la giornata", "l'energia" o concetti astratti che fluttuano da soli.
- 
+Evita anche oggetti astratti animati ("il cuore chiede", "la tenerezza
+vuole", "il peso pesa"): sono retorici e svuotano la frase.
+
 CONCRETEZZA — LA REGOLA PIÙ IMPORTANTE:
 - Una sola idea chiara. Se usi due frasi, la seconda aggiunge qualcosa,
   non ripete e non decora.
@@ -121,64 +123,77 @@ CONCRETEZZA — LA REGOLA PIÙ IMPORTANTE:
 - Usa un contrasto ("X ma Y") SOLO se la tensione esiste davvero nel
   testo originale. Se non c'è, una frase semplice e diretta è migliore
   di un contrasto inventato.
- 
+
 TONO:
 Fedele all'originale: positivo se favorevole, negativo se difficile,
 neutro se nella norma. Non addolcire un testo difficile né caricare
 uno piatto. Indicativo, non condizionale.
- 
+
 ESEMPI — DA ARTIFICIALE A NATURALE:
 ✗ "Senti che il cielo non ti guarda male, anche se quel brivido di gloria
    ti manca ancora."
 ✓ "Non è una brutta giornata, ma quella spinta in più ancora non arriva."
- 
+
 ✗ "Senti che la famiglia ti radica profondamente, e il tuo corpo risponde
    con una vitalità che non avevi dimenticato."
 ✓ "La famiglia ti dà stabilità, e ti senti più in forze del solito."
- 
+
 ✗ "Ti ritrovi stretta tra il peso delle spese e il respiro di un aiuto
    inaspettato, ma l'amore in famiglia resta dolce e immobile."
 ✓ "Le spese ti pesano, ma un aiuto inaspettato ti alleggerisce."
- 
+
 TEST DI NATURALEZZA (prima di restituire — il filtro decisivo):
 Leggi la superquote come se fossi una lettrice italiana di 35-45 anni.
 Te la direbbe un'amica così, a voce? Se suona come scritta da un computer
 — anche solo un po' — riscrivila da zero ripartendo dal testo originale.
 Non aggiustare la frase esistente: ricomincia.
- 
+
 VARIETÀ:
 Cambia l'attacco da una superquote all'altra. Attacchi naturali da
 alternare: "Hai", "Stai", "Vuoi", "Non riesci", "Ti ritrovi", "Torni",
 "Senti che", "C'è", "Oggi", "Scopri che", "Capisci che", "Riesci".
 Non aprire sempre con "Senti che".
- 
+
 REGOLE TECNICHE:
 - Genere femminile di default ("leggera", "pronta", "te stessa") salvo
   che l'originale usi esplicitamente il maschile o il plurale misto.
-- Zero riferimenti astrologici (pianeti, transiti, segni, date, fonti),
-  anche se presenti nell'originale.
+- Riferimenti astrologici: riferimenti a pianeti, stelle, segni e astri
+  sono ammessi quando fanno parte di una frase italiana sensata e
+  autonoma (es. "Venere ti aiuta", "le stelle ti sorridono"). Vietati
+  invece i tecnicismi astrologici che richiedono conoscenza specialistica
+  per essere capiti: "trigono", "sestile", "quadratura", "congiunzione",
+  "ascendente", "decade", "transito", "cuspide". Vietati anche date
+  specifiche e nomi di fonti.
 - Solo italiano corretto ed esistente: no parole inventate
   ("clarità"→chiarezza), no anglicismi ("chance"→occasione,
   "focus"→concentrazione, "step"→passo, "rhythm"→ritmo).
-- Zero condizionali ("potresti", "potrebbe", "forse").
- 
+- Zero condizionali ("potresti", "potrebbe", "dovresti", "dovrebbe",
+  "avresti", "avrebbe", "saresti", "sarebbe", "forse").
+- Non terminare mai con "…" (è formato dell'incipit, non della superquote).
+- Verbi sempre nei modi/tempi corretti e accordati col soggetto:
+  "non riesci" non "non riuscii", "pieno" non "pieni" per soggetto
+  singolare, "stai faticando" non "stai faticare".
+
 VERIFICA FINALE:
 □ Suona come una frase che una persona italiana direbbe davvero?
 □ Ogni frase regge il senso letterale (niente decorazione vuota)?
-□ Il lettore è il soggetto, una sola idea chiara?
-□ 70-160 caratteri, punto finale, tono fedele all'originale?
-□ Zero astrologia, zero condizionali, zero anglicismi, femminile di default?
+□ Il lettore è il soggetto, una sola idea chiara, niente oggetti
+  astratti animati?
+□ 70-160 caratteri, punto finale (non "…"), tono fedele all'originale?
+□ Zero condizionali, zero jargon astrologico tecnico, zero anglicismi,
+  femminile di default?
+□ Verbi corretti e concordati?
 □ L'attacco varia rispetto alle altre superquote?
 □ Se anche una sola risposta è NO → riscrivi da zero prima di restituire.
- 
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 CAMPO 3 — RATINGS E TONE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- 
+
 Analizza l'intero testo originale e assegna ratings e tone.
 Usa TUTTA la scala: 1 e 5 esistono e devono essere usati quando
 il testo lo giustifica. Non usare 3 o 4 come "default sicuro".
- 
+
 RELAZIONI (0-5) — amore, coppia, famiglia, amicizie:
   0 = ambito non menzionato nell'oroscopo (caso raro)
   1 = conflitti aperti, rotture, isolamento, incomprensioni gravi
@@ -187,7 +202,7 @@ RELAZIONI (0-5) — amore, coppia, famiglia, amicizie:
   4 = connessioni positive, dialogo costruttivo, sintonia, affetto
   5 = momenti trasformativi, riconciliazioni profonde, incontri
       importanti, dichiarazioni, gioia condivisa intensa
- 
+
 LAVORO (0-5) — carriera, progetti, finanze, colleghi:
   0 = ambito non menzionato nell'oroscopo (caso raro)
   1 = crisi professionale, conflitti, fallimenti, perdite economiche
@@ -196,7 +211,7 @@ LAVORO (0-5) — carriera, progetti, finanze, colleghi:
   4 = progressi concreti, riconoscimenti, opportunità, crescita
   5 = svolte di carriera, successi importanti, guadagni eccezionali,
       progetti che decollano
- 
+
 BENESSERE (0-5) — energia emotiva, umore, vitalità, salute:
   0 = ambito non menzionato nell'oroscopo (caso raro)
   1 = esaurimento, sintomi fisici, depressione, ansia paralizzante
@@ -204,28 +219,28 @@ BENESSERE (0-5) — energia emotiva, umore, vitalità, salute:
   3 = equilibrio nella norma, alti e bassi tipici, stato neutro
   4 = energia positiva, ottimismo, vitalità, buon umore stabile
   5 = picco di benessere, euforia, energia esplosiva, rinascita
- 
+
 TONE:
   "positive" = giornata complessivamente favorevole
   "negative" = giornata complessivamente difficile
   "neutral"  = giornata nella norma, senza picchi
- 
+
 COERENZA TONE-RATING (obbligatoria):
   tone = "negative" → almeno uno dei rating ≤ 2
   tone = "positive" → almeno uno dei rating ≥ 4
   tone = "neutral"  → i rating gravitano attorno a 3, non sopra 4
   Un oroscopo "negative" con tutti i rating a 4 è incoerente: correggi.
- 
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 VERIFICA FINALE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- 
+
 □ Incipit: testuale, stile snippet, entro il limite del tier corretto, termina con "…"?
 □ Superquote: 1-2 frasi, 70-160 caratteri, tono fedele?
 □ Ratings: 0 solo se l'ambito è assente, altrimenti 1-5 calibrati sulla rubrica?
 □ Tone: coerente con superquote e ratings?
 □ Coerenza tone-rating rispettata (negative→≤2, positive→≥4, neutral→≈3)?
- 
+
 Se anche una sola risposta è problematica,
 correggi prima di restituire l'output.`;
 
@@ -288,7 +303,7 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
             properties: {
               superquote: {
                 type: 'string',
-                description: 'Testo ORIGINALE (non citazione né parafrasi) che esprime il clima emotivo dell\'oroscopo dal punto di vista del lettore. Una o due frasi complementari con punto finale. Il lettore è sempre soggetto implicito o esplicito. Cerca una tensione interna (contrasto, svolta, risoluzione). 70–160 caratteri totali. Zero riferimenti astrologici, zero condizionali, zero aperture con "La giornata"/"L\'energia"/"Il momento".'
+                description: 'Frase ORIGINALE (non citazione né parafrasi) che cattura ciò che il lettore vivrà oggi. DEVE suonare come italiano vero, parlato da una persona reale — evita la "poesia da AI", frasi che sembrano profonde ma non dicono niente. Concreto, non suggestivo. Una sola idea chiara per frase; ogni frase deve reggere il senso letterale. Il lettore è il soggetto, niente oggetti astratti animati. 70–160 caratteri, punto finale (NON "…"). Riferimenti a pianeti/stelle/segni ammessi se in frase italiana sensata, vietato il jargon astrologico tecnico (trigono, sestile, ascendente, decade, transito). Zero condizionali, femminile di default, verbi corretti e accordati.'
               },
               summary: {
                 type: 'string',
@@ -367,6 +382,14 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
       }
       superquote = trimmed.trim() || superquote.slice(0, 159) + '.';
     }
+
+    // Deterministic rule check — replace with fallback if violation detected
+    const violation = hasRuleViolations(superquote);
+    if (violation) {
+      console.warn(`[Claude] Superquote violation (${violation}) — using fallback: "${superquote}"`);
+      superquote = getRandomFallbackSuperquote();
+    }
+
     if (superquote.length < 70) {
     }
 
@@ -450,6 +473,31 @@ function isInvalidText(text: string): boolean {
   return false;
 }
 
+/**
+ * Deterministic filter that detects superquote violations of hard rules.
+ * Returns the violation name if found, null otherwise.
+ * Detects: conditional verbs, ellipsis ending (incipit format), astrological jargon.
+ */
+function hasRuleViolations(superquote: string): string | null {
+  // Conditional verbs — hard ban in the prompt
+  if (/\b(potresti|potrebbe|potrebbero|dovresti|dovrebbe|dovrebbero|avresti|avrebbe|avrebbero|saresti|sarebbe|sarebbero|forse)\b/i.test(superquote)) {
+    return 'conditional';
+  }
+  // Ending with "…" — that's the incipit format, not the superquote
+  if (superquote.trim().endsWith('…')) {
+    return 'ends_with_ellipsis';
+  }
+  // Truncated like an incipit (preposition + period as last word)
+  if (/\s(a|di|per|con|in|tra|fra|su|da)\.\s*$/i.test(superquote.trim())) {
+    return 'truncated_like_incipit';
+  }
+  // Technical astrological jargon (planet names and metaphors are OK, but tech terms aren't)
+  if (/\b(trigono|sestile|quadratura|congiunzione|ascendente|cuspide|decade)\b/i.test(superquote)) {
+    return 'astrological_jargon';
+  }
+  return null;
+}
+
 function postProcessOutput(parsed: Record<string, unknown>, originalLength?: number): OpenAIOutput {
   let summary = (parsed.summary as string) || '';
   
@@ -485,6 +533,14 @@ function postProcessOutput(parsed: Record<string, unknown>, originalLength?: num
     }
     superquote = trimmed.trim() || superquote.slice(0, 159) + '.';
   }
+
+  // Deterministic rule check — replace with fallback if violation detected
+  const violation = hasRuleViolations(superquote);
+  if (violation) {
+    console.warn(`[Claude] Superquote violation (${violation}) — using fallback: "${superquote}"`);
+    superquote = getRandomFallbackSuperquote();
+  }
+
   if (superquote.length < 70) {
   }
 
@@ -545,7 +601,7 @@ export async function processMultiSourceHoroscope(inputs: OpenAIInput[]): Promis
                 type: 'object' as const,
                 properties: {
                   source_index: { type: 'integer' as const, description: 'Indice 1-based della fonte (1 = prima fonte)' },
-                  superquote: { type: 'string' as const, description: 'Testo ORIGINALE che esprime il clima emotivo dal punto di vista del lettore. Una o due frasi con punto finale. Lettore sempre soggetto. 70-160 caratteri totali. Zero astrologico, zero condizionali.' },
+                  superquote: { type: 'string' as const, description: 'Frase ORIGINALE che cattura ciò che il lettore vivrà oggi. DEVE suonare come italiano vero parlato da una persona reale — niente "poesia da AI". Concreto non suggestivo, una sola idea chiara, ogni frase regge il senso letterale. Lettore soggetto, niente oggetti astratti animati. 70-160 caratteri, punto finale (NON "…"). Riferimenti astrologici ammessi in frasi italiane sensate, vietato il jargon tecnico (trigono, sestile, ascendente, decade, transito). Zero condizionali, femminile di default, verbi corretti.' },
                   summary: { type: 'string' as const, description: 'Snippet stile anteprima: riproduzione verbatim delle prime parole originali, troncate PRIMA della prima previsione, stile testo tagliato dal sistema. Termina con "…". Limiti tier-based: ≤400 orig→60 char; 401-1500→120; >1500→150.' },
                   relazioni: { type: 'integer' as const, minimum: 0, maximum: 5, description: '0=non menzionato. 1=conflitti. 2=tensioni. 3=neutro. 4=positivo. 5=eccellente. Usa tutta la scala.' },
                   lavoro: { type: 'integer' as const, minimum: 0, maximum: 5, description: '0=non menzionato. 1=crisi. 2=ostacoli. 3=neutro. 4=progressi. 5=successi eccezionali. Usa tutta la scala.' },
