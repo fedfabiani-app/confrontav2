@@ -1566,6 +1566,48 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
       return { success: false, error: `Could not extract content for ${input.signSlugIt} from alFemminile page` };
     }
 
+    // Special handling for Webboh - single page with all signs
+    // Structure: <p><strong>SignName:</strong>☀️☀️<br>horoscope text...<strong><em>Consiglio:</em></strong>...</p>
+    if (url.includes('webboh.it')) {
+      let extractedText = '';
+
+      const $content = $('.wb-the-content, .wb-foglia, article').first();
+      const $root = $content.length > 0 ? $content : $('body');
+
+      $root.find('p').each((_, el) => {
+        if (extractedText) return;
+
+        const $p = $(el);
+        const firstStrong = $p.find('strong').first();
+        if (firstStrong.length === 0) return;
+
+        // Match "Capricorno:" (case-insensitive)
+        const strongText = firstStrong.text().trim().toLowerCase();
+        if (!strongText.startsWith(input.signSlugIt.toLowerCase() + ':')) return;
+
+        // Text comes after the <br> inside this <p>
+        const fullHtml = $p.html() || '';
+        const brMatch = fullHtml.search(/<br\s*\/?>/i);
+
+        if (brMatch !== -1) {
+          const afterBrHtml = fullHtml.slice(fullHtml.indexOf('>', brMatch) + 1);
+          extractedText = cheerio.load(afterBrHtml).text().trim();
+        } else {
+          // Fallback: full text minus the "SignName: stars" prefix
+          extractedText = $p.text()
+            .replace(firstStrong.text(), '')
+            .replace(/^[\s☀️]+/, '')
+            .trim();
+        }
+      });
+
+      if (extractedText.length > 30) {
+        return { success: true, text: extractedText.substring(0, 3500), url };
+      }
+
+      return { success: false, error: `Could not extract content for ${input.signSlugIt} from Webboh` };
+    }
+
     // Special handling for Marie Claire - single page with all signs
     if (url.includes('marieclaire.it')) {
 
