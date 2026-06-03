@@ -139,6 +139,17 @@ const WEEKLY_SOURCES = [
 async function main() {
   console.log('Seeding database...');
 
+  // One-off cleanup: remove duplicate ELLE weekly source (ID 15).
+  // ID 27 (domain elle.com) is the canonical record; ID 15 was created when
+  // the domain was previously different and was never cleaned up.
+  const elleOld = await prisma.weeklySource.findUnique({ where: { id: 15 } });
+  if (elleOld) {
+    await prisma.weeklyHoroscopeData.deleteMany({ where: { source_id: 15 } });
+    await prisma.weeklyScraperSourceStatus.deleteMany({ where: { source_id: 15 } });
+    await prisma.weeklySource.delete({ where: { id: 15 } });
+    console.log(`Removed duplicate ELLE weekly source (ID 15, domain="${elleOld.domain}")`);
+  }
+
   // Seed zodiac signs
   const zodiacSigns = [
     { name_italian: 'Ariete', name_english: 'aries', date_range: '21 Mar - 19 Apr', symbol: '♈' },
