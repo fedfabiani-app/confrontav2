@@ -84,6 +84,20 @@ async function hasLateFallbackRunToday(): Promise<boolean> {
   return fallback !== null;
 }
 
+async function hasTenAmRunToday(): Promise<boolean> {
+  const targetDate = getItalyToday();
+  const targetDateObj = new Date(targetDate + 'T00:00:00.000Z');
+
+  const run = await prisma.scraperExecution.findFirst({
+    where: {
+      target_date: targetDateObj,
+      trigger_type: 'late_start_ten',
+    },
+  });
+
+  return run !== null;
+}
+
 /**
  * Get IDs of sources that failed during scraping today
  */
@@ -213,6 +227,13 @@ function isWithinMondayWindow(): boolean {
 // earlier retrieves the previous day's content.
 // ============================================================================
 const LATE_START_SOURCES: number[] = [13];
+
+// ============================================================================
+// SOURCES WITH 10 AM SCRAPING
+// Corriere della Sera (ID 9) pubblica l'oroscopo dopo le 10:00 AM —
+// il tentativo alle 9:15 restituisce dati vuoti.
+// ============================================================================
+const TEN_AM_SOURCES: number[] = [9];
 
 // ============================================================================
 // MAIN DAILY SCRAPER
@@ -385,16 +406,45 @@ async function executeLateDailyFallback() {
     if (await hasRunningExecution(targetDate)) return;
 
     // forceRescrape: false → buildProcessedCache skippa le coppie con summary valido
-    // e riprova tutto ciò che non ha dati corretti (no record, summary vuoto, failed)
+    // e riprova tutto ciò che non ha dati corretti (no record, summary vuoto, failed).
+    // TEN_AM_SOURCES escluse: non ancora pubblicate alle 9:15, gestite dal job delle 10 AM.
     const result = await runDailyScraperCycle({
       targetDate,
       forceRescrape: false,
+      excludeSources: TEN_AM_SOURCES,
       triggerType: 'fallback_late',
     });
 
     console.log(`[LateFallback] Enqueued ${result.stats.enqueued}, skipped ${result.stats.skipped}`);
   } catch (error) {
     console.error('[LateFallback] ✗ Error:', error);
+  }
+}
+
+// ============================================================================
+// 10 AM SCRAPER (Corriere della Sera — ID 9)
+// Corriere pubblica l'oroscopo dopo le 10:00 AM. Esclusa dal fallback delle
+// 9:15, viene riprocessata qui con forceRescrape: true.
+// ============================================================================
+
+async function executeTenAmSources() {
+  try {
+    const config = await getDailyScraperConfig();
+    if (!config.enabled) return;
+
+    const targetDate = getItalyToday();
+
+    if (await hasTenAmRunToday()) return;
+    if (await hasRunningExecution(targetDate)) return;
+
+    await runDailyScraperCycle({
+      targetDate,
+      specificSources: TEN_AM_SOURCES,
+      forceRescrape: true,
+      triggerType: 'late_start_ten',
+    });
+  } catch (error) {
+    console.error('[TenAmScraper] ✗ Error:', error);
   }
 }
 
@@ -740,6 +790,13 @@ export async function initializeScheduledTasks() {
   // Riprova fonti senza HoroscopeData valido (published after main window / fallback)
   // ============================================================================
   cron.schedule('15 9 * * *', executeLateDailyFallback, {
+    timezone: 'Europe/Rome'
+  });
+
+  // ============================================================================
+  // 10 AM SCRAPER - Corriere della Sera (ID 9)
+  // ============================================================================
+  cron.schedule('0 10 * * *', executeTenAmSources, {
     timezone: 'Europe/Rome'
   });
 
