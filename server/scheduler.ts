@@ -406,12 +406,10 @@ async function executeLateDailyFallback() {
     if (await hasRunningExecution(targetDate)) return;
 
     // forceRescrape: false → buildProcessedCache skippa le coppie con summary valido
-    // e riprova tutto ciò che non ha dati corretti (no record, summary vuoto, failed).
-    // TEN_AM_SOURCES escluse: non ancora pubblicate alle 9:15, gestite dal job delle 10 AM.
+    // e riprova tutto ciò che non ha dati corretti (no record, summary vuoto, failed)
     const result = await runDailyScraperCycle({
       targetDate,
       forceRescrape: false,
-      excludeSources: TEN_AM_SOURCES,
       triggerType: 'fallback_late',
     });
 
