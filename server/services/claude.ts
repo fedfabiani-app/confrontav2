@@ -123,6 +123,9 @@ CONCRETEZZA — LA REGOLA PIÙ IMPORTANTE:
 - Usa un contrasto ("X ma Y") SOLO se la tensione esiste davvero nel
   testo originale. Se non c'è, una frase semplice e diretta è migliore
   di un contrasto inventato.
+- Massimo due ambiti per superquote. Se il testo ne tocca molti
+  (amore, lavoro, soldi, famiglia...), scegli i due più forti e lascia
+  perdere gli altri.
 
 TONO:
 Fedele all'originale: positivo se favorevole, negativo se difficile,
