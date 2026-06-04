@@ -2569,44 +2569,48 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
     }
 
     // ── ELLE.COM/IT specific extraction ─────────────────────────────────────
-    // Each sign has its own article page; extract the main article body.
-    // Hearst CMS structure: article body in [data-journey-body] or .article-body-content.
+    // Hearst Journey CMS: article paragraphs are marked data-journey-content="true".
+    // Structure: [0] attribution intro (author/date) → skip
+    //            [1..N-3] actual horoscope content    → keep
+    //            [last few] CTA button paragraphs (body-btn-link) → skip
     if (url.includes('elle.com')) {
-      // Try JSON-LD articleBody first (fastest, bypasses paywall fragments)
-      let elleText = '';
-      $('script[type="application/ld+json"]').each((_, el) => {
-        if (elleText) return;
-        try {
-          const raw = JSON.parse($(el).html() || '{}');
-          const data = Array.isArray(raw) ? raw[0] : raw;
-          const body: string = data?.articleBody || '';
-          if (body.length > 100) elleText = body;
-        } catch { /* ignore */ }
-      });
+      const journeyParas = $('p[data-journey-content="true"]').toArray();
 
-      // DOM selectors used by elle.com (Hearst CMS)
-      if (!elleText) {
-        const elleSelectors = [
-          '[data-journey-body] p',
-          '.article-body-content p',
-          '.article-body p',
-          '.body-content p',
-          '.article__body p',
-          'article p',
-          'main p',
-        ];
-        for (const sel of elleSelectors) {
-          const paras = $(sel)
-            .map((_, el) => $(el).text().trim())
-            .get()
-            .filter(t =>
-              t.length > 30 &&
-              !/^(leggi anche|pubblicità|condividi|cookie|scopri|newsletter)/i.test(t)
-            );
-          if (paras.length > 0) {
-            elleText = paras.join('\n\n');
-            break;
-          }
+      const contentParas: string[] = [];
+      for (let i = 1; i < journeyParas.length; i++) { // i=0 is always the attribution intro
+        const $p = $(journeyParas[i]);
+        // Skip CTA button paragraphs (contain body-btn-link anchors, no real prose)
+        if ($p.find('a.body-btn-link').length > 0) continue;
+        const text = $p.text().trim();
+        if (text.length > 30) contentParas.push(text);
+      }
+
+      if (contentParas.length > 0) {
+        return { success: true, text: contentParas.join('\n\n').substring(0, 3500), url };
+      }
+
+      // Fallback: broader DOM selectors (paywall or markup change)
+      let elleText = '';
+      const elleSelectors = [
+        '[data-journey-body] p',
+        '.article-body-content p',
+        '.article-body p',
+        '.body-content p',
+        '.article__body p',
+        'article p',
+        'main p',
+      ];
+      for (const sel of elleSelectors) {
+        const paras = $(sel)
+          .map((_, el) => $(el).text().trim())
+          .get()
+          .filter(t =>
+            t.length > 30 &&
+            !/^(leggi anche|pubblicità|condividi|cookie|scopri|newsletter)/i.test(t)
+          );
+        if (paras.length > 0) {
+          elleText = paras.join('\n\n');
+          break;
         }
       }
 
