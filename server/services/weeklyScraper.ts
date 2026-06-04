@@ -132,6 +132,10 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
   } else if (input.domain.includes('gazzetta.it')) {
     // For Gazzetta, the archive is also just the base URL
     archiveUrl = input.baseUrl.endsWith('/') ? input.baseUrl : input.baseUrl + '/';
+  } else if (input.domain.includes('repubblica.it')) {
+    archiveUrl = 'https://d.repubblica.it/oroscopo/';
+  } else if (input.domain.includes('alfemminile.com')) {
+    archiveUrl = 'https://www.alfemminile.com/astrologia/oroscopo/';
   } else {
     // For other sources, use baseUrl + urlPattern (if it makes sense)
     archiveUrl = input.baseUrl + input.urlPattern;
@@ -346,6 +350,27 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
         candidates.push({ url: absoluteUrl, dateRange, score });
       } else {
       }
+    });
+
+    candidates.sort((a, b) => b.score - a.score);
+  }
+  // Special handling for alFemminile
+  else if (input.domain.includes('alfemminile.com')) {
+    $('a').each((_, elem) => {
+      const href = $(elem).attr('href');
+      const linkText = $(elem).text().trim();
+      if (!href) return;
+      if (!href.includes('oroscopo-settimanale') && !href.includes('oroscopo-settimana')) return;
+
+      const fullText = href + ' ' + linkText;
+      const dateRange = parseItalianWeekRange(fullText, currentYear);
+      if (!dateRange) return;
+
+      const absoluteUrl = href.startsWith('http') ? href :
+        href.startsWith('/') ? 'https://www.alfemminile.com' + href :
+        'https://www.alfemminile.com/' + href;
+
+      candidates.push({ url: absoluteUrl, dateRange, score: 20 });
     });
 
     candidates.sort((a, b) => b.score - a.score);
@@ -834,8 +859,7 @@ function buildSimonAndTheStarsUrl(input: WeeklyScraperInput): string {
           if (!href) return;
 
           const isElleHoroscope =
-            (href.includes('/oroscopo/a') || href.includes('/oroscopo/oroscopo-')) &&
-            href.includes('simon-and-the-stars');
+            href.includes('/oroscopo/a') || href.includes('/oroscopo/oroscopo-');
           if (!isElleHoroscope) return;
 
           let startDate: Date | null = null;
