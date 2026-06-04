@@ -155,15 +155,17 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
   // Special handling for Repubblica
   if (input.domain.includes('repubblica.it')) {
 
-    const urlPattern = /oroscopo[-_](?:della[-_])?settimana/i;
-
     $('a').each((_, elem) => {
       const href = $(elem).attr('href');
       const linkText = $(elem).text().trim();
 
-      if (!href || !urlPattern.test(href)) {
-        return;
-      }
+      if (!href || !href.includes('/oroscopo/')) return;
+
+      // Accept any link under /oroscopo/ that mentions "settimana" in any form,
+      // OR contains a date embedded in the path (/YYYY/MM/DD/)
+      const hasWeeklySlug = /oroscopo.*settimana|settimana.*oroscopo/i.test(href);
+      const hasDateInPath = /\/\d{4}\/\d{1,2}\/\d{1,2}\//.test(href);
+      if (!hasWeeklySlug && !hasDateInPath) return;
 
       let score = 0;
 
@@ -858,8 +860,13 @@ function buildSimonAndTheStarsUrl(input: WeeklyScraperInput): string {
           const href = $(elem).attr('href');
           if (!href) return;
 
+          // Accept any horoscope link that mentions a month name or year —
+          // robust against Elle URL restructuring
           const isElleHoroscope =
-            href.includes('/oroscopo/a') || href.includes('/oroscopo/oroscopo-');
+            href.includes('oroscopo') &&
+            (href.includes('simon') ||
+             /\b(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)\b/i.test(href) ||
+             /\d{4}/.test(href));
           if (!isElleHoroscope) return;
 
           let startDate: Date | null = null;

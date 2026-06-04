@@ -209,10 +209,11 @@ async function main() {
     await prisma.weeklySource.upsert({
       where: { domain: source.domain },
       update: {
-        // Keep slug, url_pattern and strategy in sync on re-seed
+        // Keep slug, url_pattern, strategy and is_active in sync on re-seed
         slug: source.slug,
         url_pattern: source.url_pattern,
         scrape_strategy: source.scrape_strategy,
+        is_active: source.is_active,
       },
       create: {
         name: source.name,
