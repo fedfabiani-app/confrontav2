@@ -86,10 +86,8 @@ export async function getFailedWeeklySources(
 function createWeeklyScraperInput(source: any, zodiacSign: any, weekStart: Date): WeeklyScraperInput {
   const isSaturdayBased = source.domain.includes('repubblica.it') || source.domain.includes('sorrisi.com');
   const useNumericMonth = source.domain.includes('repubblica.it');
-  // SuperGuida TV (Branko) publishes Thursday-to-Wednesday weeks
-  const isThursdayBased = source.domain.includes('superguidatv.it');
 
-  const { startDay, endDay, month, year } = formatWeekUrlParams(weekStart, isSaturdayBased, useNumericMonth, isThursdayBased);
+  const { startDay, endDay, month, year } = formatWeekUrlParams(weekStart, isSaturdayBased, useNumericMonth);
   
   return {
     sourceId: source.id,

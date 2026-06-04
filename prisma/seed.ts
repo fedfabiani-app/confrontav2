@@ -15,16 +15,6 @@ const WEEKLY_SOURCES = [
     is_active: true,
   },
   {
-    name: 'Branko - SuperGuida TV',
-    domain: 'superguidatv.it',
-    logo_url: 'https://www.superguidatv.it/favicon.ico',
-    base_url: 'https://www.superguidatv.it',
-    url_pattern: '/oroscopo-branko-previsioni-settimana-dal-{start_day}-al-{end_day}-{month}-{year}/',
-    scrape_strategy: 'pattern',
-    slug: null,
-    is_active: true,
-  },
-  {
     name: 'Cosmopolitan',
     domain: 'cosmopolitan.com',
     logo_url: 'https://www.cosmopolitan.com/it/apple-touch-icon.png',
@@ -148,6 +138,15 @@ const WEEKLY_SOURCES = [
 
 async function main() {
   console.log('Seeding database...');
+
+  // One-off cleanup: remove SuperGuida TV / Branko weekly source.
+  const superguidaSource = await prisma.weeklySource.findFirst({ where: { domain: 'superguidatv.it' } });
+  if (superguidaSource) {
+    await prisma.weeklyHoroscopeData.deleteMany({ where: { source_id: superguidaSource.id } });
+    await prisma.weeklyScraperSourceStatus.deleteMany({ where: { source_id: superguidaSource.id } });
+    await prisma.weeklySource.delete({ where: { id: superguidaSource.id } });
+    console.log(`Removed SuperGuida TV weekly source (ID ${superguidaSource.id})`);
+  }
 
   // One-off cleanup: remove duplicate ELLE weekly source (ID 15).
   // ID 27 (domain elle.com) is the canonical record; ID 15 was created when

@@ -10,7 +10,7 @@ import {
   getFailedWeeklySources,
   type SourceGroup 
 } from './services/weeklyScraperOrchestrator';
-import { getCurrentWeekStart, getNextWeekStart } from './utils/weekUtils';
+import { getCurrentWeekStart } from './utils/weekUtils';
 
 // ============================================================================
 // HELPER FUNCTIONS - DAILY SCRAPER
@@ -625,63 +625,6 @@ async function executeSaturdayWeeklyScraper() {
 }
 
 // ============================================================================
-// SUNDAY WEEKLY SCRAPER (SuperGuida TV / Branko)
-// ============================================================================
-
-async function executeSundayWeeklyScraper() {
-
-  try {
-    // CRITICAL: on Sunday we store content under NEXT Monday's week,
-    // because the article covers the upcoming Mon-Sun period.
-    const weekStart = getNextWeekStart();
-    const now = new Date();
-    const italyTime = now.toLocaleString('it-IT', {
-      timeZone: 'Europe/Rome',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    });
-
-
-    // Guard 1: Check enabled flag
-    const config = await getWeeklyScraperConfig();
-    if (!config.enabled) {
-      return;
-    }
-
-    // Guard 2: Sanity check - is it actually Sunday?
-    const italyNow = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Rome' }));
-    if (italyNow.getDay() !== 0) {
-      return;
-    }
-
-    // Guard 3: Check if sunday_group update already ran for next week
-    if (await hasCompletedGroupScrapeForWeek(weekStart, 'sunday_group')) {
-      return;
-    }
-
-    // Guard 4: No Monday prerequisite (Sunday runs before Monday)
-
-    const sundaySourceIds = await getWeeklySourceIdsByDomain(['superguidatv.it']);
-    if (sundaySourceIds.length === 0) {
-      return;
-    }
-
-    const result = await runWeeklyScraperCycle({
-      weekStart,
-      specificSources: sundaySourceIds,
-      sourceGroup: 'sunday_group',
-      forceRescrape: false,
-      triggerType: 'scheduled'
-    });
-
-
-  } catch (error) {
-    console.error('[SundayWeekly] ✗ Error:', error);
-  }
-}
-
-// ============================================================================
 // WEEKLY FALLBACK RETRY SYSTEM
 // ============================================================================
 
@@ -822,15 +765,6 @@ export async function initializeScheduledTasks() {
     timezone: 'Europe/Rome'
   });
 
-  // ============================================================================
-  // SUNDAY WEEKLY SCRAPER (SuperGuida TV / Branko)
-  // Runs at 18:00 on Sundays — article is live by early afternoon
-  // Stores content under NEXT Monday's week key
-  // ============================================================================
-  cron.schedule('0 18 * * 0', executeSundayWeeklyScraper, {
-    timezone: 'Europe/Rome'
-  });
-  
   // ============================================================================
   // WEEKLY FALLBACK RETRY
   // Runs at 9:00 AM on Mondays (after main scraping window)
