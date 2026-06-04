@@ -68,6 +68,9 @@ function parseItalianWeekRange(text: string, currentYear: number): WeekDateRange
 
     // Pattern 3: Simple "number - number - month" format
     /(\d{1,2})[-\s]+(\d{1,2})[-\s]+(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:[-\s]*\d{4})?/i,
+
+    // Pattern 4: "N al M month" without dal/dall prefix (e.g. Harper's Bazaar: "25-al-31-maggio-2026")
+    /(\d{1,2})[-\s]+al[-\s]+(\d{1,2})[-\s]+(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:[-\s]*\d{4})?/i,
   ];
 
   for (const pattern of patterns) {
@@ -136,6 +139,8 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
     archiveUrl = 'https://d.repubblica.it/oroscopo/';
   } else if (input.domain.includes('alfemminile.com')) {
     archiveUrl = 'https://www.alfemminile.com/astrologia/oroscopo/';
+  } else if (input.domain.includes('harpersbazaar.com')) {
+    archiveUrl = 'https://www.harpersbazaar.com/it/cultura/oroscopo/';
   } else {
     // For other sources, use baseUrl + urlPattern (if it makes sense)
     archiveUrl = input.baseUrl + input.urlPattern;
@@ -362,7 +367,7 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
       const href = $(elem).attr('href');
       const linkText = $(elem).text().trim();
       if (!href) return;
-      if (!href.includes('oroscopo-settimanale') && !href.includes('oroscopo-settimana')) return;
+      if (!href.includes('settimana')) return;
 
       const fullText = href + ' ' + linkText;
       const dateRange = parseItalianWeekRange(fullText, currentYear);
@@ -546,7 +551,27 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
 
       candidates.sort((a, b) => b.score - a.score);
     }
-    
+
+    // Special handling for Harper's Bazaar
+    else if (input.domain.includes('harpersbazaar.com')) {
+      const urlPattern = /\/cultura\/oroscopo\/a\d+\/oroscopo-/i;
+
+      $('a').each((_, elem) => {
+        const href = $(elem).attr('href');
+        const linkText = $(elem).text().trim();
+        if (!href || !urlPattern.test(href)) return;
+
+        const fullText = href + ' ' + linkText;
+        const dateRange = parseItalianWeekRange(fullText, currentYear);
+        if (!dateRange) return;
+
+        const absoluteUrl = href.startsWith('http') ? href : 'https://www.harpersbazaar.com' + href;
+        candidates.push({ url: absoluteUrl, dateRange, score: 20 });
+      });
+
+      candidates.sort((a, b) => b.score - a.score);
+    }
+
     // Generic archive handling
   else {
     $('a').each((_, elem) => {
@@ -835,11 +860,13 @@ function buildSimonAndTheStarsUrl(input: WeeklyScraperInput): string {
         const $ = cheerio.load(html);
         const targetDate = new Date(input.weekStartDate);
 
-        // Adjust to Thursday-based week (Elle weeks start on Thursday)
+        // Find the Thursday within the same Mon-Sun week as targetDate.
+        // Elle publishes each Thursday; for a Mon-Sun week the relevant Thursday
+        // is always targetDate + (4 - dayOfWeek + 7) % 7 (0 if already Thursday).
         const dayOfWeek = targetDate.getDay();
-        const daysToThursday = (dayOfWeek >= 4) ? (dayOfWeek - 4) : (dayOfWeek + 3);
+        const daysToThursday = (4 - dayOfWeek + 7) % 7;
         const thursdayDate = new Date(targetDate);
-        thursdayDate.setDate(thursdayDate.getDate() - daysToThursday);
+        thursdayDate.setDate(thursdayDate.getDate() + daysToThursday);
 
         const targetDateStr = thursdayDate.toISOString().split('T')[0];
 
@@ -901,6 +928,22 @@ function buildSimonAndTheStarsUrl(input: WeeklyScraperInput): string {
                 endDate   = new Date(yr, m - 1, parseInt(samePeriodMatch[2]));
                 // If period wraps into next month (e.g. 27-3-ottobre → endDay < startDay)
                 if (endDate < startDate) endDate = new Date(yr, m, parseInt(samePeriodMatch[2]));
+              }
+            }
+          }
+
+          // Format C (newest): settimana format  oroscopo-{sign}-settimana-{day}-{month}-{year}
+          // e.g. oroscopo-ariete-settimana-4-giugno-2026-simon-and-the-stars
+          if (!startDate) {
+            const settimanaMatch = href.match(
+              /oroscopo-\w+-settimana-(\d{1,2})-(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)-(\d{4})/i
+            );
+            if (settimanaMatch) {
+              const m  = monthMap[settimanaMatch[2].toLowerCase()];
+              const yr = parseInt(settimanaMatch[3]);
+              if (m) {
+                startDate = new Date(yr, m - 1, parseInt(settimanaMatch[1]));
+                endDate   = new Date(startDate.getTime() + 6 * 24 * 60 * 60 * 1000);
               }
             }
           }
@@ -1114,7 +1157,12 @@ function buildSimonAndTheStarsUrl(input: WeeklyScraperInput): string {
 
 
 
-      // Archive strategy - resolve from archive page    
+      // HARPER'S BAZAAR: Use archive strategy (URLs include article IDs, not constructable)
+      if (input.domain.includes('harpersbazaar.com') || input.baseUrl.includes('harpersbazaar.com')) {
+        return await resolveWeeklyUrlFromArchive(input);
+      }
+
+      // Archive strategy - resolve from archive page
       if (input.scrapeStrategy === 'archive') {
         return await resolveWeeklyUrlFromArchive(input);
       }

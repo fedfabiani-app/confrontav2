@@ -129,10 +129,10 @@ const WEEKLY_SOURCES = [
     domain: 'harpersbazaar.com',
     logo_url: 'https://www.harpersbazaar.com/favicon.ico',
     base_url: 'https://www.harpersbazaar.com/it',
-    url_pattern: '/cultura/lifestyle/',
-    scrape_strategy: 'pattern',
+    url_pattern: '/cultura/oroscopo/',
+    scrape_strategy: 'archive',
     slug: null,
-    is_active: false,
+    is_active: true,
   },
   {
     name: 'ELLE',
