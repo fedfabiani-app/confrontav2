@@ -327,7 +327,7 @@ export default function Home() {
 
 {/* Favorites Section */}
 {hasFavorites && (
-  <div className="mb-8 mt-8">
+  <div className="mb-8 mt-4">
     <div className="flex items-center space-x-2 mb-4">
       <h2 className="text-lg font-bold text-[#E1B64E]">
         I tuoi Segni Preferiti
