@@ -14,8 +14,11 @@ import {
   ExternalLink,
   Share,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Loader2,
   CalendarDays,
+  Moon,
 } from "lucide-react";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { AppHeader } from "@/components/AppHeader";
@@ -230,7 +233,6 @@ function SignDetail({ sign }: SignDetailProps) {
   const formatDate = (date: Date): string => {
     return date.toLocaleDateString('it-IT', {
       weekday: 'long',
-      year: 'numeric',
       month: 'long',
       day: 'numeric',
     });
@@ -671,43 +673,73 @@ function SignDetail({ sign }: SignDetailProps) {
             </div>
 
             {/* Date Selector for Daily View */}
-            {viewType === "daily" && (
-              <div className="w-full max-w-md">
-                <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-                  <PopoverTrigger asChild>
-                    <button
-                      className="w-full bg-indigo-950 rounded-full px-6 py-3 flex items-center justify-center gap-3 shadow-md hover:shadow-lg transition-shadow border border-indigo-800"
-                      data-testid="date-selector-daily"
-                    >
-                      <CalendarDays className="w-5 h-5 text-[#E1B64E]" />
-                      <span className="text-indigo-100 font-medium">
-                        {formatDate(selectedDate)}
-                      </span>
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="center">
-                    <div className="p-3 border-b border-border">
-                      <h4 className="text-sm font-medium">Seleziona Data</h4>
-                      <p className="text-xs text-muted-foreground">Ultimi 30 giorni disponibili</p>
-                    </div>
-                    <Calendar
-                      mode="single"
-                      selected={selectedDate}
-                      onSelect={handleDateSelect}
-                      disabled={(date) => {
-                        const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-                        const diffDays = Math.round((todayStart.getTime() - d.getTime()) / 86_400_000);
-                        return date > todayStart || diffDays > 29;
-                      }}
-                      toDate={todayStart}
-                      defaultMonth={selectedDate}
-                      className="border-0"
-                      data-testid="date-calendar-daily"
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-            )}
+{viewType === "daily" && (
+  <div className="flex items-center justify-between gap-6 bg-indigo-950 border border-indigo-800 rounded-full px-4 py-3 shadow-md w-full max-w-md">
+    {/* Freccia indietro */}
+    <button
+      onClick={() => {
+        const prevDate = new Date(selectedDate);
+        prevDate.setDate(prevDate.getDate() - 1);
+        setSelectedDate(prevDate);
+      }}
+      className="p-1 rounded-full transition-colors flex-shrink-0 hover:bg-indigo-800"
+      aria-label="Giorno precedente"
+    >
+      <ChevronLeft size={24} className="text-indigo-100" />
+    </button>
+
+    {/* Centro: Popover */}
+    <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+      <PopoverTrigger asChild>
+        <button
+          className="flex items-center justify-center gap-3 flex-1"
+          data-testid="date-selector-daily"
+        >
+          <Moon className="w-5 h-5 text-[#E1B64E]" />
+          <span className="text-indigo-100 font-semibold text-base">
+            {formatDate(selectedDate)}
+          </span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="center">
+        <div className="p-3 border-b border-border">
+          <h4 className="text-sm font-medium">Seleziona Data</h4>
+          <p className="text-xs text-muted-foreground">Ultimi 30 giorni disponibili</p>
+        </div>
+        <Calendar
+          mode="single"
+          selected={selectedDate}
+          onSelect={handleDateSelect}
+          disabled={(date) => {
+            const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+            const diffDays = Math.round((todayStart.getTime() - d.getTime()) / 86_400_000);
+            return date > todayStart || diffDays > 29;
+          }}
+          toDate={todayStart}
+          defaultMonth={selectedDate}
+          className="border-0"
+          data-testid="date-calendar-daily"
+        />
+      </PopoverContent>
+    </Popover>
+
+    {/* Freccia avanti */}
+    <button
+      onClick={() => {
+        const nextDate = new Date(selectedDate);
+        nextDate.setDate(nextDate.getDate() + 1);
+        if (nextDate <= todayStart) {
+          setSelectedDate(nextDate);
+        }
+      }}
+      className="p-1 rounded-full transition-colors flex-shrink-0 hover:bg-indigo-800 disabled:opacity-40 disabled:cursor-not-allowed"
+      aria-label="Giorno successivo"
+      disabled={selectedDate >= todayStart}
+    >
+      <ChevronRight size={24} className="text-indigo-100" />
+    </button>
+  </div>
+)}
 
             {/* Week Navigator for Weekly View */}
             {viewType === "weekly" && (
