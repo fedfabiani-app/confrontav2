@@ -31,12 +31,8 @@ export function PremiumGateOverlay({ type, date, onClose }: PremiumGateOverlayPr
           {type === 'daily' ? 'Oroscopo Premium' : 'Settimana Premium'}
         </h2>
         <p className="text-gray-300 text-sm leading-relaxed">
-          Accedi a{' '}
-          <span className="text-white font-medium">
-            {type === 'weekly' ? `la settimana del ${date}` : date}
-          </span>{' '}
-          con Premium
-        </p>
+  Accedi agli oroscopi delle ultime quattro settimane con Premium
+</p>
         <div className="flex flex-col gap-3 pt-2">
           <button
             onClick={() => navigate('/pricing')}

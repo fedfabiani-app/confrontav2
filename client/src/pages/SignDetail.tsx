@@ -676,11 +676,11 @@ function SignDetail({ sign }: SignDetailProps) {
                 <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
                   <PopoverTrigger asChild>
                     <button
-                      className="w-full bg-white dark:bg-gray-800 rounded-full px-6 py-3 flex items-center justify-center gap-3 shadow-md hover:shadow-lg transition-shadow border border-gray-200 dark:border-gray-700"
+                      className="w-full bg-indigo-950 rounded-full px-6 py-3 flex items-center justify-center gap-3 shadow-md hover:shadow-lg transition-shadow border border-indigo-800"
                       data-testid="date-selector-daily"
                     >
                       <CalendarDays className="w-5 h-5 text-[#E1B64E]" />
-                      <span className="font-medium text-gray-900 dark:text-gray-100">
+                      <span className="text-indigo-100 font-medium">
                         {formatDate(selectedDate)}
                       </span>
                     </button>
@@ -688,7 +688,7 @@ function SignDetail({ sign }: SignDetailProps) {
                   <PopoverContent className="w-auto p-0" align="center">
                     <div className="p-3 border-b border-border">
                       <h4 className="text-sm font-medium">Seleziona Data</h4>
-                      <p className="text-xs text-muted-foreground">Ultimi 90 giorni disponibili</p>
+                      <p className="text-xs text-muted-foreground">Ultimi 30 giorni disponibili</p>
                     </div>
                     <Calendar
                       mode="single"
