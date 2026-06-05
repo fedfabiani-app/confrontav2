@@ -137,6 +137,10 @@ export function ClerkAuthProvider({
     <ClerkProvider
       publishableKey={publishableKey}
       localization={itIT}
+      signInUrl="/login"
+      signUpUrl="/login"
+      afterSignInUrl="/"
+      afterSignUpUrl="/"
       {...(allowedRedirectOrigins ? { allowedRedirectOrigins } : {})}
     >
       <ClerkAuthSync>{children}</ClerkAuthSync>

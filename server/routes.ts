@@ -1931,6 +1931,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success_url: `${req.headers.origin}/`,
         cancel_url: `${req.headers.origin}/pricing`,
         customer_email: (await prisma.user.findUnique({ where: { clerkId } }))?.email || undefined,
+        customer_creation: 'always',
+        customer_update: { name: 'never' },
         metadata: { clerkId }
       });
 
