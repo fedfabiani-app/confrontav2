@@ -9,7 +9,7 @@ import { trackCheckoutStart } from '../lib/analytics';
 const FREE_FEATURES = [
   'Tutti i 12 segni',
   '14+ fonti italiane',
-  'Oroscopo giornaliero (oggi + ieri)',
+  'Oroscopo giornaliero (solo oggi)',
   'Oroscopo settimanale (settimana corrente)',
   'Notifiche push',
   'Sync preferiti su tutti i tuoi device',

@@ -9,7 +9,7 @@ type BannerConfig = { text: string; cta: string; href: string };
 
 const CONFIGS: Record<string, BannerConfig> = {
   'guest:sync':          { text: 'Sincronizza i tuoi preferiti su tutti i dispositivi', cta: 'Crea account gratis', href: '/login' },
-  'free:history':        { text: 'Accedi agli ultimi 30 giorni di oroscopi',              cta: 'Vai Premium',        href: '/pricing' },
+  'free:history':        { text: 'Accedi agli oroscopi di ieri e degli ultimi 30 giorni',  cta: 'Vai Premium',        href: '/pricing' },
   'free:weeks':          { text: 'Consulta le ultime 4 settimane',                         cta: 'Vai Premium',        href: '/pricing' },
   'free:compatibility':  { text: 'Scopri la compatibilità con altri segni',                cta: 'Vai Premium',        href: '/pricing' },
 };
