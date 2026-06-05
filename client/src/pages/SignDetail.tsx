@@ -680,7 +680,7 @@ function SignDetail({ sign }: SignDetailProps) {
       onClick={() => {
         const prevDate = new Date(selectedDate);
         prevDate.setDate(prevDate.getDate() - 1);
-        setSelectedDate(prevDate);
+        handleDateSelect(prevDate);
       }}
       className="p-1 rounded-full transition-colors flex-shrink-0 hover:bg-indigo-800"
       aria-label="Giorno precedente"
@@ -729,7 +729,7 @@ function SignDetail({ sign }: SignDetailProps) {
         const nextDate = new Date(selectedDate);
         nextDate.setDate(nextDate.getDate() + 1);
         if (nextDate <= todayStart) {
-          setSelectedDate(nextDate);
+          handleDateSelect(nextDate);
         }
       }}
       className="p-1 rounded-full transition-colors flex-shrink-0 hover:bg-indigo-800 disabled:opacity-40 disabled:cursor-not-allowed"
