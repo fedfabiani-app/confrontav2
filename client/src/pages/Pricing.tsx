@@ -149,7 +149,7 @@ export default function Pricing() {
               <button
                 onClick={() => {
                   trackCheckoutStart('monthly');
-                  handleCheckout('price_1TX0IzLi2fBiRYknuJxfS0Pi');
+                  handleCheckout('price_1TeuFcLi2fBiRYknDybE3eul');
                 }}
                 className="w-full py-2.5 rounded-xl text-sm font-semibold"
                 style={{ background: '#E1B64E', color: '#1a1a1a' }}
