@@ -22,12 +22,18 @@ export function PremiumGate({ locked, message = 'Funzionalità Premium', childre
       >
         <Lock className="text-white" size={28} strokeWidth={1.8} />
         <p className="text-white text-sm font-medium">{message}</p>
+        <span
+          className="px-3 py-0.5 rounded-full text-xs font-bold"
+          style={{ background: 'rgba(225,182,78,0.15)', color: '#E1B64E', border: '1px solid rgba(225,182,78,0.4)' }}
+        >
+          🎁 30 giorni gratis
+        </span>
         <button
           onClick={() => navigate('/pricing')}
           className="px-4 py-1.5 rounded-full text-sm font-semibold mb-4"
           style={{ background: '#E1B64E', color: '#1a1a1a' }}
         >
-          Scopri Premium
+          Prova gratis per 30 giorni
         </button>
       </div>
     </div>
