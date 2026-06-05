@@ -735,7 +735,7 @@ function SignDetail({ sign }: SignDetailProps) {
                     </p>
                   </div>
                   <div className="w-8 h-8 md:w-12 md:h-12 bg-pink-100 rounded-full flex items-center justify-center mt-1 md:mt-0">
-                    <Heart className="text-pink-500 w-4 h-4 md:w-6 md:h-6" />
+                    <Heart className="text-pink-700 w-4 h-4 md:w-6 md:h-6" />
                   </div>
                 </div>
               </CardContent>
@@ -751,7 +751,7 @@ function SignDetail({ sign }: SignDetailProps) {
                     </p>
                   </div>
                   <div className="w-8 h-8 md:w-12 md:h-12 bg-blue-100 rounded-full flex items-center justify-center mt-1 md:mt-0">
-                    <Briefcase className="text-blue-500 w-4 h-4 md:w-6 md:h-6" />
+                    <Briefcase className="text-blue-700 w-4 h-4 md:w-6 md:h-6" />
                   </div>
                 </div>
               </CardContent>
@@ -767,7 +767,7 @@ function SignDetail({ sign }: SignDetailProps) {
                     </p>
                   </div>
                   <div className="w-8 h-8 md:w-12 md:h-12 bg-green-100 rounded-full flex items-center justify-center mt-1 md:mt-0">
-                    <Leaf className="text-green-500 w-4 h-4 md:w-6 md:h-6" />
+                    <Leaf className="text-green-700 w-4 h-4 md:w-6 md:h-6" />
                   </div>
                 </div>
               </CardContent>
@@ -786,7 +786,7 @@ function SignDetail({ sign }: SignDetailProps) {
                         key={i}
                         className={`w-3 h-3 md:w-4 md:h-4 ${
                           i < Math.round((viewType === "daily" ? aggregate?.overallAverage : weeklyAggregate?.overallAverage) || 0)
-                            ? 'text-orange-500 fill-orange-500'
+                            ? 'text-[#E1B64E] fill-[#E1B64E]'
                             : 'text-gray-300'
                         }`}
                       />
@@ -921,10 +921,10 @@ function SignDetail({ sign }: SignDetailProps) {
                         href={horoscope.original_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center text-sm font-semibold text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+                        className="inline-flex items-center text-sm font-semibold text-purple-700/60 hover:text-purple-900 dark:text-purple-400/60 dark:hover:text-purple-300 transition-colors"
                         data-testid={`link-read-more-${horoscope.source.id}`}
                       >
-                        Leggi tutto su {horoscope.source.name}
+                        Leggi Tutto su {horoscope.source.name}
                         <ExternalLink className="w-3 h-3 ml-1" />
                       </a>
                     </div>
@@ -933,7 +933,7 @@ function SignDetail({ sign }: SignDetailProps) {
                     <div className="grid grid-cols-3 gap-4">
                       <div className="text-center">
                         <div className="flex items-center justify-center space-x-2 mb-1">
-                          <Heart className="w-4 h-4 text-pink-500" />
+                          <Heart className="w-4 h-4 text-pink-700" />
                           <span className="text-sm text-muted-foreground">Relazioni</span>
                         </div>
                         <div className="text-lg font-bold text-card-foreground">
@@ -951,7 +951,7 @@ function SignDetail({ sign }: SignDetailProps) {
                       </div>
                       <div className="text-center">
                         <div className="flex items-center justify-center space-x-2 mb-1">
-                          <Leaf className="w-4 h-4 text-green-500" />
+                          <Leaf className="w-4 h-4 text-green-700" />
                           <span className="text-sm text-muted-foreground">Benessere</span>
                         </div>
                         <div className="text-lg font-bold text-card-foreground">
