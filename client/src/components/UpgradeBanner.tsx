@@ -9,9 +9,9 @@ type BannerConfig = { text: string; cta: string; href: string };
 
 const CONFIGS: Record<string, BannerConfig> = {
   'guest:sync':          { text: 'Sincronizza i tuoi preferiti su tutti i dispositivi', cta: 'Crea account gratis', href: '/login' },
-  'free:history':        { text: 'Accedi agli oroscopi di ieri e degli ultimi 30 giorni',  cta: 'Vai Premium',        href: '/pricing' },
-  'free:weeks':          { text: 'Consulta le ultime 4 settimane',                         cta: 'Vai Premium',        href: '/pricing' },
-  'free:compatibility':  { text: 'Scopri la compatibilità con altri segni',                cta: 'Vai Premium',        href: '/pricing' },
+  'free:history':        { text: 'Accedi agli oroscopi di ieri e degli ultimi 30 giorni',  cta: 'Passa a Premium',        href: '/pricing' },
+  'free:weeks':          { text: 'Consulta le ultime 4 settimane',                         cta: 'Passa a Premium',        href: '/pricing' },
+  'free:compatibility':  { text: 'Scopri la compatibilità con altri segni',                cta: 'Passa a Premium',        href: '/pricing' },
 };
 
 export function UpgradeBanner({ context }: UpgradeBannerProps) {
@@ -27,7 +27,7 @@ export function UpgradeBanner({ context }: UpgradeBannerProps) {
 
   return (
     <div
-      className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg text-sm flex-wrap"
+      className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm"
       style={{
         background: 'rgba(225, 182, 78, 0.1)',
         border: '1px solid rgba(225, 182, 78, 0.3)',
@@ -36,7 +36,7 @@ export function UpgradeBanner({ context }: UpgradeBannerProps) {
       <span className="text-white">{config.text}</span>
       <button
         onClick={() => navigate(config.href)}
-        className="shrink-0 px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap"
+        className="ml-auto shrink-0 px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap"
         style={{ background: '#E1B64E', color: '#1a1a1a' }}
       >
         {config.cta}
