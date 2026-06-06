@@ -830,7 +830,11 @@ function SignDetail({ sign }: SignDetailProps) {
           </div>
         )}
        <div className="mb-8">
-  <CompatibilityWidget currentSign={sign} />
+  <CompatibilityWidget
+            currentSign={sign}
+            viewType={viewType}
+            weekStartDate={viewType === 'weekly' ? weekStartDate : undefined}
+          />
         </div>
         {/* Individual Source Cards */}
         {!((viewType === "daily" ? horoscopesLoading : weeklyHoroscopesLoading)) &&

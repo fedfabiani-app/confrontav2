@@ -269,3 +269,17 @@ model CompatibilityCache {
   @@unique([sign1, sign2, date_label])
   @@map("compatibility_cache")
 }
+
+model CompatibilityResult {
+  id          Int      @id @default(autoincrement())
+  sign1       String   // English, sorted alphabetically (sign1 < sign2)
+  sign2       String
+  period_type String   // 'daily' | 'weekly'
+  period_date DateTime @db.Date
+  result      String   @db.Text
+  created_at  DateTime @default(now())
+
+  @@unique([sign1, sign2, period_type, period_date])
+  @@index([period_type, period_date])
+  @@map("compatibility_results")
+}

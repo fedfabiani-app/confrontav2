@@ -10,7 +10,8 @@
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Utente\\\\Desktop\\\\Confronta Oroscopo\\\\confrontav2\" -Recurse -File)",
       "Bash(Select-Object -ExpandProperty FullName)",
       "Read(//c/Program Files/nodejs/**)",
-      "Read(//c/Users/Federico/**)"
+      "Read(//c/Users/Federico/**)",
+      "PowerShell(Get-ChildItem \"$env:LOCALAPPDATA\" -Directory | Select-Object Name)"
     ]
   }
 }

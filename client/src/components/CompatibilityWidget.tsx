@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Lock } from 'lucide-react';
 import { useAccess } from '../hooks/use-access';
 import { useAuth } from '../hooks/use-auth';
@@ -6,6 +6,8 @@ import { useLocation } from 'wouter';
 
 interface CompatibilityWidgetProps {
   currentSign?: string;
+  viewType?: 'daily' | 'weekly';
+  weekStartDate?: string;
 }
 
 const SIGNS = [
@@ -21,9 +23,18 @@ function todayStr() {
   return new Date().toISOString().split('T')[0];
 }
 
+function formatWeekLabel(weekStartDate: string): string {
+  const start = new Date(weekStartDate);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+  const fmt = (d: Date) =>
+    d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+  return `${fmt(start)} – ${fmt(end)}`;
+}
+
 type Status = 'idle' | 'loading' | 'result' | 'error';
 
-export function CompatibilityWidget({ currentSign }: CompatibilityWidgetProps) {
+export function CompatibilityWidget({ currentSign, viewType = 'daily', weekStartDate }: CompatibilityWidgetProps) {
   const { canAccessCompatibility } = useAccess();
   const { clerkUserId } = useAuth();
   const [, navigate] = useLocation();
@@ -44,18 +55,28 @@ export function CompatibilityWidget({ currentSign }: CompatibilityWidgetProps) {
     setResult('');
   }
 
+  useEffect(() => {
+    resetResult();
+  }, [viewType, weekStartDate]);
+
   async function handleAnalyze() {
     if (status === 'loading') return;
     setStatus('loading');
     setResult('');
     try {
-      const res = await fetch('/api/compatibility', {
+      const isWeekly = viewType === 'weekly';
+      const endpoint = isWeekly ? '/api/weekly-compatibility' : '/api/compatibility';
+      const body = isWeekly
+        ? { sign1, sign2, weekStartDate }
+        : { sign1, sign2, date };
+
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(clerkUserId ? { 'x-clerk-user-id': clerkUserId } : {}),
         },
-        body: JSON.stringify({ sign1, sign2, date }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
@@ -108,15 +129,24 @@ export function CompatibilityWidget({ currentSign }: CompatibilityWidgetProps) {
         </select>
       </div>
 
-      {/* Date picker */}
-      <input
-        type="date"
-        value={date}
-        max={todayStr()}
-        onChange={e => { setDate(e.target.value); resetResult(); }}
-        className="w-full rounded-lg px-3 py-2 text-sm text-white outline-none"
-        style={selectStyle}
-      />
+      {/* Date picker (daily) or week label (weekly) */}
+      {viewType === 'weekly' ? (
+        <div
+          className="w-full rounded-lg px-3 py-2 text-sm text-white/70 text-center"
+          style={selectStyle}
+        >
+          {weekStartDate ? formatWeekLabel(weekStartDate) : 'Settimana corrente'}
+        </div>
+      ) : (
+        <input
+          type="date"
+          value={date}
+          max={todayStr()}
+          onChange={e => { setDate(e.target.value); resetResult(); }}
+          className="w-full rounded-lg px-3 py-2 text-sm text-white outline-none"
+          style={selectStyle}
+        />
+      )}
 
       {/* Analyze button */}
       <button
