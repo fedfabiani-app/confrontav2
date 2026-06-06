@@ -1931,6 +1931,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success_url: `${req.headers.origin}/`,
         cancel_url: `${req.headers.origin}/pricing`,
         customer_email: (await prisma.user.findUnique({ where: { clerkId } }))?.email || undefined,
+        subscription_data: { trial_period_days: 30 },
         metadata: { clerkId }
       });
 
@@ -1941,42 +1942,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // POST /api/compatibility
-  app.post("/api/compatibility", async (req, res) => {
-    const clerkId = req.headers['x-clerk-user-id'] as string;
-    if (!clerkId) return res.status(401).json({ error: 'Unauthorized' });
+  // Helper: generate or return cached compatibility result
+  async function getOrGenerateCompatibility(
+    sign1: string,
+    sign2: string,
+    periodType: 'daily' | 'weekly',
+    periodDate: Date,
+    getHoroscopes: () => Promise<[{ summary: string }[], { summary: string }[]]>
+  ): Promise<string> {
+    const [s1, s2] = [sign1, sign2].sort();
 
-    const { sign1, sign2, date } = req.body;
-    if (!sign1 || !sign2) return res.status(400).json({ error: 'Both signs required' });
+    const cached = await prisma.compatibilityResult.findUnique({
+      where: {
+        sign1_sign2_period_type_period_date: {
+          sign1: s1, sign2: s2, period_type: periodType, period_date: periodDate,
+        },
+      },
+    });
+    if (cached) return cached.result;
 
-    const targetDate = date ? new Date(date) : new Date();
-    const dateLabel = targetDate.toISOString().split('T')[0];
+    const [horo1, horo2] = await getHoroscopes();
+    if (horo1.length === 0 || horo2.length === 0) throw new Error('NO_DATA');
 
-    try {
-      const [horo1, horo2] = await Promise.all([
-        prisma.horoscopeData.findMany({
-          where: { zodiac_sign: { name_english: sign1 }, date: targetDate },
-          select: { summary: true },
-          take: 3,
-        }),
-        prisma.horoscopeData.findMany({
-          where: { zodiac_sign: { name_english: sign2 }, date: targetDate },
-          select: { summary: true },
-          take: 3,
-        }),
-      ]);
+    const { Anthropic } = await import('@anthropic-ai/sdk');
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-      if (horo1.length === 0 || horo2.length === 0) {
-        return res.status(404).json({ error: 'Nessun oroscopo disponibile per quella data' });
-      }
+    const horoscope1 = horo1.map(h => h.summary).join(' ');
+    const horoscope2 = horo2.map(h => h.summary).join(' ');
 
-      const { Anthropic } = await import('@anthropic-ai/sdk');
-      const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
-      const horoscope1 = horo1.map(h => h.summary).join(' ');
-      const horoscope2 = horo2.map(h => h.summary).join(' ');
-
-      const prompt = `Segno 1: ${sign1}
+    const prompt = `Segno 1: ${sign1}
 Oroscopo: "${horoscope1}"
 
 Segno 2: ${sign2}
@@ -1988,17 +1982,94 @@ Scrivi 1 sola frase breve sulla compatibilità amorosa tra questi due segni.
 - Tono: leggero e simpatico
 - Max 50 parole, 1 sola frase`;
 
-      const response = await client.messages.create({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 150,
-        messages: [{ role: 'user', content: prompt }],
-      });
+    const response = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 150,
+      messages: [{ role: 'user', content: prompt }],
+    });
 
-      const result = response.content[0].type === 'text' ? response.content[0].text.trim() : '';
+    const result = response.content[0].type === 'text' ? response.content[0].text.trim() : '';
 
+    prisma.compatibilityResult.upsert({
+      where: {
+        sign1_sign2_period_type_period_date: {
+          sign1: s1, sign2: s2, period_type: periodType, period_date: periodDate,
+        },
+      },
+      create: { sign1: s1, sign2: s2, period_type: periodType, period_date: periodDate, result },
+      update: {},
+    }).catch((err: unknown) => console.error('[Compatibility] Cache write failed:', err));
+
+    return result;
+  }
+
+  // POST /api/compatibility
+  app.post("/api/compatibility", async (req, res) => {
+    const clerkId = req.headers['x-clerk-user-id'] as string;
+    if (!clerkId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { sign1, sign2, date } = req.body;
+    if (!sign1 || !sign2) return res.status(400).json({ error: 'Both signs required' });
+
+    const targetDate = date ? new Date(date) : new Date();
+
+    try {
+      const result = await getOrGenerateCompatibility(
+        sign1, sign2, 'daily', targetDate,
+        () => Promise.all([
+          prisma.horoscopeData.findMany({
+            where: { zodiac_sign: { name_english: sign1 }, date: targetDate },
+            select: { summary: true },
+            take: 3,
+          }),
+          prisma.horoscopeData.findMany({
+            where: { zodiac_sign: { name_english: sign2 }, date: targetDate },
+            select: { summary: true },
+            take: 3,
+          }),
+        ])
+      );
       return res.json({ result });
     } catch (error) {
+      if (error instanceof Error && error.message === 'NO_DATA')
+        return res.status(404).json({ error: 'Nessun oroscopo disponibile per quella data' });
       console.error('[Compatibility] Error:', error);
+      return res.status(500).json({ error: 'Failed to analyze compatibility' });
+    }
+  });
+
+  // POST /api/weekly-compatibility
+  app.post("/api/weekly-compatibility", async (req, res) => {
+    const clerkId = req.headers['x-clerk-user-id'] as string;
+    if (!clerkId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { sign1, sign2, weekStartDate } = req.body;
+    if (!sign1 || !sign2 || !weekStartDate)
+      return res.status(400).json({ error: 'sign1, sign2, weekStartDate required' });
+
+    const periodDate = new Date(weekStartDate);
+
+    try {
+      const result = await getOrGenerateCompatibility(
+        sign1, sign2, 'weekly', periodDate,
+        () => Promise.all([
+          prisma.weeklyHoroscopeData.findMany({
+            where: { zodiac_sign: { name_english: sign1 }, week_start_date: periodDate },
+            select: { summary: true },
+            take: 3,
+          }),
+          prisma.weeklyHoroscopeData.findMany({
+            where: { zodiac_sign: { name_english: sign2 }, week_start_date: periodDate },
+            select: { summary: true },
+            take: 3,
+          }),
+        ])
+      );
+      return res.json({ result });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'NO_DATA')
+        return res.status(404).json({ error: 'Nessun oroscopo settimanale disponibile per quella settimana' });
+      console.error('[WeeklyCompatibility] Error:', error);
       return res.status(500).json({ error: 'Failed to analyze compatibility' });
     }
   });

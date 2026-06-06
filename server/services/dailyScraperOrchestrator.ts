@@ -12,7 +12,7 @@ export interface DailyScraperOptions {
   specificSources?: number[];
   excludeSources?: number[];
   dryRun?: boolean;
-  triggerType?: 'scheduled' | 'fallback' | 'manual' | 'late_start';
+  triggerType?: 'scheduled' | 'fallback' | 'fallback_late' | 'manual' | 'late_start' | 'late_start_ten';
 }
 
 export interface DailyScraperStats {
@@ -89,7 +89,7 @@ function isAlreadyProcessed(
 
 async function createExecutionRecord(
   targetDate: string,
-  triggerType: 'scheduled' | 'fallback' | 'manual' | 'late_start'
+  triggerType: 'scheduled' | 'fallback' | 'fallback_late' | 'manual' | 'late_start' | 'late_start_ten'
 ): Promise<number> {
   const targetDateObj = new Date(targetDate + 'T00:00:00.000Z');
   

@@ -288,14 +288,14 @@ export default function Home() {
             <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
               <PopoverTrigger asChild>
                 <button
-                  className="w-full bg-white dark:bg-gray-800 rounded-full px-6 py-3 flex items-center justify-center gap-3 shadow-md hover:shadow-lg transition-shadow border border-gray-200 dark:border-gray-700"
-                  data-testid="date-selector-trigger"
-                >
-                  <CalendarDays className="w-5 h-5 text-[#E1B64E]" />
-                  <span className="font-medium text-gray-900 dark:text-gray-100">
-                    {formatDate(selectedDate)}
-                  </span>
-                </button>
+  className="w-full bg-indigo-950 rounded-full px-6 py-3 flex items-center justify-center gap-3 shadow-md hover:shadow-lg transition-shadow border border-indigo-800"
+  data-testid="date-selector-trigger"
+>
+  <CalendarDays className="w-5 h-5 text-[#E1B64E]" />
+  <span className="font-semibold text-indigo-100 text-base">
+    {formatDate(selectedDate)}
+  </span>
+</button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="center">
                 <div className="p-3 border-b border-border">
@@ -323,22 +323,22 @@ export default function Home() {
           </div>
         </div>
 
-         <UpgradeBanner context="history"/>
+      <UpgradeBanner context="history" />
 
-        {/* Favorites Section */}
-        {hasFavorites && (
-          <div className="mb-8">
-            <div className="flex items-center space-x-2 mb-4">
-              <h2 className="text-lg font-bold text-[#E1B64E]">
-                I tuoi Segni Preferiti
-              </h2>
-              <span
-                className="px-2 py-1 rounded-full text-xs font-medium"
-                style={{ backgroundColor: "#FEF9E7", color: "#E1B64E" }}
-              >
-                {homeFavorites.size}
-              </span>
-            </div>
+{/* Favorites Section */}
+{hasFavorites && (
+  <div className="mb-8 mt-4">
+    <div className="flex items-center space-x-2 mb-4">
+      <h2 className="text-lg font-bold text-[#E1B64E]">
+        I tuoi Segni Preferiti
+      </h2>
+      <span
+        className="px-2 py-1 rounded-full text-xs font-medium"
+        style={{ backgroundColor: "#FEF9E7", color: "#E1B64E" }}
+      >
+        {homeFavorites.size}
+      </span>
+    </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
               {zodiacSigns
                 .filter((sign) => isHomeFavorite(sign.name_english))
@@ -358,8 +358,10 @@ export default function Home() {
             </div>
           </div>
         )}
-
-        <UpgradeBanner context="sync" />
+        
+        <div className="mb-4">
+          <UpgradeBanner context="sync"/>
+        </div>
 
         {/* Loading State */}
         {isLoading && (
@@ -431,7 +433,7 @@ export default function Home() {
       />
 
       {/* Bottom spacing for mobile navigation */}
-      <div className="h-5 md:h-0"></div>
+      <div className="h-2 md:h-0"></div>
 
       {premiumOverlay && (
         <PremiumGateOverlay

@@ -10,7 +10,7 @@ import {
   getFailedWeeklySources,
   type SourceGroup 
 } from './services/weeklyScraperOrchestrator';
-import { getCurrentWeekStart, getNextWeekStart } from './utils/weekUtils';
+import { getCurrentWeekStart } from './utils/weekUtils';
 
 // ============================================================================
 // HELPER FUNCTIONS - DAILY SCRAPER
@@ -65,6 +65,37 @@ async function hasFallbackRunToday(): Promise<boolean> {
   });
   
   return fallback !== null;
+}
+
+/**
+ * Check if late fallback already ran today
+ */
+async function hasLateFallbackRunToday(): Promise<boolean> {
+  const targetDate = getItalyToday();
+  const targetDateObj = new Date(targetDate + 'T00:00:00.000Z');
+
+  const fallback = await prisma.scraperExecution.findFirst({
+    where: {
+      target_date: targetDateObj,
+      trigger_type: 'fallback_late',
+    },
+  });
+
+  return fallback !== null;
+}
+
+async function hasTenAmRunToday(): Promise<boolean> {
+  const targetDate = getItalyToday();
+  const targetDateObj = new Date(targetDate + 'T00:00:00.000Z');
+
+  const run = await prisma.scraperExecution.findFirst({
+    where: {
+      target_date: targetDateObj,
+      trigger_type: 'late_start_ten',
+    },
+  });
+
+  return run !== null;
 }
 
 /**
@@ -196,6 +227,13 @@ function isWithinMondayWindow(): boolean {
 // earlier retrieves the previous day's content.
 // ============================================================================
 const LATE_START_SOURCES: number[] = [13];
+
+// ============================================================================
+// SOURCES WITH 10 AM SCRAPING
+// Corriere della Sera (ID 9) pubblica l'oroscopo dopo le 10:00 AM —
+// il tentativo alle 9:15 restituisce dati vuoti.
+// ============================================================================
+const TEN_AM_SOURCES: number[] = [9];
 
 // ============================================================================
 // MAIN DAILY SCRAPER
@@ -345,6 +383,66 @@ async function executeFallbackRetry() {
     
   } catch (error) {
     console.error('[Fallback] ✗ Error:', error);
+  }
+}
+
+// ============================================================================
+// LATE FALLBACK (9:15 AM CET)
+// Riprova tutte le fonti senza HoroscopeData valido oggi (summary mancante o vuoto).
+// buildProcessedCache skippa automaticamente le coppie source+sign con dati corretti.
+// ============================================================================
+
+async function executeLateDailyFallback() {
+  try {
+    const config = await getDailyScraperConfig();
+    if (!config.enabled) return;
+
+    const targetDate = getItalyToday();
+
+    // Guard: skip se il fallback tardivo è già girato oggi
+    if (await hasLateFallbackRunToday()) return;
+
+    // Guard: skip se c'è un'esecuzione in corso
+    if (await hasRunningExecution(targetDate)) return;
+
+    // forceRescrape: false → buildProcessedCache skippa le coppie con summary valido
+    // e riprova tutto ciò che non ha dati corretti (no record, summary vuoto, failed)
+    const result = await runDailyScraperCycle({
+      targetDate,
+      forceRescrape: false,
+      triggerType: 'fallback_late',
+    });
+
+    console.log(`[LateFallback] Enqueued ${result.stats.enqueued}, skipped ${result.stats.skipped}`);
+  } catch (error) {
+    console.error('[LateFallback] ✗ Error:', error);
+  }
+}
+
+// ============================================================================
+// 10 AM SCRAPER (Corriere della Sera — ID 9)
+// Corriere pubblica l'oroscopo dopo le 10:00 AM. Esclusa dal fallback delle
+// 9:15, viene riprocessata qui con forceRescrape: true.
+// ============================================================================
+
+async function executeTenAmSources() {
+  try {
+    const config = await getDailyScraperConfig();
+    if (!config.enabled) return;
+
+    const targetDate = getItalyToday();
+
+    if (await hasTenAmRunToday()) return;
+    if (await hasRunningExecution(targetDate)) return;
+
+    await runDailyScraperCycle({
+      targetDate,
+      specificSources: TEN_AM_SOURCES,
+      forceRescrape: true,
+      triggerType: 'late_start_ten',
+    });
+  } catch (error) {
+    console.error('[TenAmScraper] ✗ Error:', error);
   }
 }
 
@@ -527,63 +625,6 @@ async function executeSaturdayWeeklyScraper() {
 }
 
 // ============================================================================
-// SUNDAY WEEKLY SCRAPER (SuperGuida TV / Branko)
-// ============================================================================
-
-async function executeSundayWeeklyScraper() {
-
-  try {
-    // CRITICAL: on Sunday we store content under NEXT Monday's week,
-    // because the article covers the upcoming Mon-Sun period.
-    const weekStart = getNextWeekStart();
-    const now = new Date();
-    const italyTime = now.toLocaleString('it-IT', {
-      timeZone: 'Europe/Rome',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    });
-
-
-    // Guard 1: Check enabled flag
-    const config = await getWeeklyScraperConfig();
-    if (!config.enabled) {
-      return;
-    }
-
-    // Guard 2: Sanity check - is it actually Sunday?
-    const italyNow = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Rome' }));
-    if (italyNow.getDay() !== 0) {
-      return;
-    }
-
-    // Guard 3: Check if sunday_group update already ran for next week
-    if (await hasCompletedGroupScrapeForWeek(weekStart, 'sunday_group')) {
-      return;
-    }
-
-    // Guard 4: No Monday prerequisite (Sunday runs before Monday)
-
-    const sundaySourceIds = await getWeeklySourceIdsByDomain(['superguidatv.it']);
-    if (sundaySourceIds.length === 0) {
-      return;
-    }
-
-    const result = await runWeeklyScraperCycle({
-      weekStart,
-      specificSources: sundaySourceIds,
-      sourceGroup: 'sunday_group',
-      forceRescrape: false,
-      triggerType: 'scheduled'
-    });
-
-
-  } catch (error) {
-    console.error('[SundayWeekly] ✗ Error:', error);
-  }
-}
-
-// ============================================================================
 // WEEKLY FALLBACK RETRY SYSTEM
 // ============================================================================
 
@@ -686,6 +727,21 @@ export async function initializeScheduledTasks() {
   });
 
   // ============================================================================
+  // LATE FALLBACK - 9:15 AM CET
+  // Riprova fonti senza HoroscopeData valido (published after main window / fallback)
+  // ============================================================================
+  cron.schedule('15 9 * * *', executeLateDailyFallback, {
+    timezone: 'Europe/Rome'
+  });
+
+  // ============================================================================
+  // 10 AM SCRAPER - Corriere della Sera (ID 9)
+  // ============================================================================
+  cron.schedule('0 10 * * *', executeTenAmSources, {
+    timezone: 'Europe/Rome'
+  });
+
+  // ============================================================================
   // MONDAY WEEKLY SCRAPER
   // Runs every 20 minutes on Mondays, guards enforce 5:30-8:00 AM window
   // ============================================================================
@@ -709,15 +765,6 @@ export async function initializeScheduledTasks() {
     timezone: 'Europe/Rome'
   });
 
-  // ============================================================================
-  // SUNDAY WEEKLY SCRAPER (SuperGuida TV / Branko)
-  // Runs at 18:00 on Sundays — article is live by early afternoon
-  // Stores content under NEXT Monday's week key
-  // ============================================================================
-  cron.schedule('0 18 * * 0', executeSundayWeeklyScraper, {
-    timezone: 'Europe/Rome'
-  });
-  
   // ============================================================================
   // WEEKLY FALLBACK RETRY
   // Runs at 9:00 AM on Mondays (after main scraping window)

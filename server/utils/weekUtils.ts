@@ -14,9 +14,6 @@ const TIMEZONE = 'Europe/Rome';
  * Extensible: add more days or sources as needed
  */
 const SOURCE_SCHEDULE = {
-  // Sunday sources (publish Sunday, stored under next Monday's week)
-  sunday: ['superguidatv'] as const,
-
   // Thursday sources
   thursday: ['elle'] as const,
 
@@ -26,7 +23,7 @@ const SOURCE_SCHEDULE = {
   // All other sources scrape on Monday (default)
 };
 
-export type SourceGroup = 'all' | 'elle_only' | 'saturday_group' | 'sunday_group';
+export type SourceGroup = 'all' | 'elle_only' | 'saturday_group';
 
 /**
  * Get current date/time in Europe/Rome timezone
@@ -139,10 +136,6 @@ export function isSameWeek(date1: Date, date2: Date): boolean {
 export function getSourceGroup(sourceSlug: string): SourceGroup {
   const normalizedSlug = sourceSlug.toLowerCase();
 
-  if (SOURCE_SCHEDULE.sunday.some(slug => normalizedSlug.includes(slug))) {
-    return 'sunday_group';
-  }
-
   if (SOURCE_SCHEDULE.thursday.some(slug => normalizedSlug.includes(slug))) {
     return 'elle_only';
   }
@@ -167,23 +160,11 @@ export function shouldSourceBeScrapedToday(sourceSlug: string): boolean {
 
   const sourceGroup = getSourceGroup(sourceSlug);
 
-  if (dayOfWeek === 0) return sourceGroup === 'sunday_group';
   if (dayOfWeek === 1) return true;
   if (dayOfWeek === 4) return sourceGroup === 'elle_only';
   if (dayOfWeek === 6) return sourceGroup === 'saturday_group';
 
   return false;
-}
-
-/**
- * Get the Monday of the NEXT ISO week (used by Sunday scrapers to store
- * content under the correct upcoming week key)
- */
-export function getNextWeekStart(): Date {
-  const now = getNowInRome();
-  const tomorrow = new Date(now);
-  tomorrow.setDate(now.getDate() + 1);
-  return getMondayOfWeek(tomorrow);
 }
 
 /**
@@ -214,8 +195,7 @@ export function getSaturdayOfWeek(date: Date): Date {
 export function formatWeekUrlParams(
   weekStartDate: Date,
   isSaturdayBased: boolean = false,
-  useNumericMonth: boolean = false,
-  isThursdayBased: boolean = false
+  useNumericMonth: boolean = false
 ): {
   startDay: string;
   endDay: string;
@@ -230,14 +210,7 @@ export function formatWeekUrlParams(
 
   let start: Date, end: Date;
 
-  if (isThursdayBased) {
-    // Thursday-to-Wednesday weeks (e.g. SuperGuida TV / Branko)
-    // From the Monday weekStartDate, go back 4 days to get the previous Thursday
-    start = new Date(weekStartDate);
-    start.setDate(weekStartDate.getDate() - 4);
-    end = new Date(start);
-    end.setDate(start.getDate() + 6); // Wednesday
-  } else if (isSaturdayBased) {
+  if (isSaturdayBased) {
     // Some sources (Repubblica, Sorrisi) use Saturday-Friday weeks
     start = getSaturdayOfWeek(weekStartDate);
     end = new Date(start);

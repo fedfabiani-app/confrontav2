@@ -9,7 +9,7 @@ import { trackCheckoutStart } from '../lib/analytics';
 const FREE_FEATURES = [
   'Tutti i 12 segni',
   '14+ fonti italiane',
-  'Oroscopo giornaliero (oggi + ieri)',
+  'Oroscopo giornaliero (solo oggi)',
   'Oroscopo settimanale (settimana corrente)',
   'Notifiche push',
   'Sync preferiti su tutti i tuoi device',
@@ -35,12 +35,16 @@ export default function Pricing() {
   const { user } = useUser();
 
   const handleCheckout = async (priceId: string) => {
+    if (!user) {
+      navigate('/login?redirect=/pricing');
+      return;
+    }
     try {
       const response = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-clerk-user-id': user?.id || ''
+          'x-clerk-user-id': user.id
         },
         body: JSON.stringify({ priceId })
       });
@@ -116,12 +120,20 @@ export default function Pricing() {
             style={{ background: 'rgba(225,182,78,0.08)', border: '1.5px solid #E1B64E' }}
           >
             <div>
-              <span
-                className="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold mb-3"
-                style={{ background: '#E1B64E', color: '#1a1a1a' }}
-              >
-                PREMIUM
-              </span>
+              <div className="flex flex-wrap items-center gap-2 mb-3">
+                <span
+                  className="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold"
+                  style={{ background: '#E1B64E', color: '#1a1a1a' }}
+                >
+                  PREMIUM
+                </span>
+                <span
+                  className="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold"
+                  style={{ background: 'rgba(255,255,255,0.15)', color: '#ffffff' }}
+                >
+                  🎁 30 giorni gratis
+                </span>
+              </div>
               <p className="text-2xl font-bold text-white">€2,99</p>
               <p className="text-white/50 text-sm">/ mese</p>
               <p className="text-white/40 text-xs mt-0.5">o €19,99 / anno</p>
@@ -145,12 +157,12 @@ export default function Pricing() {
               <button
                 onClick={() => {
                   trackCheckoutStart('monthly');
-                  handleCheckout('price_1TX0IzLi2fBiRYknuJxfS0Pi');
+                  handleCheckout('price_1TeuFcLi2fBiRYknDybE3eul');
                 }}
                 className="w-full py-2.5 rounded-xl text-sm font-semibold"
                 style={{ background: '#E1B64E', color: '#1a1a1a' }}
               >
-                Passa a Premium — €2,99/mese
+                Prova gratis 30 giorni — poi €2,99/mese
               </button>
               <button
                 onClick={() => {
@@ -160,7 +172,7 @@ export default function Pricing() {
                 className="w-full py-2.5 rounded-xl text-sm font-semibold text-white/80"
                 style={{ border: '1px solid #E1B64E', background: 'transparent' }}
               >
-                Annuale — €19,99/anno
+                Prova gratis 30 giorni — poi €19,99/anno
               </button>
             </div>
           </div>

@@ -14,8 +14,11 @@ import {
   ExternalLink,
   Share,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Loader2,
   CalendarDays,
+  Moon,
 } from "lucide-react";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { AppHeader } from "@/components/AppHeader";
@@ -230,7 +233,6 @@ function SignDetail({ sign }: SignDetailProps) {
   const formatDate = (date: Date): string => {
     return date.toLocaleDateString('it-IT', {
       weekday: 'long',
-      year: 'numeric',
       month: 'long',
       day: 'numeric',
     });
@@ -616,18 +618,16 @@ function SignDetail({ sign }: SignDetailProps) {
           </Button>
 
           <div className="flex items-center space-x-4">
-            {/* Simbolo zodiacale con glow e animazione */}
-            <div
-              className={`w-12 h-12 bg-gradient-to-br ${colorClass} rounded-full flex items-center justify-center transition-transform hover:scale-110 duration-300`}
+            {/* Icona zodiacale SVG con glow e animazione */}
+            <img
+              src={`/icons/zodiac/${currentSign.name_english.toLowerCase()}.svg`}
+              alt={currentSign.name_italian}
+              className="w-12 h-12 object-contain transition-transform hover:scale-110 duration-300"
+              draggable={false}
               style={{
-                boxShadow: '0 0 20px rgba(225, 182, 78, 0.4), 0 0 40px rgba(225, 182, 78, 0.2)',
-                border: '2px solid rgba(225, 182, 78, 0.3)'
+                filter: 'drop-shadow(0 0 8px rgba(225, 182, 78, 0.5))'
               }}
-            >
-              <span className="text-white font-bold text-xl">
-                {currentSign.symbol}
-              </span>
-            </div>
+            />
 
             <div>
               {/* Nome segno con effetto glow */}
@@ -673,43 +673,73 @@ function SignDetail({ sign }: SignDetailProps) {
             </div>
 
             {/* Date Selector for Daily View */}
-            {viewType === "daily" && (
-              <div className="w-full max-w-md">
-                <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-                  <PopoverTrigger asChild>
-                    <button
-                      className="w-full bg-white dark:bg-gray-800 rounded-full px-6 py-3 flex items-center justify-center gap-3 shadow-md hover:shadow-lg transition-shadow border border-gray-200 dark:border-gray-700"
-                      data-testid="date-selector-daily"
-                    >
-                      <CalendarDays className="w-5 h-5 text-[#E1B64E]" />
-                      <span className="font-medium text-gray-900 dark:text-gray-100">
-                        {formatDate(selectedDate)}
-                      </span>
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="center">
-                    <div className="p-3 border-b border-border">
-                      <h4 className="text-sm font-medium">Seleziona Data</h4>
-                      <p className="text-xs text-muted-foreground">Ultimi 90 giorni disponibili</p>
-                    </div>
-                    <Calendar
-                      mode="single"
-                      selected={selectedDate}
-                      onSelect={handleDateSelect}
-                      disabled={(date) => {
-                        const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-                        const diffDays = Math.round((todayStart.getTime() - d.getTime()) / 86_400_000);
-                        return date > todayStart || diffDays > 29;
-                      }}
-                      toDate={todayStart}
-                      defaultMonth={selectedDate}
-                      className="border-0"
-                      data-testid="date-calendar-daily"
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-            )}
+{viewType === "daily" && (
+  <div className="flex items-center justify-between gap-6 bg-indigo-950 border border-indigo-800 rounded-full px-4 py-3 shadow-md w-full max-w-md">
+    {/* Freccia indietro */}
+    <button
+      onClick={() => {
+        const prevDate = new Date(selectedDate);
+        prevDate.setDate(prevDate.getDate() - 1);
+        handleDateSelect(prevDate);
+      }}
+      className="p-1 rounded-full transition-colors flex-shrink-0 hover:bg-indigo-800"
+      aria-label="Giorno precedente"
+    >
+      <ChevronLeft size={24} className="text-indigo-100" />
+    </button>
+
+    {/* Centro: Popover */}
+    <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+      <PopoverTrigger asChild>
+        <button
+          className="flex items-center justify-center gap-3 flex-1"
+          data-testid="date-selector-daily"
+        >
+          <Moon className="w-5 h-5 text-[#E1B64E]" />
+          <span className="text-indigo-100 font-semibold text-base">
+            {formatDate(selectedDate)}
+          </span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="center">
+        <div className="p-3 border-b border-border">
+          <h4 className="text-sm font-medium">Seleziona Data</h4>
+          <p className="text-xs text-muted-foreground">Ultimi 30 giorni disponibili</p>
+        </div>
+        <Calendar
+          mode="single"
+          selected={selectedDate}
+          onSelect={handleDateSelect}
+          disabled={(date) => {
+            const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+            const diffDays = Math.round((todayStart.getTime() - d.getTime()) / 86_400_000);
+            return date > todayStart || diffDays > 29;
+          }}
+          toDate={todayStart}
+          defaultMonth={selectedDate}
+          className="border-0"
+          data-testid="date-calendar-daily"
+        />
+      </PopoverContent>
+    </Popover>
+
+    {/* Freccia avanti */}
+    <button
+      onClick={() => {
+        const nextDate = new Date(selectedDate);
+        nextDate.setDate(nextDate.getDate() + 1);
+        if (nextDate <= todayStart) {
+          handleDateSelect(nextDate);
+        }
+      }}
+      className="p-1 rounded-full transition-colors flex-shrink-0 hover:bg-indigo-800 disabled:opacity-40 disabled:cursor-not-allowed"
+      aria-label="Giorno successivo"
+      disabled={selectedDate >= todayStart}
+    >
+      <ChevronRight size={24} className="text-indigo-100" />
+    </button>
+  </div>
+)}
 
             {/* Week Navigator for Weekly View */}
             {viewType === "weekly" && (
@@ -737,7 +767,7 @@ function SignDetail({ sign }: SignDetailProps) {
                     </p>
                   </div>
                   <div className="w-8 h-8 md:w-12 md:h-12 bg-pink-100 rounded-full flex items-center justify-center mt-1 md:mt-0">
-                    <Heart className="text-pink-500 w-4 h-4 md:w-6 md:h-6" />
+                    <Heart className="text-pink-700 w-4 h-4 md:w-6 md:h-6" />
                   </div>
                 </div>
               </CardContent>
@@ -753,7 +783,7 @@ function SignDetail({ sign }: SignDetailProps) {
                     </p>
                   </div>
                   <div className="w-8 h-8 md:w-12 md:h-12 bg-blue-100 rounded-full flex items-center justify-center mt-1 md:mt-0">
-                    <Briefcase className="text-blue-500 w-4 h-4 md:w-6 md:h-6" />
+                    <Briefcase className="text-blue-700 w-4 h-4 md:w-6 md:h-6" />
                   </div>
                 </div>
               </CardContent>
@@ -769,7 +799,7 @@ function SignDetail({ sign }: SignDetailProps) {
                     </p>
                   </div>
                   <div className="w-8 h-8 md:w-12 md:h-12 bg-green-100 rounded-full flex items-center justify-center mt-1 md:mt-0">
-                    <Leaf className="text-green-500 w-4 h-4 md:w-6 md:h-6" />
+                    <Leaf className="text-green-700 w-4 h-4 md:w-6 md:h-6" />
                   </div>
                 </div>
               </CardContent>
@@ -788,7 +818,7 @@ function SignDetail({ sign }: SignDetailProps) {
                         key={i}
                         className={`w-3 h-3 md:w-4 md:h-4 ${
                           i < Math.round((viewType === "daily" ? aggregate?.overallAverage : weeklyAggregate?.overallAverage) || 0)
-                            ? 'text-orange-500 fill-orange-500'
+                            ? 'text-[#E1B64E] fill-[#E1B64E]'
                             : 'text-gray-300'
                         }`}
                       />
@@ -800,7 +830,11 @@ function SignDetail({ sign }: SignDetailProps) {
           </div>
         )}
        <div className="mb-8">
-  <CompatibilityWidget currentSign={sign} />
+  <CompatibilityWidget
+            currentSign={sign}
+            viewType={viewType}
+            weekStartDate={viewType === 'weekly' ? weekStartDate : undefined}
+          />
         </div>
         {/* Individual Source Cards */}
         {!((viewType === "daily" ? horoscopesLoading : weeklyHoroscopesLoading)) &&
@@ -923,10 +957,10 @@ function SignDetail({ sign }: SignDetailProps) {
                         href={horoscope.original_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center text-sm font-semibold text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+                        className="inline-flex items-center text-sm font-semibold text-purple-700/60 hover:text-purple-900 dark:text-purple-400/60 dark:hover:text-purple-300 transition-colors"
                         data-testid={`link-read-more-${horoscope.source.id}`}
                       >
-                        Leggi tutto su {horoscope.source.name}
+                        Leggi Tutto su {horoscope.source.name}
                         <ExternalLink className="w-3 h-3 ml-1" />
                       </a>
                     </div>
@@ -935,7 +969,7 @@ function SignDetail({ sign }: SignDetailProps) {
                     <div className="grid grid-cols-3 gap-4">
                       <div className="text-center">
                         <div className="flex items-center justify-center space-x-2 mb-1">
-                          <Heart className="w-4 h-4 text-pink-500" />
+                          <Heart className="w-4 h-4 text-pink-700" />
                           <span className="text-sm text-muted-foreground">Relazioni</span>
                         </div>
                         <div className="text-lg font-bold text-card-foreground">
@@ -953,7 +987,7 @@ function SignDetail({ sign }: SignDetailProps) {
                       </div>
                       <div className="text-center">
                         <div className="flex items-center justify-center space-x-2 mb-1">
-                          <Leaf className="w-4 h-4 text-green-500" />
+                          <Leaf className="w-4 h-4 text-green-700" />
                           <span className="text-sm text-muted-foreground">Benessere</span>
                         </div>
                         <div className="text-lg font-bold text-card-foreground">

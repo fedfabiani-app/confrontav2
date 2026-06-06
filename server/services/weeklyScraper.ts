@@ -68,6 +68,9 @@ function parseItalianWeekRange(text: string, currentYear: number): WeekDateRange
 
     // Pattern 3: Simple "number - number - month" format
     /(\d{1,2})[-\s]+(\d{1,2})[-\s]+(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:[-\s]*\d{4})?/i,
+
+    // Pattern 4: "N al M month" without dal/dall prefix (e.g. Harper's Bazaar: "25-al-31-maggio-2026")
+    /(\d{1,2})[-\s]+al[-\s]+(\d{1,2})[-\s]+(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:[-\s]*\d{4})?/i,
   ];
 
   for (const pattern of patterns) {
@@ -132,6 +135,12 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
   } else if (input.domain.includes('gazzetta.it')) {
     // For Gazzetta, the archive is also just the base URL
     archiveUrl = input.baseUrl.endsWith('/') ? input.baseUrl : input.baseUrl + '/';
+  } else if (input.domain.includes('repubblica.it')) {
+    archiveUrl = 'https://d.repubblica.it/oroscopo/';
+  } else if (input.domain.includes('alfemminile.com')) {
+    archiveUrl = 'https://www.alfemminile.com/astrologia/oroscopo/';
+  } else if (input.domain.includes('harpersbazaar.com')) {
+    archiveUrl = 'https://www.harpersbazaar.com/it/cultura/oroscopo/';
   } else {
     // For other sources, use baseUrl + urlPattern (if it makes sense)
     archiveUrl = input.baseUrl + input.urlPattern;
@@ -151,15 +160,17 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
   // Special handling for Repubblica
   if (input.domain.includes('repubblica.it')) {
 
-    const urlPattern = /oroscopo[-_](?:della[-_])?settimana/i;
-
     $('a').each((_, elem) => {
       const href = $(elem).attr('href');
       const linkText = $(elem).text().trim();
 
-      if (!href || !urlPattern.test(href)) {
-        return;
-      }
+      if (!href || !href.includes('/oroscopo/')) return;
+
+      // Accept any link under /oroscopo/ that mentions "settimana" in any form,
+      // OR contains a date embedded in the path (/YYYY/MM/DD/)
+      const hasWeeklySlug = /oroscopo.*settimana|settimana.*oroscopo/i.test(href);
+      const hasDateInPath = /\/\d{4}\/\d{1,2}\/\d{1,2}\//.test(href);
+      if (!hasWeeklySlug && !hasDateInPath) return;
 
       let score = 0;
 
@@ -350,6 +361,27 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
 
     candidates.sort((a, b) => b.score - a.score);
   }
+  // Special handling for alFemminile
+  else if (input.domain.includes('alfemminile.com')) {
+    $('a').each((_, elem) => {
+      const href = $(elem).attr('href');
+      const linkText = $(elem).text().trim();
+      if (!href) return;
+      if (!href.includes('settimana')) return;
+
+      const fullText = href + ' ' + linkText;
+      const dateRange = parseItalianWeekRange(fullText, currentYear);
+      if (!dateRange) return;
+
+      const absoluteUrl = href.startsWith('http') ? href :
+        href.startsWith('/') ? 'https://www.alfemminile.com' + href :
+        'https://www.alfemminile.com/' + href;
+
+      candidates.push({ url: absoluteUrl, dateRange, score: 20 });
+    });
+
+    candidates.sort((a, b) => b.score - a.score);
+  }
   // Special handling for Marie Claire
   else if (input.domain.includes('marieclaire.it')) {
 
@@ -519,7 +551,27 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
 
       candidates.sort((a, b) => b.score - a.score);
     }
-    
+
+    // Special handling for Harper's Bazaar
+    else if (input.domain.includes('harpersbazaar.com')) {
+      const urlPattern = /\/cultura\/oroscopo\/a\d+\/oroscopo-/i;
+
+      $('a').each((_, elem) => {
+        const href = $(elem).attr('href');
+        const linkText = $(elem).text().trim();
+        if (!href || !urlPattern.test(href)) return;
+
+        const fullText = href + ' ' + linkText;
+        const dateRange = parseItalianWeekRange(fullText, currentYear);
+        if (!dateRange) return;
+
+        const absoluteUrl = href.startsWith('http') ? href : 'https://www.harpersbazaar.com' + href;
+        candidates.push({ url: absoluteUrl, dateRange, score: 20 });
+      });
+
+      candidates.sort((a, b) => b.score - a.score);
+    }
+
     // Generic archive handling
   else {
     $('a').each((_, elem) => {
@@ -808,71 +860,121 @@ function buildSimonAndTheStarsUrl(input: WeeklyScraperInput): string {
         const $ = cheerio.load(html);
         const targetDate = new Date(input.weekStartDate);
 
-        // Adjust to Thursday-based week (Elle weeks start on Thursday)
+        // Find the Thursday within the same Mon-Sun week as targetDate.
+        // Elle publishes each Thursday; for a Mon-Sun week the relevant Thursday
+        // is always targetDate + (4 - dayOfWeek + 7) % 7 (0 if already Thursday).
         const dayOfWeek = targetDate.getDay();
-        const daysToThursday = (dayOfWeek >= 4) ? (dayOfWeek - 4) : (dayOfWeek + 3);
+        const daysToThursday = (4 - dayOfWeek + 7) % 7;
         const thursdayDate = new Date(targetDate);
-        thursdayDate.setDate(thursdayDate.getDate() - daysToThursday);
+        thursdayDate.setDate(thursdayDate.getDate() + daysToThursday);
 
         const targetDateStr = thursdayDate.toISOString().split('T')[0];
 
         const candidates: Array<{ url: string; startDate: Date; score: number }> = [];
 
 
-        // Find all horoscope links with weekly pattern
+        // Month name → number map (shared by both URL formats)
+        const monthMap: Record<string, number> = {
+          'gennaio': 1, 'febbraio': 2, 'marzo': 3, 'aprile': 4,
+          'maggio': 5, 'giugno': 6, 'luglio': 7, 'agosto': 8,
+          'settembre': 9, 'ottobre': 10, 'novembre': 11, 'dicembre': 12
+        };
+
+        // Find all horoscope links — handles both URL structures ELLE has used:
+        //   OLD: /oroscopo/a{ID}/oroscopo-{sign}-{day1}-{day2}-{month}-{year}-simon-and-the-stars/
+        //   NEW: /oroscopo/oroscopo-{sign}-{day1}-{month1}-{day2}-{month2}-{year}-simon-and-the-stars/
         $('a').each((_, elem) => {
           const href = $(elem).attr('href');
           if (!href) return;
 
-          // Match pattern: /oroscopo/a{ID}/oroscopo-{sign}-{dates}-simon-and-the-stars/
-          if (!href.includes('/oroscopo/a') || !href.includes('simon-and-the-stars')) return;
+          // Accept any horoscope link that mentions a month name or year —
+          // robust against Elle URL restructuring
+          const isElleHoroscope =
+            href.includes('oroscopo') &&
+            (href.includes('simon') ||
+             /\b(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)\b/i.test(href) ||
+             /\d{4}/.test(href));
+          if (!isElleHoroscope) return;
 
+          let startDate: Date | null = null;
+          let endDate:   Date | null = null;
 
-          // Parse date from URL: oroscopo-{sign}-16-22-ottobre-2025-simon
-          // Or: oroscopo-{sign}-16-al-22-ottobre-2025-simon
-          const dateMatch = href.match(/oroscopo-\w+-(\d{1,2})(?:-al)?-(\d{1,2})-(\w+)-(\d{4})/i);
+          // Format A (current): cross-month  {day1}-{month1}-{day2}-{month2}-{year}
+          // e.g. oroscopo-ariete-21-maggio-3-giugno-2026-simon-and-the-stars
+          const crossMonthMatch = href.match(
+            /oroscopo-\w+-(\d{1,2})-(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)-(\d{1,2})-(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)-(\d{4})/i
+          );
+          if (crossMonthMatch) {
+            const sm = monthMap[crossMonthMatch[2].toLowerCase()];
+            const em = monthMap[crossMonthMatch[4].toLowerCase()];
+            const yr = parseInt(crossMonthMatch[5]);
+            if (sm && em) {
+              startDate = new Date(yr, sm - 1, parseInt(crossMonthMatch[1]));
+              endDate   = new Date(yr, em - 1, parseInt(crossMonthMatch[3]));
+            }
+          }
 
-          if (dateMatch) {
-            const [_, startDay, endDay, monthName, year] = dateMatch;
-
-            const monthMap: Record<string, number> = {
-              'gennaio': 1, 'febbraio': 2, 'marzo': 3, 'aprile': 4,
-              'maggio': 5, 'giugno': 6, 'luglio': 7, 'agosto': 8,
-              'settembre': 9, 'ottobre': 10, 'novembre': 11, 'dicembre': 12
-            };
-
-            const monthNum = monthMap[monthName.toLowerCase()];
-
-            if (monthNum) {
-              const startDate = new Date(parseInt(year), monthNum - 1, parseInt(startDay));
-              const candidateDateStr = startDate.toISOString().split('T')[0];
-
-
-              let absoluteUrl = href;
-              if (href.startsWith('/')) {
-                absoluteUrl = 'https://www.elle.com/it' + href;
-              } else if (!href.startsWith('http')) {
-                absoluteUrl = 'https://www.elle.com/it/' + href;
-              }
-
-              // Calculate score based on date proximity
-              const daysDiff = Math.abs(Math.floor((startDate.getTime() - thursdayDate.getTime()) / (1000 * 60 * 60 * 24)));
-
-              let score = 100;
-              if (daysDiff === 0) {
-                score = 100;
-              } else if (daysDiff <= 3) {
-                score = 90 - (daysDiff * 10);
-              } else if (daysDiff <= 7) {
-                score = 50 - (daysDiff * 5);
-              } else {
-                score = 0;
-              }
-
-              if (score > 0) {
-                candidates.push({ url: absoluteUrl, startDate, score });
+          // Format B (legacy): same-period  {day1}[-al]-{day2}-{month}-{year}
+          // e.g. oroscopo-ariete-16-22-ottobre-2025-simon
+          if (!startDate) {
+            const samePeriodMatch = href.match(
+              /oroscopo-\w+-(\d{1,2})(?:-al)?-(\d{1,2})-(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)-(\d{4})/i
+            );
+            if (samePeriodMatch) {
+              const m  = monthMap[samePeriodMatch[3].toLowerCase()];
+              const yr = parseInt(samePeriodMatch[4]);
+              if (m) {
+                startDate = new Date(yr, m - 1, parseInt(samePeriodMatch[1]));
+                endDate   = new Date(yr, m - 1, parseInt(samePeriodMatch[2]));
+                // If period wraps into next month (e.g. 27-3-ottobre → endDay < startDay)
+                if (endDate < startDate) endDate = new Date(yr, m, parseInt(samePeriodMatch[2]));
               }
             }
+          }
+
+          // Format C (newest): settimana format  oroscopo-{sign}-settimana-{day}-{month}-{year}
+          // e.g. oroscopo-ariete-settimana-4-giugno-2026-simon-and-the-stars
+          if (!startDate) {
+            const settimanaMatch = href.match(
+              /oroscopo-\w+-settimana-(\d{1,2})-(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)-(\d{4})/i
+            );
+            if (settimanaMatch) {
+              const m  = monthMap[settimanaMatch[2].toLowerCase()];
+              const yr = parseInt(settimanaMatch[3]);
+              if (m) {
+                startDate = new Date(yr, m - 1, parseInt(settimanaMatch[1]));
+                endDate   = new Date(startDate.getTime() + 6 * 24 * 60 * 60 * 1000);
+              }
+            }
+          }
+
+          if (!startDate || !endDate) return;
+
+          // Build absolute URL (new format omits /it/ in the path prefix)
+          let absoluteUrl = href;
+          if (href.startsWith('/')) {
+            absoluteUrl = 'https://www.elle.com' + href;
+          } else if (!href.startsWith('http')) {
+            absoluteUrl = 'https://www.elle.com/' + href;
+          }
+
+          // Score: 100 if target falls inside the period; then linear decay up to 14 days
+          const targetInRange = thursdayDate >= startDate && thursdayDate <= endDate;
+          const daysDiff = Math.abs(
+            Math.floor((startDate.getTime() - thursdayDate.getTime()) / (1000 * 60 * 60 * 24))
+          );
+
+          let score = 0;
+          if (targetInRange || daysDiff === 0) {
+            score = 100;
+          } else if (daysDiff <= 3) {
+            score = 90 - (daysDiff * 10);
+          } else if (daysDiff <= 14) {
+            score = 60 - (daysDiff * 3);
+          }
+
+          if (score > 0) {
+            candidates.push({ url: absoluteUrl, startDate, score });
           }
         });
 
@@ -884,19 +986,31 @@ function buildSimonAndTheStarsUrl(input: WeeklyScraperInput): string {
         // Sort by score (highest first)
         candidates.sort((a, b) => b.score - a.score);
 
+        // ── Strategy 1: direct match for the target sign in the archive ──────────
+        // With the new URL format the archive lists one URL per sign, so we can
+        // return the right sign URL immediately without an extra HTTP request.
+        const targetSignSlug = (SIGN_MAP[input.signSlugIt] || input.signSlugIt).toLowerCase();
+        const directMatch = candidates.find(c =>
+          c.url.includes(`oroscopo-${targetSignSlug}-`) ||
+          c.url.includes(`/oroscopo-${targetSignSlug}/`)
+        );
+        if (directMatch) {
+          console.log(`Elle.com/it - Direct archive match for ${input.signSlugIt}: ${directMatch.url}`);
+          return directMatch.url;
+        }
+
+        // ── Strategy 2: load the best-scoring article and extract the sign link ──
+        // Fallback for the old URL format where one article links to all 12 signs.
         const bestMatch = candidates[0];
-
-        // Now extract all sign URLs from this page
-
-        await new Promise(resolve => setTimeout(resolve, 2000)); // Delay before second request
+        await new Promise(resolve => setTimeout(resolve, 2000));
 
         const signUrl = await extractElleSignUrlFromPage(bestMatch.url, input.signSlugIt, headers);
-
         if (signUrl) {
           return signUrl;
         }
 
-        // If extraction failed, try to construct URL from the pattern
+        // ── Strategy 3: return best-scoring URL as last resort ────────────────────
+        console.warn(`Elle.com/it - Could not find sign-specific URL for ${input.signSlugIt}, using best match`);
         return bestMatch.url;
       }
 
@@ -941,7 +1055,7 @@ function buildSimonAndTheStarsUrl(input: WeeklyScraperInput): string {
             if (!href) return;
 
             // Check if URL contains the target sign and is a weekly horoscope URL
-            if (href.includes('/oroscopo/a') && 
+            if ((href.includes('/oroscopo/a') || href.includes('/oroscopo/oroscopo-')) &&
                 href.includes('simon-and-the-stars') &&
                 (href.includes(`oroscopo-${targetSignSlug}`) || linkText === targetSign.toLowerCase())) {
 
@@ -1043,7 +1157,12 @@ function buildSimonAndTheStarsUrl(input: WeeklyScraperInput): string {
 
 
 
-      // Archive strategy - resolve from archive page    
+      // HARPER'S BAZAAR: Use archive strategy (URLs include article IDs, not constructable)
+      if (input.domain.includes('harpersbazaar.com') || input.baseUrl.includes('harpersbazaar.com')) {
+        return await resolveWeeklyUrlFromArchive(input);
+      }
+
+      // Archive strategy - resolve from archive page
       if (input.scrapeStrategy === 'archive') {
         return await resolveWeeklyUrlFromArchive(input);
       }
@@ -1140,18 +1259,19 @@ function buildSimonAndTheStarsUrl(input: WeeklyScraperInput): string {
       }
 
       // Italian elision: "dal 1/8/11" → "dall 1/8/11" (vowel-starting numbers)
+      // Some sites (Simon and the Stars, Starbene) use compact form: dall11 (no hyphen after dall)
+      const usesCompactElision = input.domain.includes('simonandthestars') || input.domain.includes('starbene.it');
       const startDayInt = parseInt(startDayNumber, 10);
       if (startDayInt === 1 || startDayInt === 8 || startDayInt === 11) {
         url = url.replace(/-dal-(\d+)/g, '-dall-$1');
-        // Simon and the Stars uses compact form: dall11 (no hyphen after dall)
-        if (input.domain.includes('simonandthestars')) {
+        if (usesCompactElision) {
           url = url.replace(/-dall-(\d+)/g, '-dall$1');
         }
       }
       const endDayInt = parseInt(endDayNumber, 10);
       if (endDayInt === 1 || endDayInt === 8 || endDayInt === 11) {
         url = url.replace(/-al-(\d+)/g, '-all-$1');
-        if (input.domain.includes('simonandthestars')) {
+        if (usesCompactElision) {
           url = url.replace(/-all-(\d+)/g, '-all$1');
         }
       }
@@ -1251,6 +1371,18 @@ async function fetchHtml(url: string, userAgent: string): Promise<string> {
       'Cache-Control': 'max-age=0',
     };
 
+    // Special headers for Elle.com/it (paywall bypass)
+    if (url.includes('elle.com')) {
+      headers['Referer'] = 'https://www.elle.com/it/oroscopo/';
+      headers['Origin'] = 'https://www.elle.com';
+      headers['Sec-Fetch-Dest'] = 'document';
+      headers['Sec-Fetch-Mode'] = 'navigate';
+      headers['Sec-Fetch-Site'] = 'same-origin';
+      headers['Sec-Fetch-User'] = '?1';
+      headers['Cache-Control'] = 'no-cache';
+      headers['Cookie'] = ''; // clear cookies → free tier view
+    }
+
     // Special headers for Fanpage.it
     if (url.includes('fanpage.it')) {
       headers['Referer'] = 'https://www.fanpage.it/stile-e-trend/story/oroscopo/';
@@ -1338,6 +1470,49 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
     const $ = cheerio.load(html);
 
     $('script, style, nav, header, footer, iframe, noscript').remove();
+
+    // Special handling for Sky TG24 weekly - per-sign static page (/lifestyle/oroscopo/{sign}/settimana)
+    // Same CMS structure as the daily page: content in .c-article-section p elements
+    if (url.includes('tg24.sky.it')) {
+      let extractedText = '';
+
+      // Strategy 1: .c-article-section p (current Sky TG24 per-sign page structure)
+      const paras = $('.c-article-section p').map((_, el) => {
+        const $p = $(el);
+        const t = $p.text().trim();
+        const isOnlyLink = $p.find('a').length > 0 && t === $p.find('a').text().trim();
+        return isOnlyLink ? '' : t;
+      }).get().filter(t => t.length > 30 &&
+        !/^(leggi anche|pubblicità|condividi|cookie|scopri|newsletter|abbonati)/i.test(t));
+
+      if (paras.length > 0) {
+        extractedText = paras.join('\n\n');
+        console.log(`Sky TG24 Weekly - Strategy 1 (.c-article-section): ${extractedText.length} chars`);
+      }
+
+      // Strategy 2: broader article selectors as fallback
+      if (!extractedText) {
+        for (const sel of ['.c-article-text p', '.c-article__body p', 'article p', 'main p']) {
+          const fallbackParas = $(sel).map((_, el) => {
+            const $p = $(el);
+            const t = $p.text().trim();
+            const isOnlyLink = $p.find('a').length > 0 && t === $p.find('a').text().trim();
+            return isOnlyLink ? '' : t;
+          }).get().filter(t => t.length > 30 &&
+            !/^(leggi anche|pubblicità|condividi|cookie|scopri|newsletter|abbonati)/i.test(t));
+          if (fallbackParas.length > 0) {
+            extractedText = fallbackParas.join('\n\n');
+            console.log(`Sky TG24 Weekly - Strategy 2 (${sel}): ${extractedText.length} chars`);
+            break;
+          }
+        }
+      }
+
+      if (extractedText.length > 50) {
+        return { success: true, text: extractedText.substring(0, 3500), url };
+      }
+      return { success: false, error: `Could not extract weekly content for ${input.signSlugIt} from Sky TG24` };
+    }
 
     // Special handling for Cosmopolitan - single article with all signs
     if (url.includes('cosmopolitan.com') && url.includes('/oroscopo-settimana/a')) {
@@ -1468,6 +1643,48 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
       }
 
       return { success: false, error: `Could not extract content for ${input.signSlugIt} from alFemminile page` };
+    }
+
+    // Special handling for Webboh - single page with all signs
+    // Structure: <p><strong>SignName:</strong>☀️☀️<br>horoscope text...<strong><em>Consiglio:</em></strong>...</p>
+    if (url.includes('webboh.it')) {
+      let extractedText = '';
+
+      const $content = $('.wb-the-content, .wb-foglia, article').first();
+      const $root = $content.length > 0 ? $content : $('body');
+
+      $root.find('p').each((_, el) => {
+        if (extractedText) return;
+
+        const $p = $(el);
+        const firstStrong = $p.find('strong').first();
+        if (firstStrong.length === 0) return;
+
+        // Match "Capricorno:" (case-insensitive)
+        const strongText = firstStrong.text().trim().toLowerCase();
+        if (!strongText.startsWith(input.signSlugIt.toLowerCase() + ':')) return;
+
+        // Text comes after the <br> inside this <p>
+        const fullHtml = $p.html() || '';
+        const brMatch = fullHtml.search(/<br\s*\/?>/i);
+
+        if (brMatch !== -1) {
+          const afterBrHtml = fullHtml.slice(fullHtml.indexOf('>', brMatch) + 1);
+          extractedText = cheerio.load(afterBrHtml).text().trim();
+        } else {
+          // Fallback: full text minus the "SignName: stars" prefix
+          extractedText = $p.text()
+            .replace(firstStrong.text(), '')
+            .replace(/^[\s☀️]+/, '')
+            .trim();
+        }
+      });
+
+      if (extractedText.length > 30) {
+        return { success: true, text: extractedText.substring(0, 3500), url };
+      }
+
+      return { success: false, error: `Could not extract content for ${input.signSlugIt} from Webboh` };
     }
 
     // Special handling for Marie Claire - single page with all signs
@@ -1910,14 +2127,18 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
       console.log(`[FALLBACK] JSON-LD Strategy 0 insufficient (<50 chars), using DOM Strategy 1+`);
 
       // Strategy 1: Try H3 headings (most likely for Fanpage)
+      // Use startsWith to avoid matching intro paragraphs that mention the sign in passing
+      // e.g. "Scorpione (23 ottobre – 21 novembre)" → correct
+      // e.g. intro text containing "Scorpione e Acquario" → skip (those are in <p> not <h3>, but be safe)
       $('h3').each((_, h3) => {
         const $h3 = $(h3);
         const h3Text = $h3.text().trim().toLowerCase();
+        const signLower = input.signSlugIt.toLowerCase();
 
-        // Check for exact match or "Oroscopo [sign]" pattern
-        if (h3Text === input.signSlugIt.toLowerCase() ||
-            h3Text === `oroscopo ${input.signSlugIt.toLowerCase()}` ||
-            h3Text.includes(input.signSlugIt.toLowerCase())) {
+        // Exact match or "Oroscopo [sign]" or starts-with (covers "Sign (dates)" format)
+        if (h3Text === signLower ||
+            h3Text === `oroscopo ${signLower}` ||
+            h3Text.startsWith(signLower)) {
           signHeading = $h3;
           console.log(`[Strategy 1 H3] Found heading: "${h3Text}"`);
           return false; // Break loop
@@ -1958,12 +2179,16 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
 
       // If we found a heading, extract content
       if (signHeading.length > 0) {
-        let currentElement = signHeading.parent();
+        // Start from the h3 itself; the loop immediately calls .next() so the first
+        // element examined will be the first sibling AFTER the h3 (the actual paragraphs).
+        // Previously this was signHeading.parent(), which caused .next() to jump to
+        // siblings of the container div instead of the h3's own next-siblings.
+        let currentElement = signHeading;
         let paragraphCount = 0;
         let searchDepth = 0;
         const maxDepth = 20;
 
-        // Start from the parent and look for siblings
+        // Walk the siblings that follow the sign heading
         while (currentElement.length > 0 && searchDepth < maxDepth) {
           searchDepth++;
           currentElement = currentElement.next();
@@ -2067,6 +2292,58 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
       };
     }
     // FINE CODICE FANPAGE
+
+    // CODICE PER HARPER'S BAZAAR
+    // Special handling for Harper's Bazaar - single page with all signs.
+    // Structure: <p><strong>SignName</strong></p> followed by intervening divs
+    // (piano paywall, lazy-load breakpoints) then <p>horoscope text</p>.
+    // The generic scorer incorrectly picks the intro paragraph (high keyword density).
+    if (url.includes('harpersbazaar.com')) {
+      const signId = (SIGN_MAP[input.signSlugIt] || input.signSlugIt).toLowerCase();
+      const zodiacSignsLower = [
+        'ariete','toro','gemelli','cancro','leone','vergine',
+        'bilancia','scorpione','sagittario','capricorno','acquario','pesci'
+      ];
+
+      // Target the article body container to avoid nav/footer paragraphs
+      const $body = $('[data-journey-body], .article-body-content, .article-body').first();
+      const container = $body.length > 0 ? $body : $('main, article').first();
+
+      // Collect all <p> elements in document order (skips intervening divs automatically)
+      const allParagraphs = container.find('p').toArray();
+
+      // Find the sign header paragraph: <p><strong>SignName</strong></p>
+      let signParagraphIndex = -1;
+      for (let i = 0; i < allParagraphs.length; i++) {
+        const $p = $(allParagraphs[i]);
+        const pText = $p.text().trim().toLowerCase();
+        if (pText === signId) {
+          signParagraphIndex = i;
+          break;
+        }
+      }
+
+      if (signParagraphIndex >= 0) {
+        // Walk forward through paragraphs to find the first substantial one
+        for (let i = signParagraphIndex + 1; i < allParagraphs.length; i++) {
+          const $p = $(allParagraphs[i]);
+          const text = $p.text().trim();
+          // Stop at the next sign's header paragraph
+          const isNextSignHeader = zodiacSignsLower.some(s => text.toLowerCase() === s);
+          if (isNextSignHeader) break;
+          // Return the first substantial paragraph
+          if (text.length > 30) {
+            return { success: true, text: text.substring(0, 3500), url };
+          }
+        }
+      }
+
+      return {
+        success: false,
+        error: `Could not extract weekly content for ${input.signSlugIt} from Harper's Bazaar page`
+      };
+    }
+    // FINE CODICE HARPER'S BAZAAR
 
     // Special handling for OnlyOroscopo - single page with weekly content
     if (url.includes('onlyoroscopo.it') || url.includes('onlyoroscopo.com')) {
@@ -2290,6 +2567,63 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
         url: url
       };
     }
+
+    // ── ELLE.COM/IT specific extraction ─────────────────────────────────────
+    // Hearst Journey CMS: article paragraphs are marked data-journey-content="true".
+    // Structure: [0] attribution intro (author/date) → skip
+    //            [1..N-3] actual horoscope content    → keep
+    //            [last few] CTA button paragraphs (body-btn-link) → skip
+    if (url.includes('elle.com')) {
+      const journeyParas = $('p[data-journey-content="true"]').toArray();
+
+      const contentParas: string[] = [];
+      for (let i = 1; i < journeyParas.length; i++) { // i=0 is always the attribution intro
+        const $p = $(journeyParas[i]);
+        // Skip CTA button paragraphs (contain body-btn-link anchors, no real prose)
+        if ($p.find('a.body-btn-link').length > 0) continue;
+        const text = $p.text().trim();
+        if (text.length > 30) contentParas.push(text);
+      }
+
+      if (contentParas.length > 0) {
+        return { success: true, text: contentParas.join('\n\n').substring(0, 3500), url };
+      }
+
+      // Fallback: broader DOM selectors (paywall or markup change)
+      let elleText = '';
+      const elleSelectors = [
+        '[data-journey-body] p',
+        '.article-body-content p',
+        '.article-body p',
+        '.body-content p',
+        '.article__body p',
+        'article p',
+        'main p',
+      ];
+      for (const sel of elleSelectors) {
+        const paras = $(sel)
+          .map((_, el) => $(el).text().trim())
+          .get()
+          .filter(t =>
+            t.length > 30 &&
+            !/^(leggi anche|pubblicità|condividi|cookie|scopri|newsletter)/i.test(t)
+          );
+        if (paras.length > 0) {
+          elleText = paras.join('\n\n');
+          break;
+        }
+      }
+
+      if (elleText.length > 50) {
+        return { success: true, text: elleText.substring(0, 3500), url };
+      }
+
+      return {
+        success: false,
+        error: `Could not extract Elle.com/it content for ${input.signSlugIt}`
+      };
+    }
+    // ── END ELLE.COM/IT ──────────────────────────────────────────────────────
 
         // Generic extraction for other sources
     let bestContent = '';

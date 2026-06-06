@@ -90,9 +90,12 @@ const signColors = {
             {/* Header */}
             <div className="flex items-center justify-between mb-2">
           <div className="flex items-center space-x-3">
-            <div className={cn("w-10 h-10 bg-gradient-to-br rounded-full flex items-center justify-center", colorClass)}>
-              <span className="text-white font-bold text-lg">{sign.symbol}</span>
-            </div>
+            <img
+              src={`/icons/zodiac/${sign.name_english.toLowerCase()}.svg`}
+              alt={sign.name_italian}
+              className="w-10 h-10 object-contain"
+              draggable={false}
+            />
             <div>
               <h3 className="font-semibold text-card-foreground" data-testid={`sign-name-${sign.name_english}`}>
                 {sign.name_italian}

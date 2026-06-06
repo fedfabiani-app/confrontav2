@@ -15,16 +15,6 @@ const WEEKLY_SOURCES = [
     is_active: true,
   },
   {
-    name: 'Branko - SuperGuida TV',
-    domain: 'superguidatv.it',
-    logo_url: 'https://www.superguidatv.it/favicon.ico',
-    base_url: 'https://www.superguidatv.it',
-    url_pattern: '/oroscopo-branko-previsioni-settimana-dal-{start_day}-al-{end_day}-{month}-{year}/',
-    scrape_strategy: 'pattern',
-    slug: null,
-    is_active: true,
-  },
-  {
     name: 'Cosmopolitan',
     domain: 'cosmopolitan.com',
     logo_url: 'https://www.cosmopolitan.com/it/apple-touch-icon.png',
@@ -49,7 +39,7 @@ const WEEKLY_SOURCES = [
     domain: 'tg24.sky.it',
     logo_url: null,
     base_url: 'https://tg24.sky.it',
-    url_pattern: '/lifestyle/oroscopo/settimana',
+    url_pattern: '/lifestyle/oroscopo/{sign}/settimana',
     scrape_strategy: 'pattern',
     slug: null,
     is_active: true,
@@ -89,7 +79,7 @@ const WEEKLY_SOURCES = [
     domain: 'starbene.it',
     logo_url: 'https://www.starbene.it/favicon.ico',
     base_url: 'https://www.starbene.it',
-    url_pattern: '/oroscopo/previsioni-settimana-{start_day}-{end_day}-{month}-{year}/',
+    url_pattern: '/oroscopo/{sign}-dal-{start_day}-al-{end_day}-{month}-{year}/',
     scrape_strategy: 'pattern',
     slug: null,
     is_active: true,
@@ -99,8 +89,8 @@ const WEEKLY_SOURCES = [
     domain: 'd.repubblica.it',
     logo_url: null,
     base_url: 'https://d.repubblica.it',
-    url_pattern: '/oroscopo/oroscopo-della-settimana/{year}/{mm}/{dd}/news/oroscopo_settimana_dal_{start_day}_al_{end_day}_{month}_{year}',
-    scrape_strategy: 'pattern',
+    url_pattern: '/oroscopo/',
+    scrape_strategy: 'archive',
     slug: 'd-repubblica',
     is_active: true,
   },
@@ -109,8 +99,8 @@ const WEEKLY_SOURCES = [
     domain: 'alfemminile.com',
     logo_url: 'https://www.alfemminile.com/favicon.ico',
     base_url: 'https://www.alfemminile.com',
-    url_pattern: '/astrologia/oroscopo/oroscopo-settimanale-dal-{week_start_day}-al-{week_end_day}-{week_end_month}-{year}/',
-    scrape_strategy: 'pattern',
+    url_pattern: '/astrologia/oroscopo/',
+    scrape_strategy: 'archive',
     slug: null,
     is_active: true,
   },
@@ -124,10 +114,50 @@ const WEEKLY_SOURCES = [
     slug: null,
     is_active: true,
   },
+  {
+    name: "Harper's Bazaar",
+    domain: 'harpersbazaar.com',
+    logo_url: 'https://www.harpersbazaar.com/favicon.ico',
+    base_url: 'https://www.harpersbazaar.com/it',
+    url_pattern: '/cultura/oroscopo/',
+    scrape_strategy: 'archive',
+    slug: null,
+    is_active: true,
+  },
+  {
+    name: 'ELLE',
+    domain: 'elle.com',
+    logo_url: 'https://www.elle.com/favicon.ico',
+    base_url: 'https://www.elle.com/it',
+    url_pattern: '/oroscopo/',
+    scrape_strategy: 'archive',
+    slug: 'elle',
+    is_active: true,
+  },
 ];
 
 async function main() {
   console.log('Seeding database...');
+
+  // One-off cleanup: remove SuperGuida TV / Branko weekly source.
+  const superguidaSource = await prisma.weeklySource.findFirst({ where: { domain: 'superguidatv.it' } });
+  if (superguidaSource) {
+    await prisma.weeklyHoroscopeData.deleteMany({ where: { source_id: superguidaSource.id } });
+    await prisma.weeklyScraperSourceStatus.deleteMany({ where: { source_id: superguidaSource.id } });
+    await prisma.weeklySource.delete({ where: { id: superguidaSource.id } });
+    console.log(`Removed SuperGuida TV weekly source (ID ${superguidaSource.id})`);
+  }
+
+  // One-off cleanup: remove duplicate ELLE weekly source (ID 15).
+  // ID 27 (domain elle.com) is the canonical record; ID 15 was created when
+  // the domain was previously different and was never cleaned up.
+  const elleOld = await prisma.weeklySource.findUnique({ where: { id: 15 } });
+  if (elleOld) {
+    await prisma.weeklyHoroscopeData.deleteMany({ where: { source_id: 15 } });
+    await prisma.weeklyScraperSourceStatus.deleteMany({ where: { source_id: 15 } });
+    await prisma.weeklySource.delete({ where: { id: 15 } });
+    console.log(`Removed duplicate ELLE weekly source (ID 15, domain="${elleOld.domain}")`);
+  }
 
   // Seed zodiac signs
   const zodiacSigns = [
@@ -177,7 +207,13 @@ async function main() {
   for (const source of WEEKLY_SOURCES) {
     await prisma.weeklySource.upsert({
       where: { domain: source.domain },
-      update: {},
+      update: {
+        // Keep slug, url_pattern, strategy and is_active in sync on re-seed
+        slug: source.slug,
+        url_pattern: source.url_pattern,
+        scrape_strategy: source.scrape_strategy,
+        is_active: source.is_active,
+      },
       create: {
         name: source.name,
         domain: source.domain,

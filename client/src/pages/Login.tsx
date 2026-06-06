@@ -7,6 +7,8 @@ import { SocialLogin } from '@capgo/capacitor-social-login';
 import { useLocation } from 'wouter';
 import { useAuth } from '../hooks/use-auth';
 import { trackLogin } from '../lib/analytics';
+import { ArrowLeft } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 const isNative = Capacitor.isNativePlatform();
 console.log('[Login] isNative:', isNative, '| platform:', Capacitor.getPlatform());
@@ -528,35 +530,71 @@ export default function Login() {
   const { isLoggedIn, isLoading } = useAuth();
   const [, navigate] = useLocation();
 
+  // Support ?redirect=<path> so callers can bounce the user back after login
+  const redirectTo = new URLSearchParams(window.location.search).get('redirect') || '/';
+
   useEffect(() => {
     if (!isLoading && isLoggedIn) {
       trackLogin('google', true);
-      navigate('/');
+      navigate(redirectTo);
     }
-  }, [isLoggedIn, isLoading, navigate]);
+  }, [isLoggedIn, isLoading, navigate, redirectTo]);
 
   if (isLoading || isLoggedIn) return null;
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4">
-      {isNative ? (
-        <NativeSignInForm />
-      ) : (
-        <SignIn
-          routing="virtual"
-          fallbackRedirectUrl="/"
-          signUpFallbackRedirectUrl="/"
-          appearance={{
-            variables: {
-              colorPrimary: '#E1B64E',
-              colorBackground: '#053c8e',
-              colorText: '#ffffff',
-              colorInputBackground: '#2d1e50',
-              colorInputText: '#ffffff',
-            },
-          }}
-        />
-      )}
+    <div className="min-h-screen bg-background text-foreground">
+      {/* Header */}
+      <header
+        className="sticky top-0 z-40 border-b"
+        style={{
+          background: 'rgba(30, 20, 64, 0.6)',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+        }}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center space-x-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate('/')}
+                className="text-white hover:bg-white/20 border border-white/30"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </Button>
+              <div>
+                <h1 className="text-xl font-bold text-white">Accedi</h1>
+                <p className="text-xs text-gray-300">o crea il tuo account</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Content */}
+      <div className="flex items-center justify-center px-4 py-12">
+        {isNative ? (
+          <NativeSignInForm />
+        ) : (
+          <SignIn
+            routing="virtual"
+            fallbackRedirectUrl={redirectTo}
+            signUpFallbackRedirectUrl={redirectTo}
+            appearance={{
+              variables: {
+                colorPrimary: '#E1B64E',
+                colorBackground: '#053c8e',
+                colorText: '#ffffff',
+                colorInputBackground: '#2d1e50',
+                colorInputText: '#ffffff',
+              },
+            }}
+          />
+        )}
+      </div>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { ReactNode, useState, useEffect } from 'react';
 import { ClerkProvider, useUser } from '@clerk/clerk-react';
+import { itIT } from '@clerk/localizations';
 import { Capacitor } from '@capacitor/core';
 import { useLocation } from 'wouter';
 import { AuthContext, AuthContextValue, defaultAuthState } from '../contexts/auth-context';
@@ -135,6 +136,11 @@ export function ClerkAuthProvider({
   return (
     <ClerkProvider
       publishableKey={publishableKey}
+      localization={itIT}
+      signInUrl="/login"
+      signUpUrl="/login"
+      afterSignInUrl="/"
+      afterSignUpUrl="/"
       {...(allowedRedirectOrigins ? { allowedRedirectOrigins } : {})}
     >
       <ClerkAuthSync>{children}</ClerkAuthSync>

@@ -74,107 +74,26 @@ export default function Info() {
                 <div>
                   <strong className="text-sm">Copyright-Safe:</strong>
                   <p className="text-sm text-muted-foreground">
-                    Tutti i contenuti sono rielaborati per garantire originalità e non violare il diritto d'autore. Tutte le fonti originali sono citate.
+                    Tutti i contenuti generati sono originali e non violano il diritto d'autore. Tutte le fonti sono citate e gli estratti riportati sono da considerasi “estratti molto brevi”, in ottemperanza alla Delibera AGCOM N. 3/23/CONS.
                   </p>
                 </div>
               </div>
               <div className="flex items-start space-x-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
+                <div className="w-2 h-2 bg-green-500 rounded-full mt2-"></div>
                 <div>
                   <strong className="text-sm">Dati Sicuri:</strong>
                   <p className="text-sm text-muted-foreground">
-                    Nessun dato personale viene raccolto o memorizzato
+                    Tutti i dati vengono raccolti o memorizzati in modo sicuro e rispettoso della privacy e della normativa GDPR.
                   </p>
                 </div>
               </div>
                           </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Clock className="w-5 h-5 text-blue-500" />
-                <span>Aggiornamenti</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-start space-x-2">
-                <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
-                <div>
-                  <strong className="text-sm">Aggiornamento Manuale:</strong>
-                  <p className="text-sm text-muted-foreground">
-                    Controllo completo sui tempi di aggiornamento dei dati
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start space-x-2">
-                <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
-                <div>
-                  <strong className="text-sm">Monitoraggio Jobs:</strong>
-                  <p className="text-sm text-muted-foreground">
-                    Sistema di code avanzato con retry automatico e gestione errori
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start space-x-2">
-                <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
-                <div>
-                  <strong className="text-sm">Cache Intelligente:</strong>
-                  <p className="text-sm text-muted-foreground">
-                    PWA con supporto offline per consultare dati recenti
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+                 </div>
 
 
-        {/* Rating System */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Sistema di Valutazione</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <h4 className="font-semibold mb-2">Categorie Analizzate</h4>
-              <div className="grid md:grid-cols-3 gap-4">
-                <div className="flex items-center space-x-2">
-                  <div className="w-3 h-3 bg-pink-500 rounded-full"></div>
-                  <span className="text-sm"><strong>Relazioni:</strong> Amore, famiglia, amicizie</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                  <span className="text-sm"><strong>Lavoro:</strong> Carriera, finanze, progetti</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                  <span className="text-sm"><strong>Benessere:</strong> Salute, energia, umore</span>
-                </div>
-              </div>
-            </div>
-            
-            <div>
-              <h4 className="font-semibold mb-2">Scala di Valutazione</h4>
-              <div className="flex items-center space-x-4 text-sm">
-                <span>1 ⭐ = Molto Negativo</span>
-                <span>2 ⭐ = Negativo</span>
-                <span>3 ⭐ = Neutrale</span>
-                <span>4 ⭐ = Positivo</span>
-                <span>5 ⭐ = Molto Positivo</span>
-              </div>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-2">Analisi del Tono</h4>
-              <div className="flex space-x-4">
-                <Badge className="bg-green-500 text-white">Positivo</Badge>
-                <Badge className="bg-amber-500 text-white">Neutrale</Badge>
-                <Badge className="bg-red-500 text-white">Negativo</Badge>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        np
 
        
         {/* Disclaimer */}

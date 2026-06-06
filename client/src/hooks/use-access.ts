@@ -21,7 +21,7 @@ export function useAccess(): AccessState {
   const { tier, isLoading } = useAuth();
 
   const isPremium = tier === 'premium';
-  const maxDaysBack = isPremium ? 29 : 1;
+  const maxDaysBack = isPremium ? 29 : 0;
   const maxWeeksBack = isPremium ? 3 : 0;
 
   function canAccessDate(date: Date): boolean {
