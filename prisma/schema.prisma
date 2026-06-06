@@ -258,18 +258,6 @@ model WeeklyScraperSourceStatus {
 }
 
 
-model CompatibilityCache {
-  id         Int      @id @default(autoincrement())
-  sign1      String
-  sign2      String
-  date_label String
-  result     String   @db.Text
-  created_at DateTime @default(now())
-
-  @@unique([sign1, sign2, date_label])
-  @@map("compatibility_cache")
-}
-
 model CompatibilityResult {
   id          Int      @id @default(autoincrement())
   sign1       String   // English, sorted alphabetically (sign1 < sign2)
