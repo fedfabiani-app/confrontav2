@@ -100,7 +100,7 @@ export function CompatibilityWidget({ currentSign, viewType = 'daily', weekStart
       className="relative rounded-xl p-4 space-y-4"
       style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}
     >
-      <h3 className="text-white font-semibold text-sm">Affinità tra segni Quotidiana</h3>
+      <h3 className="text-white font-semibold text-sm">Affinità tra segni</h3>
 
       {/* Dual sign selectors */}
       <div className="flex gap-2 items-center">
@@ -200,7 +200,7 @@ export function CompatibilityWidget({ currentSign, viewType = 'daily', weekStart
         >
           <Lock className="text-[#E1B64E]" size={28} strokeWidth={1.6} />
           <p className="text-white text-sm font-semibold text-center px-4">
-            Affinità tra segni Settimanale
+            Affinità tra segni 
           </p>
           <p className="text-white/60 text-xs text-center px-6 leading-relaxed">
             Scopri la compatibilità astrologica con Premium
