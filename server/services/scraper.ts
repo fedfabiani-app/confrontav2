@@ -1922,24 +1922,48 @@ async function scrapeVogueHoroscopeText(url: string, input: ScraperInput): Promi
 
     const zodiacNameLower = input.signSlugIt.toLowerCase();
     let extractedText = '';
+    let staleDateDetected = false;
 
     // Strategy 1: JSON-LD articleBody — most reliable, unaffected by CSS class changes
     $('script[type="application/ld+json"]').each((_, el) => {
       if (extractedText) return;
       try {
         const rawData = JSON.parse($(el).html() || '{}');
-        const data = Array.isArray(rawData) ? rawData[0] : rawData;
-        const body: string = data?.articleBody || '';
-        if (!body) return;
-        // articleBody starts with "Oroscopo di oggi del [Sign]\n" — skip the heading line
-        const newlineIdx = body.indexOf('\n');
-        const textAfterHeading = newlineIdx !== -1 ? body.slice(newlineIdx + 1).trim() : body.trim();
-        if (textAfterHeading.length > 50) {
-          extractedText = textAfterHeading;
-          console.log(`Vogue.it - JSON-LD articleBody extracted: ${extractedText.length} chars`);
+        const items = Array.isArray(rawData) ? rawData : [rawData];
+        for (const data of items) {
+          const body: string = data?.articleBody || '';
+          if (!body) continue;
+          // Check datePublished to avoid silently saving stale content
+          const datePublished: string = data?.datePublished || '';
+          if (datePublished) {
+            const publishedDate = datePublished.split('T')[0];
+            if (publishedDate !== input.dateISO) {
+              console.log(`Vogue.it - JSON-LD stale: ${publishedDate} vs target ${input.dateISO}, skipping`);
+              staleDateDetected = true;
+              continue;
+            }
+          }
+          // articleBody starts with "Oroscopo di oggi del [Sign]\n" — skip the heading line
+          const newlineIdx = body.indexOf('\n');
+          const textAfterHeading = newlineIdx !== -1 ? body.slice(newlineIdx + 1).trim() : body.trim();
+          if (textAfterHeading.length > 50) {
+            extractedText = textAfterHeading;
+            staleDateDetected = false;
+            console.log(`Vogue.it - JSON-LD articleBody extracted: ${extractedText.length} chars`);
+            break;
+          }
         }
       } catch { /* malformed JSON-LD, skip */ }
     });
+
+    // If JSON-LD confirmed stale content, don't fall through to HTML strategies
+    // (page body will also be stale); let the fallback cycle retry later
+    if (staleDateDetected && !extractedText) {
+      return {
+        success: false,
+        error: `Vogue.it content for ${input.signSlugIt} not yet updated (stale date detected)`
+      };
+    }
 
     // Strategy 2: Trova H2 che contiene "Oroscopo di oggi dell'[Segno]"
     // e prendi i <p> dopo quell'H2 dentro lo stesso container (body__inner-container)
