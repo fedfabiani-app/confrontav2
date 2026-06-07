@@ -98,6 +98,9 @@ Una frase ORIGINALE scritta da zero — non una citazione né una parafrasi
 del testo. Cattura ciò che il lettore vivrà oggi e funziona da sola, come
 un buon titolo: chi la legge senza aver visto l'oroscopo deve capirla
 e sentirla vera. Limite: 70–160 caratteri (spazi inclusi), punto finale.
+Evita di riprendere combinazioni di parole, frasi fatte o sintagmi
+caratteristici dal testo originale: riformula con parole tue, preferendo
+sinonimi.
 
 PRINCIPIO GUIDA — DEVE SUONARE ITALIANO VERO:
 La superquote deve suonare come una frase che una persona italiana direbbe
@@ -187,6 +190,9 @@ VERIFICA FINALE:
   femminile di default?
 □ Verbi corretti e concordati?
 □ L'attacco varia rispetto alle altre superquote?
+□ Hai evitato di riprendere frasi fatte, combinazioni di parole o
+  sintagmi caratteristici dall'originale? Hai riformulato con sinonimi
+  (o, in casi rari, una metafora concreta)?
 □ Se anche una sola risposta è NO → riscrivi da zero prima di restituire.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
