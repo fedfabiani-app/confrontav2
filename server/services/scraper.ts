@@ -1195,7 +1195,8 @@ async function scrapeGazzettaHoroscopeText(url: string, input: ScraperInput): Pr
         // Split on every "Nato sotto il segno" occurrence.
         // sections[0] is the intro before the first sign — skip it (it often
         // mentions "Ariete" as the first sign listed, causing a false match).
-        const sections = articleBody.split(/Nato sotto il segno/i);
+        // No 'i' flag: section headers use capital "Nato", body text uses lowercase "nato"
+        const sections = articleBody.split(/Nato sotto il segno/);
         for (let i = 1; i < sections.length; i++) {
           const section = sections[i];
           // The sign name appears within the first ~80 chars of each chunk
