@@ -1,4 +1,4 @@
-# Oroscopo Italiano - Replit Configuration
+# Confronta Oroscopo - Architecture
 
 ## Overview
 
@@ -128,4 +128,3 @@ Preferred communication style: Simple, everyday language.
 
 ### Development Utilities
 - **React Query Devtools**: Development debugging for API state
-- **Replit Plugins**: Development environment integration for runtime error handling and debugging
