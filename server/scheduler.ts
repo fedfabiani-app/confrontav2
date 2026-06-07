@@ -223,8 +223,8 @@ function isWithinMondayWindow(): boolean {
 
 // ============================================================================
 // SOURCES WITH DELAYED SCRAPING
-// Vogue.it (ID 13) publishes the daily horoscope after 9:00 AM — scraping
-// earlier retrieves the previous day's content.
+// Vogue.it (ID 13) publishes the daily horoscope around 7:30 AM — scraping
+// earlier may retrieve the previous day's content (detected via datePublished check).
 // ============================================================================
 const LATE_START_SOURCES: number[] = [13];
 
@@ -711,10 +711,10 @@ export async function initializeScheduledTasks() {
   });
   
   // ============================================================================
-  // LATE-START SCRAPER - 9:00 AM CET
+  // LATE-START SCRAPER - 7:30 AM CET
   // Sources (e.g. Vogue.it ID 13) that publish after the main window
   // ============================================================================
-  cron.schedule('0 9 * * *', executeLateStartSources, {
+  cron.schedule('30 7 * * *', executeLateStartSources, {
     timezone: 'Europe/Rome'
   });
 
@@ -727,10 +727,10 @@ export async function initializeScheduledTasks() {
   });
 
   // ============================================================================
-  // LATE FALLBACK - 9:15 AM CET
+  // LATE FALLBACK - 7:45 AM CET
   // Riprova fonti senza HoroscopeData valido (published after main window / fallback)
   // ============================================================================
-  cron.schedule('15 9 * * *', executeLateDailyFallback, {
+  cron.schedule('45 7 * * *', executeLateDailyFallback, {
     timezone: 'Europe/Rome'
   });
 
