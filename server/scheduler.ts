@@ -647,19 +647,7 @@ async function executeWeeklyFallbackRetry() {
       return;
     }
     
-    // Guard 2: Check if fallback already ran this week
-    const existingFallback = await prisma.weeklyScraperExecution.findFirst({
-      where: {
-        target_week: weekStart,
-        trigger_type: 'fallback',
-      },
-    });
-    
-    if (existingFallback) {
-      return;
-    }
-    
-    // Guard 3: Check for running execution
+    // Guard 2: Check for running execution
     if (await hasRunningWeeklyExecution(weekStart)) {
       return;
     }
@@ -767,11 +755,12 @@ export async function initializeScheduledTasks() {
 
   // ============================================================================
   // WEEKLY FALLBACK RETRY
-  // Runs at 9:00 AM on Mondays (after main scraping window)
+  // Runs multiple times during the week for sources that publish late
   // ============================================================================
-  cron.schedule('0 9 * * 1', executeWeeklyFallbackRetry, {
-    timezone: 'Europe/Rome'
-  });
+  cron.schedule('0 9 * * 1',  executeWeeklyFallbackRetry, { timezone: 'Europe/Rome' }); // Lun 09:00
+  cron.schedule('0 14 * * 1', executeWeeklyFallbackRetry, { timezone: 'Europe/Rome' }); // Lun 14:00
+  cron.schedule('0 9 * * 2',  executeWeeklyFallbackRetry, { timezone: 'Europe/Rome' }); // Mar 09:00
+  cron.schedule('0 9 * * 3',  executeWeeklyFallbackRetry, { timezone: 'Europe/Rome' }); // Mer 09:00
 
   // ============================================================================
   // CLEANUP SCHEDULER (Existing)

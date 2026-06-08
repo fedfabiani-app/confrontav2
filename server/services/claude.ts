@@ -361,8 +361,10 @@ export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAI
     let summary = (parsed.summary as string) || '';
     const originalLength = input.extracted_text.length;
     let summaryLimit = 150; // default for >1500
-    
-    if (originalLength <= 400) {
+
+    if (/vogue/i.test(input.sourceName)) {
+      summaryLimit = 60;
+    } else if (originalLength <= 400) {
       summaryLimit = 60;
     } else if (originalLength <= 1500) {
       summaryLimit = 120;
@@ -507,12 +509,13 @@ function hasRuleViolations(superquote: string): string | null {
   return null;
 }
 
-function postProcessOutput(parsed: Record<string, unknown>, originalLength?: number): OpenAIOutput {
+function postProcessOutput(parsed: Record<string, unknown>, originalLength?: number, sourceName?: string): OpenAIOutput {
   let summary = (parsed.summary as string) || '';
-  
-  // Calculate tier-based summary limit
+
   let summaryLimit = 150; // default for >1500
-  if (originalLength != null) {
+  if (sourceName && /vogue/i.test(sourceName)) {
+    summaryLimit = 60;
+  } else if (originalLength != null) {
     if (originalLength <= 400) {
       summaryLimit = 60;
     } else if (originalLength <= 1500) {
@@ -644,7 +647,7 @@ export async function processMultiSourceHoroscope(inputs: OpenAIInput[]): Promis
       continue;
     }
     try {
-      results[entry.index] = postProcessOutput(parsed, entry.input.extracted_text.length);
+      results[entry.index] = postProcessOutput(parsed, entry.input.extracted_text.length, entry.input.sourceName);
     } catch (err) {
       console.error(`[Claude Batch] Post-processing failed for source ${entry.input.sourceName}:`, err);
     }
