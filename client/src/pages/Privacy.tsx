@@ -79,7 +79,7 @@ export default function Privacy() {
         <section>
           <h2 className="text-xl text-white font-bold mb-4">Diritti dell'Utente</h2>
           <p className="text-foreground/80 text-white leading-relaxed">
-            Hai il diritto di accedere, rettificare, cancellare, o portabilità dei tuoi dati. Puoi anche opporti al trattamento e revocare il consenso in qualsiasi momento. Per esercitare questi diritti, contattaci a fed.fabiani@gmail.com con una richiesta esplicita. Risponderemo entro 30 giorni.
+            Hai il diritto di accedere, rettificare, cancellare, o portabilità dei tuoi dati. Puoi anche opporti al trattamento e revocare il consenso in qualsiasi momento. Per esercitare questi diritti, contattaci attraverso il form dedicato. Risponderemo entro 30 giorni.
           </p>
         </section>
 
@@ -107,7 +107,7 @@ export default function Privacy() {
         <section>
           <h2 className="text-xl text-white font-bold mb-4">Contatti</h2>
           <p className="text-foreground/80 text-white leading-relaxed">
-            Per domande sulla privacy, contatta federicofabiani@gmail.com. Hai anche il diritto di presentare un reclamo all'autorità di protezione dei dati competente nel tuo paese.
+            Per domande sulla privacy, contattaci attraverso il form dedicato. Hai anche il diritto di presentare un reclamo all'autorità di protezione dei dati competente nel tuo paese.
           </p>
         </section>
 

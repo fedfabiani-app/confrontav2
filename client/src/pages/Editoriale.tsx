@@ -72,7 +72,7 @@ return (
         <section className="mt-12 p-6 bg-foreground/5 rounded-lg border border-border">
           <h3 className="font-semibold text-white mb-3">Attributions e Disclaimer</h3>
           <p className="text-sm text-white text-foreground/80 leading-relaxed">
-            Confronta Oroscopo aggrega oroscopi da fonti pubbliche per fornire un servizio comparativo. I diritti d'autore dei contenuti degli oroscopi rimangono presso gli editori originali. Questa App non rivendica la proprietà intellettuale dei testi degli oroscopi, ma esclusivamente del sistema di aggregazione e confronto. Per questioni relative agli oroscopi aggregati, un editore può contattare fed.fabiani@gmail.com
+            Confronta Oroscopo aggrega oroscopi da fonti pubbliche per fornire un servizio comparativo. I diritti d'autore dei contenuti degli oroscopi rimangono presso gli editori originali. Questa App non rivendica la proprietà intellettuale dei testi degli oroscopi, ma esclusivamente del sistema di aggregazione e confronto. Per questioni relative agli oroscopi aggregati, un editore può contattarci attraverso il form di contatto.
           </p>
         </section>
 

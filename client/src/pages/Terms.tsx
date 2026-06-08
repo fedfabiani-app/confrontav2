@@ -58,7 +58,7 @@ export default function Terms() {
         <section>
           <h2 className="text-xl text-white font-bold mb-4">Account e Autenticazione</h2>
           <p className="text-foreground/80 text-white leading-relaxed">
-            Per accedere a funzionalità premium, devi creare un account tramite Clerk (fornitori di autenticazione). Sei responsabile di mantenere la riservatezza del tuo accesso. Non è consentito condividere le credenziali di accesso. Se sospetti accesso non autorizzato al tuo account, notificalo immediatamente a fed.fabiani@gmail.com.
+            Per accedere a funzionalità premium, devi creare un account tramite Clerk (fornitori di autenticazione). Sei responsabile di mantenere la riservatezza del tuo accesso. Non è consentito condividere le credenziali di accesso. Se sospetti accesso non autorizzato al tuo account, notificalo immediatamente attraverso il form di contatto.
           </p>
         </section>
 
@@ -100,7 +100,7 @@ export default function Terms() {
         <section>
           <h2 className="text-xl text-white font-bold mb-4">Cancellazione Account</h2>
           <p className="text-foreground/80 text-white leading-relaxed">
-            Puoi cancellare il tuo account in qualsiasi momento contattando fed.fabiani@gmail.com. La cancellazione è irreversibile e comporta la rimozione di tutti i tuoi dati personali (email, preferiti, storico) entro 90 giorni. Se hai un abbonamento attivo, esso verrà cancellato immediatamente. Eventuali addebiti già elaborati non saranno rimborsati.
+            Puoi cancellare il tuo account in qualsiasi momento contattandoci attraverso il form dedicato. La cancellazione è irreversibile e comporta la rimozione di tutti i tuoi dati personali (email, preferiti, storico) entro 90 giorni. Se hai un abbonamento attivo, esso verrà cancellato immediatamente. Eventuali addebiti già elaborati non saranno rimborsati.
           </p>
         </section>
 
@@ -114,7 +114,7 @@ export default function Terms() {
         <section>
           <h2 className="text-xl text-white font-bold mb-4">Contatti</h2>
           <p className="text-foreground/80 text-white leading-relaxed">
-            Per domande su questi Termini, contatta fed.fabiani@gmail.com.
+            Per domande su questi Termini, contattaci attraverso il form di contatto.
           </p>
         </section>
 

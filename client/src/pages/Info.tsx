@@ -53,7 +53,7 @@ export default function Info() {
           </div>
           <h2 className="text-3xl font-bold text-[#E1B64E] mb-4">Confronta Oroscopo</h2>
           <p className="text-lg text-white max-w-2xl mx-auto">
-            La piattaforma italiana per previsioni astrologiche intelligenti. Confronta tutti i migliori Oroscopi in un'unica App.
+            La piattaforma italiana per previsioni astrologiche intelligenti. Aggrega e confronta tutti i migliori Oroscopi in un'unica App.
           </p>
         </div>
 
