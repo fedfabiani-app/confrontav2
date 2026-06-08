@@ -1971,14 +1971,9 @@ async function scrapeVogueHoroscopeText(url: string, input: ScraperInput): Promi
       } catch { /* malformed JSON-LD, skip */ }
     });
 
-    // If JSON-LD confirmed stale content, don't fall through to HTML strategies
-    // (page body will also be stale); let the fallback cycle retry later
-    if (staleDateDetected && !extractedText) {
-      return {
-        success: false,
-        error: `Vogue.it content for ${input.signSlugIt} not yet updated (stale date detected)`
-      };
-    }
+    // JSON-LD date check is informational only — Vogue often updates the HTML body
+    // before updating datePublished in JSON-LD, so a stale date in JSON-LD does NOT
+    // mean the page content is stale.  Always fall through to DOM strategies.
 
     // Strategy 2: Trova H2 che contiene "Oroscopo di oggi dell'[Segno]"
     // e prendi i <p> dopo quell'H2 dentro lo stesso container (body__inner-container)
