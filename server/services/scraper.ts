@@ -1173,19 +1173,34 @@ async function scrapeGazzettaHoroscopeText(url: string, input: ScraperInput): Pr
     let bestContent = '';
 
     $('script[type="application/ld+json"]').each((_, el) => {
-      if (bestContent) return;
+      if (bestContent) return; // already found
       try {
         const json = JSON.parse($(el).html() || '');
-        const body: string = json.articleBody || '';
-        if (body.length < 100) return;
+        const articleBody: string = json.articleBody || '';
+        if (!articleBody) return;
 
-        // The URL is already per-sign (/ariete.shtml, /cancro.shtml, …),
-        // so articleBody contains only this sign's content.
-        // Strip the first line ("Nato sotto il segno X: PersonName") and use the rest.
-        const firstNewline = body.indexOf('\n');
-        bestContent = (firstNewline > 0 ? body.substring(firstNewline) : body).trim();
-        console.log(`Gazzetta.it - Extracted from JSON-LD articleBody, length: ${bestContent.length}`);
-      } catch { /* malformed JSON-LD */ }
+        // Split on "Nato sotto il segno" — no /i flag: section headers use capital
+        // "Nato", body text uses lowercase "nato", avoiding false splits mid-sentence.
+        // sections[0] is the intro before the first sign — skip it (it often mentions
+        // "Ariete" as the first sign listed, causing a false match for Ariete).
+        const sections = articleBody.split(/Nato sotto il segno/);
+        for (let i = 1; i < sections.length; i++) {
+          const section = sections[i];
+          // The sign name appears within the first ~80 chars of each chunk
+          if (new RegExp(signCapitalized, 'i').test(section.substring(0, 80))) {
+            let raw = ('Nato sotto il segno' + section).replace(/\s+/g, ' ').trim();
+            // Strip the "Nato sotto il segno X: PersonName" intro — start from
+            // "La tua giornata" which is the first real horoscope paragraph.
+            const laTuaIdx = raw.search(/La tua giornata/i);
+            if (laTuaIdx > 0) raw = raw.substring(laTuaIdx);
+            bestContent = raw;
+            console.log(`Gazzetta.it - Extracted from JSON-LD articleBody, length: ${bestContent.length}`);
+            break;
+          }
+        }
+      } catch {
+        // JSON parse failed, continue to next strategy
+      }
     });
 
     if (bestContent) {
