@@ -957,7 +957,7 @@ function SignDetail({ sign }: SignDetailProps) {
                         href={horoscope.original_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center text-sm font-semibold text-[hsl(250,60%,50%)]/60 hover:text-[hsl(250,60%,50%)] dark:text-[hsl(250,60%,50%)]/60 dark:hover:text-[hsl(250,60%,50%)] transition-colors"
+                     className="inline-flex items-center text-sm font-semibold text-indigo-600/60 hover:text-indigo-600 dark:text-indigo-600/60 dark:hover:text-indigo-600 transition-colors"
                         data-testid={`link-read-more-${horoscope.source.id}`}
                       >
                         Leggi Tutto su {horoscope.source.name}
