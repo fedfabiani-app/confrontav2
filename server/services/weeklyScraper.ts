@@ -746,6 +746,44 @@ function buildSimonAndTheStarsUrl(input: WeeklyScraperInput): string {
 
 // ==================== END SIMON AND THE STARS FUNCTIONS ====================
 
+// ==================== GAZZETTA.IT SPECIFIC FUNCTIONS ====================
+
+function buildGazzettaWeeklyUrl(input: WeeklyScraperInput): string {
+  const MONTH_NAMES: Record<number, string> = {
+    0: 'gennaio', 1: 'febbraio', 2: 'marzo', 3: 'aprile', 4: 'maggio', 5: 'giugno',
+    6: 'luglio', 7: 'agosto', 8: 'settembre', 9: 'ottobre', 10: 'novembre', 11: 'dicembre'
+  };
+
+  const weekStart = new Date(input.weekStartDate);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+
+  // pubDate = domenica prima della settimana (giorno di pubblicazione)
+  const pubDate = new Date(weekStart);
+  pubDate.setDate(pubDate.getDate() - 1);
+  const pubDD   = String(pubDate.getDate()).padStart(2, '0');
+  const pubMM   = String(pubDate.getMonth() + 1).padStart(2, '0');
+  const pubYYYY = pubDate.getFullYear();
+  const pubDateStr = `${pubDD}-${pubMM}-${pubYYYY}`;
+
+  const startDay   = weekStart.getDate();
+  const endDay     = weekEnd.getDate();
+  const startMonth = MONTH_NAMES[weekStart.getMonth()];
+  const endMonth   = MONTH_NAMES[weekEnd.getMonth()];
+  const year       = weekStart.getFullYear();
+  const crossMonth = weekStart.getMonth() !== weekEnd.getMonth();
+
+  const weekSlug = crossMonth
+    ? `${startDay}-${startMonth}-${endDay}-${endMonth}-${year}`
+    : `${startDay}-${endDay}-${startMonth}-${year}`;
+
+  const signSlug = SIGN_MAP[input.signSlugIt] || input.signSlugIt.toLowerCase();
+
+  return `${input.baseUrl}/oroscopo/storie/${pubDateStr}/oroscopo-settimanale-${weekSlug}-le-previsioni-per-tutti-i-segni/${signSlug}.shtml`;
+}
+
+// ==================== END GAZZETTA.IT SPECIFIC FUNCTIONS ====================
+
       async function buildWeeklyHoroscopeUrl(input: WeeklyScraperInput): Promise<string> {
         // SIMON AND THE STARS SPECIFIC: URL has no dal/al, built directly from dates
         if (input.domain.includes('simonandthestars.it')) {
@@ -1115,44 +1153,9 @@ function buildSimonAndTheStarsUrl(input: WeeklyScraperInput): string {
         }
       }
 
-      // GAZZETTA.IT SPECIFIC: Use archive strategy and append sign
+      // GAZZETTA.IT SPECIFIC: deterministic URL builder
       if (input.domain.includes('gazzetta.it') || input.baseUrl.includes('gazzetta.it')) {
-        try {
-          const baseArticleUrl = await resolveWeeklyUrlFromArchive(input);
-
-                  const signSlug = SIGN_MAP[input.signSlugIt] || input.signSlugIt.toLowerCase();
-
-          // Check if URL already has a sign in it
-          const signInUrlMatch = baseArticleUrl.match(/\/(ariete|toro|gemelli|cancro|leone|vergine|bilancia|scorpione|sagittario|capricorno|acquario|pesci)\.shtml$/i);
-
-          if (signInUrlMatch) {
-            // Replace the existing sign with our target sign
-            const finalUrl = baseArticleUrl.replace(/\/(ariete|toro|gemelli|cancro|leone|vergine|bilancia|scorpione|sagittario|capricorno|acquario|pesci)\.shtml$/i, `/${signSlug}.shtml`);
-            return finalUrl;
-          } 
-
-          // Check if URL ends with .shtml but has no sign
-          if (baseArticleUrl.endsWith('.shtml')) {
-            // Insert sign before .shtml
-            const finalUrl = baseArticleUrl.replace(/\.shtml$/, `/${signSlug}.shtml`);
-            return finalUrl;
-          }
-
-          // Check if URL ends with a directory (e.g., "tutti-i-segni/")
-          if (baseArticleUrl.endsWith('/')) {
-            // Append sign.shtml
-            const finalUrl = `${baseArticleUrl}${signSlug}.shtml`;
-            return finalUrl;
-          }
-
-          // Default case: append /sign.shtml
-          const finalUrl = `${baseArticleUrl}/${signSlug}.shtml`;
-          return finalUrl;
-
-        } catch (error) {
-          console.error(`Gazzetta.it - Archive resolution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-          throw new Error(`Cannot construct Gazzetta.it URL: archive resolution failed`);
-        }
+        return buildGazzettaWeeklyUrl(input);
       }
 
 
