@@ -728,6 +728,7 @@ function SignDetail({ sign }: SignDetailProps) {
       onClick={() => {
         const nextDate = new Date(selectedDate);
         nextDate.setDate(nextDate.getDate() + 1);
+        nextDate.setHours(0, 0, 0, 0);
         if (nextDate <= todayStart) {
           handleDateSelect(nextDate);
         }
@@ -957,8 +958,7 @@ function SignDetail({ sign }: SignDetailProps) {
                         href={horoscope.original_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                     className="inline-flex items-center text-sm font-semibold text-indigo-600/60 hover:text-indigo-600 dark:text-indigo-600/60 dark:hover:text-indigo-600 transition-colors"
-                        data-testid={`link-read-more-${horoscope.source.id}`}
+className="inline-flex items-center text-sm font-semibold text-indigo-700/60 hover:text-indigo-700 dark:text-indigo-700/60 dark:hover:text-indigo-700 transition-colors"                        data-testid={`link-read-more-${horoscope.source.id}`}
                       >
                         Leggi Tutto su {horoscope.source.name}
                         <ExternalLink className="w-3 h-3 ml-1" />
