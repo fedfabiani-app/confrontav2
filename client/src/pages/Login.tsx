@@ -261,34 +261,47 @@ function NativeSignInForm() {
 
   // ── Google Sign-In ──────────────────────────────────────────────────────────
   //
+  // Native path: open server-side OAuth start URL in Chrome Custom Tab.
+  //   Our server exchanges the Google code and mints a Clerk sign-in ticket,
+  //   then redirects to confrontaoroscopo://clerk-callback?ticket=… which
+  //   triggers appUrlOpen above.
   //
-  // Web (isNative === false):
-  //   Standard Clerk OAuth redirect flow via the browser.
-  //   signIn.create → Browser.open (Chrome Custom Tab) → /sso-callback → deep-link
+  // Web path: standard Clerk OAuth redirect flow (unchanged).
   async function handleGoogleSignIn() {
     if (!isLoaded || googleBusy) return;
     setError('');
     setGoogleBusy(true);
 
-    // ── Web path ────────────────────────────────────────────────────────────────
-    // Standard Clerk OAuth redirect via Chrome Custom Tab.
-    try {
-      // For native: use a custom URI scheme so Clerk's FAPI redirects directly to the
-      // app via a deep-link (registered in Clerk's Native Applications allowlist).
-      // Chrome Custom Tab navigating to confrontaoroscopo:// triggers appUrlOpen, which
-      // forwards the Clerk params to the WebView's /sso-callback for processing.
-      // For web: plain /sso-callback URL, handled by AuthenticateWithRedirectCallback.
-      const redirectUrl = isNative
-        ? 'https://confrontaoroscopo.it/sso-callback'
-        : window.location.origin + '/sso-callback';
+    if (isNative) {
+      // Server-side OAuth — bypasses Clerk's redirect URL validation entirely.
+      try {
+        const listener = await Browser.addListener('browserFinished', async () => {
+          await listener.remove();
+          browserListenerRef.current = null;
+          console.log('[Login] browserFinished — tab closed (cancel or complete)');
+          setStage('email');
+          setGoogleBusy(false);
+        });
+        browserListenerRef.current = listener;
+        setStage('google_pending');
+        await Browser.open({ url: 'https://confrontaoroscopo.it/api/google-oauth-start' });
+      } catch (err: any) {
+        console.error('[Login] handleGoogleSignIn native error:', err?.message ?? err);
+        setError('Errore avvio Google Sign-In. Riprova.');
+        setGoogleBusy(false);
+      }
+      return;
+    }
 
+    // ── Web path ────────────────────────────────────────────────────────────────
+    try {
       const si = await signIn!.create({
         strategy: 'oauth_google',
-        redirectUrl,
+        redirectUrl: window.location.origin + '/sso-callback',
       } as any);
 
       const oauthUrl = (si as any).firstFactorVerification?.externalVerificationRedirectURL?.toString();
-      console.log('[Login] Google OAuth URL:', oauthUrl ? 'obtained' : 'missing', '| redirectUrl:', redirectUrl);
+      console.log('[Login] Google OAuth URL:', oauthUrl ? 'obtained' : 'missing');
 
       if (!oauthUrl) {
         setError('Impossibile avviare Google Sign-In. Riprova.');
@@ -296,10 +309,6 @@ function NativeSignInForm() {
         return;
       }
 
-      // browserFinished fires when the Chrome Custom Tab closes.
-      // If OAuth succeeded, appUrlOpen will have already fired and exchanged the
-      // ticket, so these setters are harmless no-ops on the already-navigating page.
-      // If the user manually closed the tab, this resets the form.
       const listener = await Browser.addListener('browserFinished', async () => {
         await listener.remove();
         browserListenerRef.current = null;

@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { z } from "zod";
@@ -28,6 +29,9 @@ function getStripe(): Stripe {
   if (!key) throw new Error('STRIPE_SECRET_KEY non configurata');
   return new Stripe(key, { apiVersion: '2026-04-22.dahlia' as any });
 }
+
+// In-memory CSRF state store for server-side Google OAuth.
+const pendingOAuthStates = new Map<string, number>();
 
 export async function registerRoutes(app: Express): Promise<Server> {
 
@@ -138,6 +142,112 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (err: any) {
       console.error('[native-google-auth] error:', err?.message ?? err);
       return res.status(500).json({ error: 'Authentication failed' });
+    }
+  });
+
+  // Server-side Google OAuth for Android Capacitor.
+  // Bypasses Clerk's OAuth redirect URL validation entirely — our server owns the
+  // Google code exchange and mints a Clerk sign-in ticket returned via deep link.
+  //
+  // Step 1 — initiate: redirect to Google with our server callback URL.
+  app.get('/api/google-oauth-start', (_req, res) => {
+    const clientId = process.env.GOOGLE_WEB_CLIENT_ID;
+    if (!clientId) return res.status(500).send('GOOGLE_WEB_CLIENT_ID not configured');
+    const state = randomBytes(16).toString('hex');
+    pendingOAuthStates.set(state, Date.now() + 10 * 60 * 1000);
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: 'https://confrontaoroscopo.it/api/google-oauth-callback',
+      response_type: 'code',
+      scope: 'openid email profile',
+      state,
+      access_type: 'offline',
+      prompt: 'select_account',
+    });
+    return res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
+  });
+
+  // Step 2 — callback: exchange code, find/create Clerk user, mint ticket, deep-link back.
+  app.get('/api/google-oauth-callback', async (req, res) => {
+    const { code, state, error } = req.query as Record<string, string>;
+    const DEEP_LINK = 'confrontaoroscopo://clerk-callback';
+
+    if (error) {
+      console.error('[google-oauth-callback] Google error:', error);
+      return res.redirect(`${DEEP_LINK}?error=${encodeURIComponent(error)}`);
+    }
+
+    const expiry = state ? pendingOAuthStates.get(state) : undefined;
+    if (!expiry || Date.now() > expiry) {
+      console.error('[google-oauth-callback] invalid or expired state');
+      return res.redirect(`${DEEP_LINK}?error=state_invalid`);
+    }
+    pendingOAuthStates.delete(state);
+
+    if (!code) return res.redirect(`${DEEP_LINK}?error=no_code`);
+
+    try {
+      // Exchange authorization code for tokens
+      const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          code,
+          client_id: process.env.GOOGLE_WEB_CLIENT_ID ?? '',
+          client_secret: process.env.GOOGLE_CLIENT_SECRET ?? '',
+          redirect_uri: 'https://confrontaoroscopo.it/api/google-oauth-callback',
+          grant_type: 'authorization_code',
+        }),
+      });
+      if (!tokenRes.ok) {
+        const body = await tokenRes.text();
+        console.error('[google-oauth-callback] token exchange failed:', tokenRes.status, body);
+        return res.redirect(`${DEEP_LINK}?error=token_exchange_failed`);
+      }
+      const tokens = await tokenRes.json() as { id_token?: string };
+      if (!tokens.id_token) {
+        console.error('[google-oauth-callback] no id_token in response');
+        return res.redirect(`${DEEP_LINK}?error=no_id_token`);
+      }
+
+      // Verify ID token and extract user info
+      const infoRes = await fetch(
+        `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(tokens.id_token)}`
+      );
+      if (!infoRes.ok) return res.redirect(`${DEEP_LINK}?error=token_verify_failed`);
+      const info = await infoRes.json() as {
+        email?: string; given_name?: string; family_name?: string; error_description?: string;
+      };
+      if (info.error_description || !info.email) {
+        console.error('[google-oauth-callback] tokeninfo error:', info.error_description);
+        return res.redirect(`${DEEP_LINK}?error=invalid_token`);
+      }
+
+      // Find or create Clerk user, mint sign-in ticket
+      const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
+      const userList = await clerk.users.getUserList({ emailAddress: [info.email] });
+      let clerkUser = userList.data[0];
+      if (!clerkUser) {
+        clerkUser = await clerk.users.createUser({
+          emailAddress: [info.email],
+          firstName: info.given_name ?? '',
+          lastName: info.family_name ?? '',
+          skipPasswordRequirement: true,
+        });
+        console.log('[google-oauth-callback] created Clerk user:', clerkUser.id, info.email);
+      } else {
+        console.log('[google-oauth-callback] found Clerk user:', clerkUser.id, info.email);
+      }
+
+      const signInToken = await clerk.signInTokens.createSignInToken({
+        userId: clerkUser.id,
+        expiresInSeconds: 60,
+      });
+
+      return res.redirect(`${DEEP_LINK}?ticket=${encodeURIComponent(signInToken.token)}`);
+    } catch (err: any) {
+      console.error('[google-oauth-callback] error:', err?.message ?? err);
+      return res.redirect(`${DEEP_LINK}?error=server_error`);
     }
   });
 
