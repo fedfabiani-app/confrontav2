@@ -115,6 +115,19 @@ function NativeSignInForm() {
     const listenerPromise = App.addListener('appUrlOpen', async ({ url }) => {
       try {
         const u = new URL(url);
+
+        if (u.host === 'sso-callback') {
+          // Clerk redirected to confrontaoroscopo://sso-callback?__clerk_status=...
+          // after the Google OAuth completed in the Chrome Custom Tab.
+          // Navigate the WebView to /sso-callback with the same params so that
+          // AuthenticateWithRedirectCallback can process them and log the user in.
+          console.log('[Login] appUrlOpen — sso-callback deep-link, navigating WebView');
+          Browser.close().catch(() => {});
+          const params = u.searchParams.toString();
+          window.location.href = `/sso-callback${params ? '?' + params : ''}`;
+          return;
+        }
+
         if (u.host !== 'clerk-callback') return;
 
         const ticket = u.searchParams.get('ticket');
@@ -259,12 +272,14 @@ function NativeSignInForm() {
     // ── Web path ────────────────────────────────────────────────────────────────
     // Standard Clerk OAuth redirect via Chrome Custom Tab.
     try {
-      // Use the plain /sso-callback URL (no query params) so Clerk accepts it as an
-      // allowed redirect destination.  SsoCallback.tsx detects the native context via
-      // Capacitor.isNativePlatform() instead of the ?native=1 query param, so the
-      // same URL works for both web and Android without requiring two separate entries
-      // in Clerk's Allowed redirect URLs list.
-      const redirectUrl = window.location.origin + '/sso-callback';
+      // For native: use a custom URI scheme so Clerk's FAPI redirects directly to the
+      // app via a deep-link (registered in Clerk's Native Applications allowlist).
+      // Chrome Custom Tab navigating to confrontaoroscopo:// triggers appUrlOpen, which
+      // forwards the Clerk params to the WebView's /sso-callback for processing.
+      // For web: plain /sso-callback URL, handled by AuthenticateWithRedirectCallback.
+      const redirectUrl = isNative
+        ? 'confrontaoroscopo://sso-callback'
+        : window.location.origin + '/sso-callback';
 
       const si = await signIn!.create({
         strategy: 'oauth_google',
