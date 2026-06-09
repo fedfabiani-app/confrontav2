@@ -98,8 +98,9 @@ function buildGazzettaUrls(input: ScraperInput): string[] {
 
   const horoscopeDatePart = `${weekday}-${day}-${monthName}-${year}`;
 
-  // Slug variations: new format (oroscopo-di-) first, old format as fallback
+  // Slug variations: correct current format first, then legacy fallbacks
   const newSlugs = [
+    `${horoscopeDatePart}-previsioni-per-tutti-i-segni`,
     `oroscopo-di-${horoscopeDatePart}-le-previsioni-per-i-12-segni`,
     `oroscopo-di-${horoscopeDatePart}-previsioni-per-tutti-i-12-segni`,
     `oroscopo-di-${horoscopeDatePart}-previsioni-per-12-segni`,
