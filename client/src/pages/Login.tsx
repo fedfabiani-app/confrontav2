@@ -3,7 +3,6 @@ import { SignIn, useSignIn } from '@clerk/clerk-react';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
 import { App } from '@capacitor/app';
-import { SocialLogin } from '@capgo/capacitor-social-login';
 import { useLocation } from 'wouter';
 import { useAuth } from '../hooks/use-auth';
 import { trackLogin } from '../lib/analytics';
@@ -103,20 +102,6 @@ function NativeSignInForm() {
   const browserListenerRef = useRef<{ remove: () => Promise<void> } | null>(null);
 
   useEffect(() => {
-    // Initialize the native Google Sign-In plugin once (Android only).
-    // webClientId is the Web Application OAuth 2.0 client ID from Google Cloud Console,
-    // the same credential entered in Clerk Dashboard under "custom Google credentials".
-    if (isNative) {
-      const webClientId = import.meta.env.VITE_GOOGLE_WEB_CLIENT_ID as string | undefined;
-      if (webClientId) {
-        SocialLogin.initialize({ google: { webClientId } }).catch((e: unknown) => {
-          console.warn('[Login] SocialLogin.initialize error:', e);
-        });
-      } else {
-        console.warn('[Login] VITE_GOOGLE_WEB_CLIENT_ID is not set — native Google Sign-In will not work');
-      }
-    }
-
     // Deep-link handler: receives the sign-in ticket from the Chrome Custom Tab
     // after the /api/native-auth-relay endpoint minted it.
     //
@@ -262,11 +247,6 @@ function NativeSignInForm() {
 
   // ── Google Sign-In ──────────────────────────────────────────────────────────
   //
-  // Native Android (isNative === true):
-  //   Uses @capgo/capacitor-social-login which calls Google's native Sign-In SDK.
-  //   This opens a native account-picker dialog (no browser / Chrome Custom Tab).
-  //   The plugin returns a Google ID token which we verify on our backend and
-  //   exchange for a Clerk sign-in ticket.
   //
   // Web (isNative === false):
   //   Standard Clerk OAuth redirect flow via the browser.
@@ -275,64 +255,6 @@ function NativeSignInForm() {
     if (!isLoaded || googleBusy) return;
     setError('');
     setGoogleBusy(true);
-
-    if (isNative) {
-      // ── Native Android path ─────────────────────────────────────────────────
-      try {
-        // email, profile, openid are included by default — no need to list them explicitly
-        // (passing custom scopes requires the MainActivity interface, which we have, but
-        //  we leave this empty to keep things simple)
-        const result = await SocialLogin.login({ provider: 'google' } as any);
-
-        const googleResult = result.result as { idToken?: string | null };
-        const idToken = googleResult?.idToken;
-
-        if (!idToken) {
-          setError('Impossibile ottenere il token Google. Riprova.');
-          setGoogleBusy(false);
-          return;
-        }
-
-        console.log('[Login] native Google Sign-In succeeded — calling backend');
-
-        const response = await fetch('/api/native-google-auth', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ idToken }),
-          credentials: 'include',
-        });
-
-        if (!response.ok) {
-          const body = await response.text();
-          console.error('[Login] native-google-auth failed:', response.status, body);
-          setError('Accesso Google non riuscito. Riprova.');
-          setGoogleBusy(false);
-          return;
-        }
-
-        const { ticket } = await response.json();
-        const si = await signIn!.create({ strategy: 'ticket', ticket } as any);
-
-        if (si.status === 'complete') {
-          await setActive!({ session: si.createdSessionId });
-          trackLogin('google_native', true);
-          // Clerk session is now active; the auth hook navigates to '/'
-        } else {
-          console.warn('[Login] native Google ticket exchange incomplete:', si.status);
-          setError('Accesso non completato. Riprova.');
-          setGoogleBusy(false);
-        }
-      } catch (err: any) {
-        // User cancelled the account picker: err.message often contains "sign_in_cancelled"
-        const msg = err?.message ?? err?.errors?.[0]?.longMessage ?? 'Errore Google Sign-In.';
-        console.error('[Login] native Google error:', msg);
-        if (!msg.toLowerCase().includes('cancel')) {
-          setError(msg);
-        }
-        setGoogleBusy(false);
-      }
-      return;
-    }
 
     // ── Web path ────────────────────────────────────────────────────────────────
     // Standard Clerk OAuth redirect via Chrome Custom Tab.

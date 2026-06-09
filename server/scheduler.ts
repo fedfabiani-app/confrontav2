@@ -763,17 +763,12 @@ export async function initializeScheduledTasks() {
   cron.schedule('0 9 * * 3',  executeWeeklyFallbackRetry, { timezone: 'Europe/Rome' }); // Mer 09:00
 
   // ============================================================================
-  // CLEANUP SCHEDULER (Existing)
-  // Check daily at 3 AM if cleanup should run (every 31 days)
+  // CLEANUP SCHEDULER
+  // Daily at 3 AM: delete horoscope data older than 31 days
   // ============================================================================
   cron.schedule('0 3 * * *', async () => {
     try {
-      const shouldRun = await cleanupTracker.shouldRunCleanup();
-      
-      if (shouldRun) {
-        await cleanupService.cleanupHoroscopeData();
-        await cleanupTracker.setLastCleanupDate(new Date());
-      }
+      await cleanupService.cleanupHoroscopeData();
     } catch (error) {
       console.error('[Scheduler] Error during scheduled cleanup:', error);
     }

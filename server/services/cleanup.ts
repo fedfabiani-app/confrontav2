@@ -6,17 +6,11 @@ export class CleanupService {
     
     try {
       await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-        const deletedHoroscopes = await tx.$executeRaw`DELETE FROM horoscope_data`;
+        await tx.$executeRaw`DELETE FROM horoscope_data WHERE date < NOW() - INTERVAL '31 days'`;
 
-        const deletedWeekly = await tx.$executeRaw`DELETE FROM weekly_horoscope_data`;
+        await tx.$executeRaw`DELETE FROM weekly_horoscope_data WHERE week_start_date < NOW() - INTERVAL '31 days'`;
 
-        await tx.$executeRaw`ALTER SEQUENCE horoscope_data_id_seq RESTART WITH 1`;
-
-        await tx.$executeRaw`ALTER SEQUENCE weekly_horoscope_data_id_seq RESTART WITH 1`;
-
-        await tx.$executeRaw`DELETE FROM compatibility_results`;
-
-        await tx.$executeRaw`ALTER SEQUENCE compatibility_results_id_seq RESTART WITH 1`;
+        await tx.$executeRaw`DELETE FROM compatibility_results WHERE period_date < NOW() - INTERVAL '31 days'`;
       });
 
     } catch (error) {
