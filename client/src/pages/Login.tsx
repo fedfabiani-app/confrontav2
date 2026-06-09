@@ -116,12 +116,13 @@ function NativeSignInForm() {
       try {
         const u = new URL(url);
 
-        if (u.host === 'sso-callback') {
-          // Clerk redirected to confrontaoroscopo://sso-callback?__clerk_status=...
-          // after the Google OAuth completed in the Chrome Custom Tab.
-          // Navigate the WebView to /sso-callback with the same params so that
-          // AuthenticateWithRedirectCallback can process them and log the user in.
-          console.log('[Login] appUrlOpen — sso-callback deep-link, navigating WebView');
+        // App Link (HTTPS): https://confrontaoroscopo.it/sso-callback?__clerk_status=...
+        // Custom scheme fallback: confrontaoroscopo://sso-callback?__clerk_status=...
+        if (
+          (u.protocol === 'https:' && u.hostname === 'confrontaoroscopo.it' && u.pathname === '/sso-callback') ||
+          u.host === 'sso-callback'
+        ) {
+          console.log('[Login] appUrlOpen — sso-callback, navigating WebView');
           Browser.close().catch(() => {});
           const params = u.searchParams.toString();
           window.location.href = `/sso-callback${params ? '?' + params : ''}`;
@@ -278,7 +279,7 @@ function NativeSignInForm() {
       // forwards the Clerk params to the WebView's /sso-callback for processing.
       // For web: plain /sso-callback URL, handled by AuthenticateWithRedirectCallback.
       const redirectUrl = isNative
-        ? 'confrontaoroscopo://sso-callback'
+        ? 'https://confrontaoroscopo.it/sso-callback'
         : window.location.origin + '/sso-callback';
 
       const si = await signIn!.create({
