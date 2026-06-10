@@ -2583,27 +2583,67 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
     }
 
     // ── ELLE.COM/IT specific extraction ─────────────────────────────────────
-    // Hearst Journey CMS: article paragraphs are marked data-journey-content="true".
-    // Structure: [0] attribution intro (author/date) → skip
-    //            [1..N-3] actual horoscope content    → keep
-    //            [last few] CTA button paragraphs (body-btn-link) → skip
+    // Hearst Journey CMS structure per article:
+    //   [h2] "Luna nuova in ..."      → [p data-journey-content] generic lunar intro  (SKIP)
+    //   [h2] "Oroscopo {Sign} dal..." → [p data-journey-content] sign-specific text   (KEEP)
+    //   [h2] "Leggi anche..."         → stop
     if (url.includes('elle.com')) {
-      const journeyParas = $('p[data-journey-content="true"]').toArray();
+      // Strategy 1: find the sign-specific h2, walk its siblings to collect content
+      const signH2 = $('h2').filter((_, h2) =>
+        $(h2).text().trim().toLowerCase().startsWith(`oroscopo ${input.signSlugIt.toLowerCase()}`)
+      );
+      if (signH2.length > 0) {
+        const paras: string[] = [];
+        let cur = signH2.first().next();
+        while (cur.length > 0) {
+          const tag = (cur.prop('tagName') as string || '').toUpperCase();
+          if (tag === 'H2') break;
+          if (cur.is('p') && cur.attr('data-journey-content')) {
+            if (cur.find('a.body-btn-link').length > 0) break;
+            const t = cur.text().trim();
+            if (t.length > 30) paras.push(t);
+          }
+          cur = cur.next();
+        }
+        if (paras.length > 0) {
+          return { success: true, text: paras.join('\n\n').substring(0, 3500), url };
+        }
+      }
 
+      // Strategy 2: JSON-LD articleBody in raw HTML (scripts stripped from DOM above)
+      // articleBody concatenates: "...{generic text}Oroscopo {Sign} dal {dates}{year}{sign text}Leggi anche..."
+      const jsonLdRe = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+      let jlMatch: RegExpExecArray | null;
+      let elleFromJsonLd = '';
+      while ((jlMatch = jsonLdRe.exec(html)) !== null && !elleFromJsonLd) {
+        try {
+          const jlData = JSON.parse(jlMatch[1]);
+          const articleBody: string = (Array.isArray(jlData) ? jlData[0] : jlData)?.articleBody || '';
+          if (!articleBody) continue;
+          const signCap = input.signSlugIt.charAt(0).toUpperCase() + input.signSlugIt.slice(1);
+          const re = new RegExp(`Oroscopo\\s+${signCap}\\s+dal[^\\d]+\\d{4}([\\s\\S]+?)(?=Leggi anche|LEGGI|$)`);
+          const m = articleBody.match(re);
+          if (m?.[1] && m[1].trim().length > 50) elleFromJsonLd = m[1].trim();
+        } catch { /* malformed JSON-LD */ }
+      }
+      if (elleFromJsonLd) {
+        return { success: true, text: elleFromJsonLd.substring(0, 3500), url };
+      }
+
+      // Strategy 3: all data-journey-content paragraphs except attribution + CTAs (legacy fallback)
+      const journeyParas = $('p[data-journey-content="true"]').toArray();
       const contentParas: string[] = [];
-      for (let i = 1; i < journeyParas.length; i++) { // i=0 is always the attribution intro
+      for (let i = 1; i < journeyParas.length; i++) {
         const $p = $(journeyParas[i]);
-        // Skip CTA button paragraphs (contain body-btn-link anchors, no real prose)
         if ($p.find('a.body-btn-link').length > 0) continue;
         const text = $p.text().trim();
         if (text.length > 30) contentParas.push(text);
       }
-
       if (contentParas.length > 0) {
         return { success: true, text: contentParas.join('\n\n').substring(0, 3500), url };
       }
 
-      // Fallback: broader DOM selectors (paywall or markup change)
+      // Strategy 4: broader DOM selectors (paywall or markup change)
       let elleText = '';
       const elleSelectors = [
         '[data-journey-body] p',
@@ -2627,7 +2667,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
           break;
         }
       }
-
       if (elleText.length > 50) {
         return { success: true, text: elleText.substring(0, 3500), url };
       }
