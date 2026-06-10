@@ -1401,7 +1401,15 @@ async function fetchHtml(url: string, userAgent: string): Promise<string> {
       // Random delay (1-3 seconds) to appear human-like
       const randomDelay = Math.floor(Math.random() * 2000) + 1000;
       await new Promise(resolve => setTimeout(resolve, randomDelay));
-    } 
+    } else if (url.includes('gazzetta.it')) {
+      headers['Referer'] = 'https://www.gazzetta.it/oroscopo/';
+      headers['Sec-Fetch-Dest'] = 'document';
+      headers['Sec-Fetch-Mode'] = 'navigate';
+      headers['Sec-Fetch-Site'] = 'same-origin';
+      headers['Sec-Fetch-User'] = '?1';
+      const delay = 2000 + Math.random() * 2000;
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
     // Default random delay for other sources
     else {
       const delay = 1000 + Math.random() * 2000;
@@ -1663,9 +1671,12 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
         const firstStrong = $p.find('strong').first();
         if (firstStrong.length === 0) return;
 
-        // Match "Capricorno:" (case-insensitive)
+        // Match "Capricorno:" (case-insensitive).
+        // Also accept common misspellings from the source (e.g. "Aquario" for "Acquario").
         const strongText = firstStrong.text().trim().toLowerCase();
-        if (!strongText.startsWith(input.signSlugIt.toLowerCase() + ':')) return;
+        const signLower = input.signSlugIt.toLowerCase();
+        const signAliases = signLower === 'acquario' ? ['acquario', 'aquario'] : [signLower];
+        if (!signAliases.some(alias => strongText.startsWith(alias + ':'))) return;
 
         // Text comes after the <br> inside this <p>
         const fullHtml = $p.html() || '';
@@ -2627,6 +2638,57 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
       };
     }
     // ── END ELLE.COM/IT ──────────────────────────────────────────────────────
+
+    // Special handling for Gazzetta.it — per-sign weekly pages
+    // Structure mirrors the daily per-sign pages: JSON-LD articleBody + p.paragraph
+    if (url.includes('gazzetta.it')) {
+      let gazzettaContent = '';
+
+      // Strategy 1: JSON-LD articleBody (cleanest source when present)
+      $('script[type="application/ld+json"]').each((_, el) => {
+        if (gazzettaContent) return;
+        try {
+          const json = JSON.parse($(el).html() || '');
+          const body: string = json.articleBody || '';
+          if (body.length > 100) {
+            gazzettaContent = body.replace(/\s+/g, ' ').trim();
+          }
+        } catch { /* malformed JSON-LD */ }
+      });
+
+      // Strategy 2: p.paragraph CSS selector (Gazzetta's article content class)
+      if (!gazzettaContent) {
+        const paragraphs: string[] = [];
+        $('p.paragraph').each((_, el) => {
+          const text = $(el).text().replace(/\s+/g, ' ').trim();
+          if (text.length > 10 && !/^Nato sotto il segno/i.test(text)) {
+            paragraphs.push(text);
+          }
+        });
+        if (paragraphs.length >= 2) {
+          gazzettaContent = paragraphs.join('\n\n');
+        }
+      }
+
+      // Strategy 3: broader article selectors as final fallback
+      if (!gazzettaContent) {
+        for (const sel of ['article p', '.article-content p', 'main p', 'p']) {
+          const paras = $(sel)
+            .map((_, el) => $(el).text().trim())
+            .get()
+            .filter(t => t.length > 30 && !/^(leggi anche|pubblicità|condividi)/i.test(t));
+          if (paras.length >= 2) {
+            gazzettaContent = paras.join('\n\n');
+            break;
+          }
+        }
+      }
+
+      if (gazzettaContent.length > 50) {
+        return { success: true, text: gazzettaContent.substring(0, 3500), url };
+      }
+      return { success: false, error: `Could not extract weekly content for ${input.signSlugIt} from Gazzetta.it` };
+    }
 
         // Generic extraction for other sources
     let bestContent = '';
