@@ -810,7 +810,7 @@ function SignDetail({ sign }: SignDetailProps) {
               <CardContent className="p-2 md:p-4">
                 <div className="flex items-center justify-center gap-3 md:gap-4">
                   <span className="text-xs md:text-sm text-muted-foreground font-bold">Media Generale</span>
-                  <span className="text-lg md:text-2xl font-bold text-orange-500">
+                  <span className="text-lg md:text-2xl font-bold text-[#E1B64E] fill-[#E1B64E]'">
                     {(viewType === "daily" ? aggregate?.overallAverage : weeklyAggregate?.overallAverage)?.toFixed(1) || 'N/A'}
                   </span>
                   <div className="flex">

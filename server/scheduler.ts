@@ -5,10 +5,11 @@ import { getDailyScraperConfig, getWeeklyScraperConfig, isWithinTimeWindow, getI
 import { prisma } from './services/database';
 import { runDailyScraperCycle } from './services/dailyScraperOrchestrator';
 import { 
-  runWeeklyScraperCycle, 
+  runWeeklyScraperCycle,
   hasCompletedGroupScrapeForWeek,
   getFailedWeeklySources,
-  type SourceGroup 
+  getMissingDataWeeklySources,
+  type SourceGroup
 } from './services/weeklyScraperOrchestrator';
 import { getCurrentWeekStart } from './utils/weekUtils';
 
@@ -652,20 +653,21 @@ async function executeWeeklyFallbackRetry() {
       return;
     }
     
-    // Get failed sources for this week
+    // Get sources that need retry: failed (enqueue error) + pending with no saved data
     const failedSourceIds = await getFailedWeeklySources(weekStart, 'all');
-    
-    if (failedSourceIds.length === 0) {
+    const missingDataSourceIds = await getMissingDataWeeklySources(weekStart);
+    const allRetryIds = [...new Set([...failedSourceIds, ...missingDataSourceIds])];
+
+    if (allRetryIds.length === 0) {
       return;
     }
-    
-    
+
     // Execute retry with specific sources
-    const result = await runWeeklyScraperCycle({ 
+    const result = await runWeeklyScraperCycle({
       weekStart,
-      specificSources: failedSourceIds,
+      specificSources: allRetryIds,
       sourceGroup: 'all',
-      forceRescrape: true, // Force retry even if data exists
+      forceRescrape: true,
       triggerType: 'fallback'
     });
     
@@ -763,17 +765,12 @@ export async function initializeScheduledTasks() {
   cron.schedule('0 9 * * 3',  executeWeeklyFallbackRetry, { timezone: 'Europe/Rome' }); // Mer 09:00
 
   // ============================================================================
-  // CLEANUP SCHEDULER (Existing)
-  // Check daily at 3 AM if cleanup should run (every 31 days)
+  // CLEANUP SCHEDULER
+  // Daily at 3 AM: delete horoscope data older than 31 days
   // ============================================================================
   cron.schedule('0 3 * * *', async () => {
     try {
-      const shouldRun = await cleanupTracker.shouldRunCleanup();
-      
-      if (shouldRun) {
-        await cleanupService.cleanupHoroscopeData();
-        await cleanupTracker.setLastCleanupDate(new Date());
-      }
+      await cleanupService.cleanupHoroscopeData();
     } catch (error) {
       console.error('[Scheduler] Error during scheduled cleanup:', error);
     }

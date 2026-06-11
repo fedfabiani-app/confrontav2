@@ -83,6 +83,35 @@ export async function getFailedWeeklySources(
   return failedStatuses.map((s: { source_id: number }) => s.source_id);
 }
 
+export async function getMissingDataWeeklySources(weekStart: Date): Promise<number[]> {
+  const attempted = await prisma.weeklyScraperSourceStatus.findMany({
+    where: {
+      target_week: weekStart,
+      status: { in: ['pending', 'failed'] },
+    },
+    select: { source_id: true },
+    distinct: ['source_id'],
+  });
+
+  if (attempted.length === 0) return [];
+
+  const attemptedIds = attempted.map((s: { source_id: number }) => s.source_id);
+
+  const withData = await prisma.weeklyHoroscopeData.findMany({
+    where: {
+      week_start_date: weekStart,
+      source_id: { in: attemptedIds },
+      summary: { not: '' },
+    },
+    select: { source_id: true },
+    distinct: ['source_id'],
+  });
+
+  const withDataSet = new Set(withData.map((s: { source_id: number }) => s.source_id));
+
+  return attemptedIds.filter((id: number) => !withDataSet.has(id));
+}
+
 function createWeeklyScraperInput(source: any, zodiacSign: any, weekStart: Date): WeeklyScraperInput {
   const isSaturdayBased = source.domain.includes('repubblica.it') || source.domain.includes('sorrisi.com');
   const useNumericMonth = source.domain.includes('repubblica.it');

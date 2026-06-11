@@ -22,9 +22,26 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- Deep link for Clerk OAuth callback.
-                 After OAuth, Clerk redirects to confrontaoroscopo://clerk-callback
-                 which Android routes back to this activity. -->
+            <!-- App Link: Clerk redirects to https://confrontaoroscopo.it/sso-callback after
+                 Google OAuth. Android intercepts via verified App Link (assetlinks.json) and
+                 fires appUrlOpen before Chrome opens the URL. Login.tsx forwards the Clerk
+                 params to the WebView's /sso-callback for AuthenticateWithRedirectCallback. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="confrontaoroscopo.it" android:pathPrefix="/sso-callback" />
+            </intent-filter>
+
+            <!-- Custom scheme fallback (kept for backward compat with Clerk Native Applications). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="confrontaoroscopo" android:host="sso-callback" />
+            </intent-filter>
+
+            <!-- Legacy deep link kept for backward compatibility (ticket relay flow). -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />

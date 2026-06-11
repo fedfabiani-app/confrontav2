@@ -1401,7 +1401,15 @@ async function fetchHtml(url: string, userAgent: string): Promise<string> {
       // Random delay (1-3 seconds) to appear human-like
       const randomDelay = Math.floor(Math.random() * 2000) + 1000;
       await new Promise(resolve => setTimeout(resolve, randomDelay));
-    } 
+    } else if (url.includes('gazzetta.it')) {
+      headers['Referer'] = 'https://www.gazzetta.it/oroscopo/';
+      headers['Sec-Fetch-Dest'] = 'document';
+      headers['Sec-Fetch-Mode'] = 'navigate';
+      headers['Sec-Fetch-Site'] = 'same-origin';
+      headers['Sec-Fetch-User'] = '?1';
+      const delay = 2000 + Math.random() * 2000;
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
     // Default random delay for other sources
     else {
       const delay = 1000 + Math.random() * 2000;
@@ -1663,9 +1671,12 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
         const firstStrong = $p.find('strong').first();
         if (firstStrong.length === 0) return;
 
-        // Match "Capricorno:" (case-insensitive)
+        // Match "Capricorno:" (case-insensitive).
+        // Also accept common misspellings from the source (e.g. "Aquario" for "Acquario").
         const strongText = firstStrong.text().trim().toLowerCase();
-        if (!strongText.startsWith(input.signSlugIt.toLowerCase() + ':')) return;
+        const signLower = input.signSlugIt.toLowerCase();
+        const signAliases = signLower === 'acquario' ? ['acquario', 'aquario'] : [signLower];
+        if (!signAliases.some(alias => strongText.startsWith(alias + ':'))) return;
 
         // Text comes after the <br> inside this <p>
         const fullHtml = $p.html() || '';
@@ -2572,27 +2583,67 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
     }
 
     // ── ELLE.COM/IT specific extraction ─────────────────────────────────────
-    // Hearst Journey CMS: article paragraphs are marked data-journey-content="true".
-    // Structure: [0] attribution intro (author/date) → skip
-    //            [1..N-3] actual horoscope content    → keep
-    //            [last few] CTA button paragraphs (body-btn-link) → skip
+    // Hearst Journey CMS structure per article:
+    //   [h2] "Luna nuova in ..."      → [p data-journey-content] generic lunar intro  (SKIP)
+    //   [h2] "Oroscopo {Sign} dal..." → [p data-journey-content] sign-specific text   (KEEP)
+    //   [h2] "Leggi anche..."         → stop
     if (url.includes('elle.com')) {
-      const journeyParas = $('p[data-journey-content="true"]').toArray();
+      // Strategy 1: find the sign-specific h2, walk its siblings to collect content
+      const signH2 = $('h2').filter((_, h2) =>
+        $(h2).text().trim().toLowerCase().startsWith(`oroscopo ${input.signSlugIt.toLowerCase()}`)
+      );
+      if (signH2.length > 0) {
+        const paras: string[] = [];
+        let cur = signH2.first().next();
+        while (cur.length > 0) {
+          const tag = (cur.prop('tagName') as string || '').toUpperCase();
+          if (tag === 'H2') break;
+          if (cur.is('p') && cur.attr('data-journey-content')) {
+            if (cur.find('a.body-btn-link').length > 0) break;
+            const t = cur.text().trim();
+            if (t.length > 30) paras.push(t);
+          }
+          cur = cur.next();
+        }
+        if (paras.length > 0) {
+          return { success: true, text: paras.join('\n\n').substring(0, 3500), url };
+        }
+      }
 
+      // Strategy 2: JSON-LD articleBody in raw HTML (scripts stripped from DOM above)
+      // articleBody concatenates: "...{generic text}Oroscopo {Sign} dal {dates}{year}{sign text}Leggi anche..."
+      const jsonLdRe = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+      let jlMatch: RegExpExecArray | null;
+      let elleFromJsonLd = '';
+      while ((jlMatch = jsonLdRe.exec(html)) !== null && !elleFromJsonLd) {
+        try {
+          const jlData = JSON.parse(jlMatch[1]);
+          const articleBody: string = (Array.isArray(jlData) ? jlData[0] : jlData)?.articleBody || '';
+          if (!articleBody) continue;
+          const signCap = input.signSlugIt.charAt(0).toUpperCase() + input.signSlugIt.slice(1);
+          const re = new RegExp(`Oroscopo\\s+${signCap}\\s+dal[^\\d]+\\d{4}([\\s\\S]+?)(?=Leggi anche|LEGGI|$)`);
+          const m = articleBody.match(re);
+          if (m?.[1] && m[1].trim().length > 50) elleFromJsonLd = m[1].trim();
+        } catch { /* malformed JSON-LD */ }
+      }
+      if (elleFromJsonLd) {
+        return { success: true, text: elleFromJsonLd.substring(0, 3500), url };
+      }
+
+      // Strategy 3: all data-journey-content paragraphs except attribution + CTAs (legacy fallback)
+      const journeyParas = $('p[data-journey-content="true"]').toArray();
       const contentParas: string[] = [];
-      for (let i = 1; i < journeyParas.length; i++) { // i=0 is always the attribution intro
+      for (let i = 1; i < journeyParas.length; i++) {
         const $p = $(journeyParas[i]);
-        // Skip CTA button paragraphs (contain body-btn-link anchors, no real prose)
         if ($p.find('a.body-btn-link').length > 0) continue;
         const text = $p.text().trim();
         if (text.length > 30) contentParas.push(text);
       }
-
       if (contentParas.length > 0) {
         return { success: true, text: contentParas.join('\n\n').substring(0, 3500), url };
       }
 
-      // Fallback: broader DOM selectors (paywall or markup change)
+      // Strategy 4: broader DOM selectors (paywall or markup change)
       let elleText = '';
       const elleSelectors = [
         '[data-journey-body] p',
@@ -2616,7 +2667,6 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
           break;
         }
       }
-
       if (elleText.length > 50) {
         return { success: true, text: elleText.substring(0, 3500), url };
       }
@@ -2627,6 +2677,57 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
       };
     }
     // ── END ELLE.COM/IT ──────────────────────────────────────────────────────
+
+    // Special handling for Gazzetta.it — per-sign weekly pages
+    // Structure mirrors the daily per-sign pages: JSON-LD articleBody + p.paragraph
+    if (url.includes('gazzetta.it')) {
+      let gazzettaContent = '';
+
+      // Strategy 1: JSON-LD articleBody (cleanest source when present)
+      $('script[type="application/ld+json"]').each((_, el) => {
+        if (gazzettaContent) return;
+        try {
+          const json = JSON.parse($(el).html() || '');
+          const body: string = json.articleBody || '';
+          if (body.length > 100) {
+            gazzettaContent = body.replace(/\s+/g, ' ').trim();
+          }
+        } catch { /* malformed JSON-LD */ }
+      });
+
+      // Strategy 2: p.paragraph CSS selector (Gazzetta's article content class)
+      if (!gazzettaContent) {
+        const paragraphs: string[] = [];
+        $('p.paragraph').each((_, el) => {
+          const text = $(el).text().replace(/\s+/g, ' ').trim();
+          if (text.length > 10 && !/^Nato sotto il segno/i.test(text)) {
+            paragraphs.push(text);
+          }
+        });
+        if (paragraphs.length >= 2) {
+          gazzettaContent = paragraphs.join('\n\n');
+        }
+      }
+
+      // Strategy 3: broader article selectors as final fallback
+      if (!gazzettaContent) {
+        for (const sel of ['article p', '.article-content p', 'main p', 'p']) {
+          const paras = $(sel)
+            .map((_, el) => $(el).text().trim())
+            .get()
+            .filter(t => t.length > 30 && !/^(leggi anche|pubblicità|condividi)/i.test(t));
+          if (paras.length >= 2) {
+            gazzettaContent = paras.join('\n\n');
+            break;
+          }
+        }
+      }
+
+      if (gazzettaContent.length > 50) {
+        return { success: true, text: gazzettaContent.substring(0, 3500), url };
+      }
+      return { success: false, error: `Could not extract weekly content for ${input.signSlugIt} from Gazzetta.it` };
+    }
 
         // Generic extraction for other sources
     let bestContent = '';

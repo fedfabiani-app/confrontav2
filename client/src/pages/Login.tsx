@@ -3,7 +3,6 @@ import { SignIn, useSignIn } from '@clerk/clerk-react';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
 import { App } from '@capacitor/app';
-import { SocialLogin } from '@capgo/capacitor-social-login';
 import { useLocation } from 'wouter';
 import { useAuth } from '../hooks/use-auth';
 import { trackLogin } from '../lib/analytics';
@@ -103,20 +102,6 @@ function NativeSignInForm() {
   const browserListenerRef = useRef<{ remove: () => Promise<void> } | null>(null);
 
   useEffect(() => {
-    // Initialize the native Google Sign-In plugin once (Android only).
-    // webClientId is the Web Application OAuth 2.0 client ID from Google Cloud Console,
-    // the same credential entered in Clerk Dashboard under "custom Google credentials".
-    if (isNative) {
-      const webClientId = import.meta.env.VITE_GOOGLE_WEB_CLIENT_ID as string | undefined;
-      if (webClientId) {
-        SocialLogin.initialize({ google: { webClientId } }).catch((e: unknown) => {
-          console.warn('[Login] SocialLogin.initialize error:', e);
-        });
-      } else {
-        console.warn('[Login] VITE_GOOGLE_WEB_CLIENT_ID is not set — native Google Sign-In will not work');
-      }
-    }
-
     // Deep-link handler: receives the sign-in ticket from the Chrome Custom Tab
     // after the /api/native-auth-relay endpoint minted it.
     //
@@ -130,6 +115,20 @@ function NativeSignInForm() {
     const listenerPromise = App.addListener('appUrlOpen', async ({ url }) => {
       try {
         const u = new URL(url);
+
+        // App Link (HTTPS): https://confrontaoroscopo.it/sso-callback?__clerk_status=...
+        // Custom scheme fallback: confrontaoroscopo://sso-callback?__clerk_status=...
+        if (
+          (u.protocol === 'https:' && u.hostname === 'confrontaoroscopo.it' && u.pathname === '/sso-callback') ||
+          u.host === 'sso-callback'
+        ) {
+          console.log('[Login] appUrlOpen — sso-callback, navigating WebView');
+          Browser.close().catch(() => {});
+          const params = u.searchParams.toString();
+          window.location.href = `/sso-callback${params ? '?' + params : ''}`;
+          return;
+        }
+
         if (u.host !== 'clerk-callback') return;
 
         const ticket = u.searchParams.get('ticket');
@@ -262,95 +261,47 @@ function NativeSignInForm() {
 
   // ── Google Sign-In ──────────────────────────────────────────────────────────
   //
-  // Native Android (isNative === true):
-  //   Uses @capgo/capacitor-social-login which calls Google's native Sign-In SDK.
-  //   This opens a native account-picker dialog (no browser / Chrome Custom Tab).
-  //   The plugin returns a Google ID token which we verify on our backend and
-  //   exchange for a Clerk sign-in ticket.
+  // Native path: open server-side OAuth start URL in Chrome Custom Tab.
+  //   Our server exchanges the Google code and mints a Clerk sign-in ticket,
+  //   then redirects to confrontaoroscopo://clerk-callback?ticket=… which
+  //   triggers appUrlOpen above.
   //
-  // Web (isNative === false):
-  //   Standard Clerk OAuth redirect flow via the browser.
-  //   signIn.create → Browser.open (Chrome Custom Tab) → /sso-callback → deep-link
+  // Web path: standard Clerk OAuth redirect flow (unchanged).
   async function handleGoogleSignIn() {
     if (!isLoaded || googleBusy) return;
     setError('');
     setGoogleBusy(true);
 
     if (isNative) {
-      // ── Native Android path ─────────────────────────────────────────────────
+      // Server-side OAuth — bypasses Clerk's redirect URL validation entirely.
       try {
-        // email, profile, openid are included by default — no need to list them explicitly
-        // (passing custom scopes requires the MainActivity interface, which we have, but
-        //  we leave this empty to keep things simple)
-        const result = await SocialLogin.login({ provider: 'google' } as any);
-
-        const googleResult = result.result as { idToken?: string | null };
-        const idToken = googleResult?.idToken;
-
-        if (!idToken) {
-          setError('Impossibile ottenere il token Google. Riprova.');
+        const listener = await Browser.addListener('browserFinished', async () => {
+          await listener.remove();
+          browserListenerRef.current = null;
+          console.log('[Login] browserFinished — tab closed (cancel or complete)');
+          setStage('email');
           setGoogleBusy(false);
-          return;
-        }
-
-        console.log('[Login] native Google Sign-In succeeded — calling backend');
-
-        const response = await fetch('/api/native-google-auth', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ idToken }),
-          credentials: 'include',
         });
-
-        if (!response.ok) {
-          const body = await response.text();
-          console.error('[Login] native-google-auth failed:', response.status, body);
-          setError('Accesso Google non riuscito. Riprova.');
-          setGoogleBusy(false);
-          return;
-        }
-
-        const { ticket } = await response.json();
-        const si = await signIn!.create({ strategy: 'ticket', ticket } as any);
-
-        if (si.status === 'complete') {
-          await setActive!({ session: si.createdSessionId });
-          trackLogin('google_native', true);
-          // Clerk session is now active; the auth hook navigates to '/'
-        } else {
-          console.warn('[Login] native Google ticket exchange incomplete:', si.status);
-          setError('Accesso non completato. Riprova.');
-          setGoogleBusy(false);
-        }
+        browserListenerRef.current = listener;
+        setStage('google_pending');
+        await Browser.open({ url: 'https://confrontaoroscopo.it/api/google-oauth-start' });
       } catch (err: any) {
-        // User cancelled the account picker: err.message often contains "sign_in_cancelled"
-        const msg = err?.message ?? err?.errors?.[0]?.longMessage ?? 'Errore Google Sign-In.';
-        console.error('[Login] native Google error:', msg);
-        if (!msg.toLowerCase().includes('cancel')) {
-          setError(msg);
-        }
+        console.error('[Login] handleGoogleSignIn native error:', err?.message ?? err);
+        setError('Errore avvio Google Sign-In. Riprova.');
         setGoogleBusy(false);
       }
       return;
     }
 
     // ── Web path ────────────────────────────────────────────────────────────────
-    // Standard Clerk OAuth redirect via Chrome Custom Tab.
     try {
-      // Use the plain /sso-callback URL (no query params) so Clerk accepts it as an
-      // allowed redirect destination.  SsoCallback.tsx detects the native context via
-      // Capacitor.isNativePlatform() instead of the ?native=1 query param, so the
-      // same URL works for both web and Android without requiring two separate entries
-      // in Clerk's Allowed redirect URLs list.
-      const redirectUrl = window.location.origin + '/sso-callback';
-
       const si = await signIn!.create({
         strategy: 'oauth_google',
-        redirectUrl,
+        redirectUrl: window.location.origin + '/sso-callback',
       } as any);
 
       const oauthUrl = (si as any).firstFactorVerification?.externalVerificationRedirectURL?.toString();
-      console.log('[Login] Google OAuth URL:', oauthUrl ? 'obtained' : 'missing', '| redirectUrl:', redirectUrl);
+      console.log('[Login] Google OAuth URL:', oauthUrl ? 'obtained' : 'missing');
 
       if (!oauthUrl) {
         setError('Impossibile avviare Google Sign-In. Riprova.');
@@ -358,10 +309,6 @@ function NativeSignInForm() {
         return;
       }
 
-      // browserFinished fires when the Chrome Custom Tab closes.
-      // If OAuth succeeded, appUrlOpen will have already fired and exchanged the
-      // ticket, so these setters are harmless no-ops on the already-navigating page.
-      // If the user manually closed the tab, this resets the form.
       const listener = await Browser.addListener('browserFinished', async () => {
         await listener.remove();
         browserListenerRef.current = null;

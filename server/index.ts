@@ -67,6 +67,22 @@ app.use((req, res, next) => {
   next();
 });
 
+// Android App Links verification endpoint.
+// Must be served before any catch-all or SPA fallback.
+app.get('/.well-known/assetlinks.json', (_req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.json([{
+    relation: ['delegate_permission/common.handle_all_urls'],
+    target: {
+      namespace: 'android_app',
+      package_name: 'com.confrontaoroscopo.app',
+      sha256_cert_fingerprints: [
+        'DC:8A:74:64:FA:CB:9F:76:1C:D1:B9:11:1E:0D:78:38:F7:1F:62:35:57:0A:40:F7:C8:5D:81:F3:E7:90:6E:F2',
+      ],
+    },
+  }]);
+});
+
 app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
