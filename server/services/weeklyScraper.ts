@@ -2729,6 +2729,28 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
       return { success: false, error: `Could not extract weekly content for ${input.signSlugIt} from Gazzetta.it` };
     }
 
+    // ── STARBENE.IT specific extraction ──────────────────────────────────────
+    // WordPress per-sign pages; metadata paragraph "8 Giugno 2026 – Lettura 2 minuti"
+    // lives inside .bc-entry-author / .bcc-starbene-author-box-single — remove it first.
+    // Actual content is in .entry-content / .wp-block-post-content.
+    if (url.includes('starbene.it')) {
+      $('.bc-entry-author, .bcc-starbene-author-box-single').remove();
+      $('#toc_container').remove();
+      const paras = $('.entry-content p, .wp-block-post-content p')
+        .map((_, el) => $(el).text().trim())
+        .get()
+        .filter(t =>
+          t.length > 30 &&
+          !/lettura\s+\d+\s+minut/i.test(t) &&
+          !/^\d+\s+(Gennaio|Febbraio|Marzo|Aprile|Maggio|Giugno|Luglio|Agosto|Settembre|Ottobre|Novembre|Dicembre)/i.test(t)
+        );
+      if (paras.length > 0) {
+        return { success: true, text: paras.join('\n\n').substring(0, 3500), url };
+      }
+      return { success: false, error: `Could not extract Starbene.it content for ${input.signSlugIt}` };
+    }
+    // ── END STARBENE.IT ──────────────────────────────────────────────────────
+
         // Generic extraction for other sources
     let bestContent = '';
     let highestScore = 0;
