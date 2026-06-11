@@ -1037,6 +1037,7 @@ async function findRepubblicaArticleUrl(indexUrl: string, targetDate: string): P
 
     return null;
   } catch (error) {
+    console.warn('[scraper] findRepubblicaArticleUrl failed:', error instanceof Error ? error.message : error);
     return null;
   }
 }

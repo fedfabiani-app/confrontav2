@@ -242,7 +242,7 @@ async function createSourceStatusRecord(
       },
     });
   } catch (error) {
-    console.error(`[Weekly Orchestrator] Failed to create source status record:`, error);
+    console.error(`[Weekly Orchestrator] Failed to upsert source status (sourceId=${sourceId}, zodiacSignId=${zodiacSignId}):`, error instanceof Error ? error.message : error);
   }
 }
 

@@ -1,4 +1,5 @@
 import PQueue from 'p-queue';
+import { Prisma } from '@prisma/client';
 import { scraperWorker } from '../workers/scraper';
 import { weeklyScraperWorker } from '../workers/weeklyScraper';
 import { openaiWorker } from '../workers/claude';
@@ -212,10 +213,12 @@ export async function enqueueUpsertJob(scraperOutput: ScraperOutput, nlpOutput: 
       status.status = 'failed';
       status.completedAt = new Date();
       status.error = error instanceof Error ? error.message : 'Unknown error';
-      const errorCode = (error as any)?.code;
-      const errorMeta = (error as any)?.meta;
-      console.error(`[JobQueue] Upsert job ${jobId} failed [${errorCode ?? 'no-code'}]:`, error instanceof Error ? error.message : error);
-      if (errorMeta) console.error(`[JobQueue] Prisma meta:`, JSON.stringify(errorMeta));
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        console.error(`[JobQueue] Upsert job ${jobId} failed [Prisma ${error.code}]:`, error.message);
+        if (error.meta) console.error(`[JobQueue] Prisma meta:`, JSON.stringify(error.meta));
+      } else {
+        console.error(`[JobQueue] Upsert job ${jobId} failed:`, error instanceof Error ? error.message : error);
+      }
     }
   }, 100); // Small delay to avoid blocking
 

@@ -66,8 +66,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       return res.json({ ticket: tokenRes.token });
-    } catch (err: any) {
-      console.error('[native-auth-relay] error:', err?.message ?? err);
+    } catch (err) {
+      console.error('[native-auth-relay] error:', err instanceof Error ? err.message : err);
       return res.status(500).json({ error: 'Failed to create sign-in token' });
     }
   });
@@ -139,8 +139,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       return res.json({ ticket: tokenRes.token });
-    } catch (err: any) {
-      console.error('[native-google-auth] error:', err?.message ?? err);
+    } catch (err) {
+      console.error('[native-google-auth] error:', err instanceof Error ? err.message : err);
       return res.status(500).json({ error: 'Authentication failed' });
     }
   });
@@ -744,25 +744,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         let totalSkipped = 0;
         let totalFailed = 0;
 
+        // Batch-load all already-processed (source, sign) pairs to avoid N+1 in the loop below
+        const processedPairs = forceRescrape ? [] : await prisma.weeklyHoroscopeData.findMany({
+          where: { week_start_date: weekStart, summary: { not: '' } },
+          select: { source_id: true, zodiac_sign_id: true },
+        });
+        const processedSet = new Set(processedPairs.map(r => `${r.source_id}:${r.zodiac_sign_id}`));
+
         for (let i = 0; i < zodiacSigns.length; i++) {
           const sign = zodiacSigns[i];
 
           // Apply skip logic: exclude sources already scraped with non-empty summary
           const sourcesToProcess: typeof sources = [];
           for (const source of sources) {
-            if (!forceRescrape) {
-              const existing = await prisma.weeklyHoroscopeData.findFirst({
-                where: {
-                  source_id: source.id,
-                  zodiac_sign_id: sign.id,
-                  week_start_date: weekStart,
-                  summary: { not: '' },
-                },
-              });
-              if (existing) {
-                totalSkipped++;
-                continue;
-              }
+            if (!forceRescrape && processedSet.has(`${source.id}:${sign.id}`)) {
+              totalSkipped++;
+              continue;
             }
             sourcesToProcess.push(source);
           }
@@ -904,22 +901,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       };
 
+      // Batch-load already-processed sources for this sign to avoid N+1
+      const processedForSign = forceRescrape ? new Set<number>() : new Set(
+        (await prisma.weeklyHoroscopeData.findMany({
+          where: { zodiac_sign_id: zodiacSign.id, week_start_date: weekStart, summary: { not: '' } },
+          select: { source_id: true },
+        })).map(r => r.source_id)
+      );
+
       for (const source of sources) {
         // Check if already processed (unless force rescrape)
-        if (!forceRescrape) {
-          const existing = await prisma.weeklyHoroscopeData.findFirst({
-            where: {
-              source_id: source.id,
-              zodiac_sign_id: zodiacSign.id,
-              week_start_date: weekStart,
-              summary: { not: '' }
-            }
-          });
-
-          if (existing) {
-            skipped++;
-            continue;
-          }
+        if (!forceRescrape && processedForSign.has(source.id)) {
+          skipped++;
+          continue;
         }
 
         // Enqueue the job
