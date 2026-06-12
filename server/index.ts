@@ -13,6 +13,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { initializeScheduledTasks } from "./scheduler";
+import { initNotificationScheduler } from "./services/notificationScheduler";
 import prisma from "./services/database";
 
 /**
@@ -148,5 +149,6 @@ app.use((req, res, next) => {
     
     // Initialize scheduled cleanup task
     await initializeScheduledTasks();
+    initNotificationScheduler();
   });
 })();

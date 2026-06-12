@@ -6,6 +6,8 @@ import {
   type ActionPerformed,
 } from '@capacitor/push-notifications';
 
+export type NotificationPermissionResult = { status: 'granted' | 'denied' };
+
 // ─── Permission ──────────────────────────────────────────────────────────────
 
 export async function requestPermission(): Promise<boolean> {
@@ -75,40 +77,39 @@ export async function onNotificationTapped(
   });
 }
 
-// ─── Entry point ─────────────────────────────────────────────────────────────
+// ─── Entry points ────────────────────────────────────────────────────────────
 
 /**
- * Call once after user signs in.
- * Requests permission, registers device, and wires up notification handlers.
- *
- * @example
- * // In App.tsx or ClerkAuthProvider, after auth:
- * initPushNotifications(clerkUserId, {
- *   onReceived: (n) => toast(n.title ?? ''),
- *   onTapped:   (a) => navigate(a.notification.data?.route ?? '/'),
- * });
+ * Call once after user signs in (silent — never shows OS dialog).
+ * If permission is already granted, registers the device token with the backend.
+ * If permission is denied or not yet determined, returns without doing anything.
+ * Push registration via dialog is handled by requestNotificationPermission().
  */
 export async function initPushNotifications(
-  clerkUserId: string,
-  handlers?: {
-    onReceived?: (notification: PushNotificationSchema) => void;
-    onTapped?: (action: ActionPerformed) => void;
-  }
+  clerkUserId: string | null | undefined,
 ): Promise<void> {
+  if (!clerkUserId) return;
   if (!Capacitor.isNativePlatform()) return;
 
-  const granted = await requestPermission();
-  if (!granted) {
-    console.warn('[PushNotifications] Permission not granted');
-    return;
-  }
+  const { receive } = await PushNotifications.checkPermissions();
+  if (receive !== 'granted') return;
 
   await registerDevice(clerkUserId);
+}
 
-  if (handlers?.onReceived) {
-    await onNotificationReceived(handlers.onReceived);
-  }
-  if (handlers?.onTapped) {
-    await onNotificationTapped(handlers.onTapped);
-  }
+/**
+ * Request OS permission and, if granted, register the device token.
+ * Call this only from explicit user-initiated UI (e.g. the notification toggle).
+ * Returns { status: 'granted' } or { status: 'denied' } — never throws.
+ */
+export async function requestNotificationPermission(
+  clerkUserId: string,
+): Promise<NotificationPermissionResult> {
+  if (!Capacitor.isNativePlatform()) return { status: 'denied' };
+
+  const granted = await requestPermission();
+  if (!granted) return { status: 'denied' };
+
+  await registerDevice(clerkUserId);
+  return { status: 'granted' };
 }

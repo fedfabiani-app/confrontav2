@@ -1,4 +1,5 @@
 import admin from 'firebase-admin';
+import prisma from './database';
 
 let firebaseApp: admin.app.App | null = null;
 
@@ -67,5 +68,21 @@ export async function sendPushNotificationToMany(
     },
   };
 
-  return admin.messaging(app).sendEachForMulticast(message);
+  const response = await admin.messaging(app).sendEachForMulticast(message);
+
+  const deadTokens = tokens.filter((_, i) => {
+    const err = response.responses[i]?.error;
+    return (
+      err?.code === 'messaging/registration-token-not-registered' ||
+      err?.code === 'messaging/invalid-registration-token'
+    );
+  });
+  if (deadTokens.length > 0) {
+    await prisma.user.updateMany({
+      where: { push_token: { in: deadTokens } },
+      data: { push_token: null, push_token_updated_at: null },
+    });
+  }
+
+  return response;
 }

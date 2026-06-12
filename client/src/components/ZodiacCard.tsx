@@ -26,6 +26,7 @@ interface ZodiacCardProps {
   onToggleFavorite?: () => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  notificationBell?: React.ReactNode;
 }
 
 const signColors = {
@@ -44,15 +45,16 @@ const signColors = {
 };
 
   export function ZodiacCard({ 
-  sign, 
-  aggregate, 
-  summary, 
-  onClick, 
+  sign,
+  aggregate,
+  summary,
+  onClick,
   className,
   isFavorite = false,
   onToggleFavorite,
   isCollapsed = false,
-  onToggleCollapse
+  onToggleCollapse,
+  notificationBell,
 }: ZodiacCardProps) {
   const signKey = sign.name_italian.toLowerCase();
   const colorClass = signColors[signKey as keyof typeof signColors] || 'from-gray-500 to-gray-700';
@@ -106,6 +108,7 @@ const signColors = {
           <div className="flex items-center space-x-2">
             {/* Control Buttons */}
             <div className="flex items-center space-x-1">
+              {notificationBell}
               {onToggleFavorite && (
                 <Button
                   variant="ghost"

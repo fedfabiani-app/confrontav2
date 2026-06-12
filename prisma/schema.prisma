@@ -20,7 +20,8 @@ model User {
   created_at            DateTime  @default(now())
   updated_at            DateTime  @updatedAt
 
-  preferences UserPreferences?
+  preferences              UserPreferences?
+  notification_preferences UserNotificationPreference[]
 
   @@map("users")
 }
@@ -34,10 +35,11 @@ model ZodiacSign {
   created_at   DateTime @default(now())
   updated_at   DateTime @updatedAt
 
-  horoscope_data HoroscopeData[]
-  weekly_horoscope_data WeeklyHoroscopeData[]
-  scraper_source_statuses ScraperSourceStatus[]
+  horoscope_data                HoroscopeData[]
+  weekly_horoscope_data         WeeklyHoroscopeData[]
+  scraper_source_statuses       ScraperSourceStatus[]
   weekly_scraper_source_statuses WeeklyScraperSourceStatus[]
+  notification_preferences      UserNotificationPreference[]
 
   @@map("zodiac_signs")
 }
@@ -257,6 +259,26 @@ model WeeklyScraperSourceStatus {
   @@map("weekly_scraper_source_status")
 }
 
+
+model UserNotificationPreference {
+  id                   Int        @id @default(autoincrement())
+  user_id              Int
+  sign_id              Int
+  daily                Boolean    @default(true)
+  weekly               Boolean    @default(true)
+  notify_time          String     @default("08:00")
+  timezone             String     @default("Europe/Rome")
+  last_daily_sent_at   DateTime?
+  last_weekly_sent_at  DateTime?
+  created_at           DateTime   @default(now())
+  updated_at           DateTime   @updatedAt
+
+  user  User       @relation(fields: [user_id], references: [id])
+  sign  ZodiacSign @relation(fields: [sign_id], references: [id])
+
+  @@unique([user_id, sign_id])
+  @@map("user_notification_preferences")
+}
 
 model CompatibilityResult {
   id          Int      @id @default(autoincrement())

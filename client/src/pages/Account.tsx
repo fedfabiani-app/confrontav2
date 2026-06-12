@@ -1,12 +1,13 @@
-import { useEffect } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useClerk } from '@clerk/clerk-react';
 import { useLocation } from 'wouter';
-import { ArrowLeft, Star, BookmarkCheck } from 'lucide-react';
+import { ArrowLeft, Star, BookmarkCheck, BellOff } from 'lucide-react';
 import { AppHeader } from '@/components/AppHeader';
 import { useAuth } from '../hooks/use-auth';
 import { useAccess } from '../hooks/use-access';
 import { useHomeFavorites } from '../hooks/use-favorites';
 import { useFavorites } from '../hooks/use-favorites';
+import { NotificationModal, type NotificationPreference } from '@/components/NotificationBell';
 
 export default function Account() {
   const { isLoggedIn, isLoading, user, clerkUserId } = useAuth();
@@ -15,6 +16,34 @@ export default function Account() {
   const { homeFavorites } = useHomeFavorites();
   const { favorites } = useFavorites();
   const [, navigate] = useLocation();
+
+  const [notifPrefs, setNotifPrefs] = useState<NotificationPreference[]>([]);
+  const [editingPref, setEditingPref] = useState<NotificationPreference | null>(null);
+
+  const fetchNotifPrefs = useCallback(async () => {
+    if (!clerkUserId) return;
+    try {
+      const res = await fetch('/api/notifications/preferences', {
+        headers: { 'x-clerk-user-id': clerkUserId },
+      });
+      if (res.ok) setNotifPrefs(await res.json());
+    } catch {}
+  }, [clerkUserId]);
+
+  useEffect(() => {
+    if (isLoggedIn) fetchNotifPrefs();
+  }, [isLoggedIn, fetchNotifPrefs]);
+
+  const handleDeleteNotif = async (signId: number) => {
+    if (!clerkUserId) return;
+    try {
+      await fetch(`/api/notifications/preferences/${signId}`, {
+        method: 'DELETE',
+        headers: { 'x-clerk-user-id': clerkUserId },
+      });
+      await fetchNotifPrefs();
+    } catch {}
+  };
 
   useEffect(() => {
     if (!isLoading && !isLoggedIn) {
@@ -143,6 +172,55 @@ export default function Account() {
           </div>
         </section>
 
+        {/* Le tue notifiche */}
+        <section className="rounded-xl p-5 space-y-3" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
+          <h2 className="text-white/70 text-xs font-semibold uppercase tracking-wider">Le tue notifiche</h2>
+
+          {notifPrefs.length === 0 ? (
+            <div className="space-y-1">
+              <p className="text-white/80 text-sm">Nessuna notifica attiva.</p>
+              <p className="text-white/50 text-xs">Attiva 🔔 su un segno preferito per iniziare.</p>
+            </div>
+          ) : (
+            <ul className="space-y-2">
+              {notifPrefs.map((pref) => (
+                <li
+                  key={pref.id}
+                  className="flex items-center justify-between gap-3 rounded-lg px-3 py-2.5 cursor-pointer transition-colors hover:bg-white/5"
+                  style={{ border: '1px solid rgba(255,255,255,0.08)' }}
+                  onClick={() => setEditingPref(pref)}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="text-white text-sm font-medium truncate">
+                      {pref.sign?.name_italian ?? `Segno #${pref.sign_id}`}
+                    </span>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {pref.daily && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold" style={{ background: 'rgba(225,182,78,0.15)', color: '#E1B64E' }}>
+                          Giornaliero
+                        </span>
+                      )}
+                      {pref.weekly && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold" style={{ background: 'rgba(225,182,78,0.15)', color: '#E1B64E' }}>
+                          Settimanale
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-white/50 text-xs shrink-0">{pref.notify_time}</span>
+                  </div>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDeleteNotif(pref.sign_id); }}
+                    className="shrink-0 p-1 rounded hover:bg-white/10 transition-colors"
+                    title="Disattiva notifiche"
+                  >
+                    <BellOff size={15} className="text-white/40 hover:text-white/70" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
         {/* Logout */}
         <button
           onClick={handleSignOut}
@@ -153,6 +231,18 @@ export default function Account() {
         </button>
 
       </main>
+
+      {editingPref && clerkUserId && (
+        <NotificationModal
+          open={editingPref !== null}
+          onOpenChange={(open) => { if (!open) setEditingPref(null); }}
+          signId={editingPref.sign_id}
+          signNameItalian={editingPref.sign?.name_italian ?? `Segno #${editingPref.sign_id}`}
+          initialPref={editingPref}
+          clerkUserId={clerkUserId}
+          onSaved={() => { setEditingPref(null); fetchNotifPrefs(); }}
+        />
+      )}
     </div>
   );
 }

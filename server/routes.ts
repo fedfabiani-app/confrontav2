@@ -1913,6 +1913,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json({
         favoriteSigns: user.preferences?.favorite_signs ?? [],
         favoriteSources: (user.preferences?.favorite_sources ?? []).map(Number),
+        notificationsEnabled: user.preferences?.notifications_enabled ?? true,
       });
     } catch (error) {
       console.error('[Preferences GET] Error:', error);
@@ -1924,7 +1925,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const clerkId = req.headers['x-clerk-user-id'] as string;
     if (!clerkId) return res.status(401).json({ error: 'Unauthorized' });
 
-    const { favoriteSigns, favoriteSources } = req.body;
+    const { favoriteSigns, favoriteSources, notificationsEnabled } = req.body;
 
     try {
       const user = await prisma.user.findUnique({ where: { clerkId } });
@@ -1935,11 +1936,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         update: {
           favorite_signs: favoriteSigns ?? [],
           favorite_sources: favoriteSources ?? [],
+          ...(notificationsEnabled !== undefined && { notifications_enabled: notificationsEnabled }),
         },
         create: {
           user_id: user.id,
           favorite_signs: favoriteSigns ?? [],
           favorite_sources: favoriteSources ?? [],
+          ...(notificationsEnabled !== undefined && { notifications_enabled: notificationsEnabled }),
         },
       });
 
@@ -2215,6 +2218,106 @@ Scrivi 1 sola frase breve sulla compatibilità amorosa tra questi due segni.
     } catch (error) {
       console.error("[Contact] Email send error:", error);
       return res.status(500).json({ error: "Errore durante l'invio del messaggio" });
+    }
+  });
+
+  // ─── Notification Preferences ────────────────────────────────────────────
+
+  // GET /api/notifications/preferences — list all sign notification prefs for the user
+  app.get('/api/notifications/preferences', async (req, res) => {
+    const clerkId = req.headers['x-clerk-user-id'] as string | undefined;
+    if (!clerkId) return res.status(401).json({ error: 'Unauthorized' });
+
+    try {
+      const user = await prisma.user.findUnique({ where: { clerkId } });
+      if (!user) return res.status(404).json({ error: 'User not found' });
+
+      const prefs = await prisma.userNotificationPreference.findMany({
+        where: { user_id: user.id },
+        include: {
+          sign: { select: { id: true, name_italian: true, name_english: true } },
+        },
+        orderBy: { sign_id: 'asc' },
+      });
+
+      return res.json(prefs);
+    } catch (error) {
+      console.error('[NotificationPreferences GET] Error:', error);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // POST /api/notifications/preferences — upsert a sign notification preference
+  app.post('/api/notifications/preferences', async (req, res) => {
+    const clerkId = req.headers['x-clerk-user-id'] as string | undefined;
+    if (!clerkId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { signId, daily, weekly, notifyTime, timezone } = req.body as {
+      signId?: number;
+      daily?: boolean;
+      weekly?: boolean;
+      notifyTime?: string;
+      timezone?: string;
+    };
+
+    if (!signId || typeof signId !== 'number') {
+      return res.status(400).json({ error: 'signId is required' });
+    }
+    if (notifyTime !== undefined && notifyTime < '07:00') {
+      return res.status(400).json({ error: 'notifyTime must be 07:00 or later' });
+    }
+
+    try {
+      const user = await prisma.user.findUnique({ where: { clerkId } });
+      if (!user) return res.status(404).json({ error: 'User not found' });
+
+      const pref = await prisma.userNotificationPreference.upsert({
+        where: { user_id_sign_id: { user_id: user.id, sign_id: signId } },
+        update: {
+          ...(daily !== undefined && { daily }),
+          ...(weekly !== undefined && { weekly }),
+          ...(notifyTime !== undefined && { notify_time: notifyTime }),
+          ...(timezone !== undefined && { timezone }),
+        },
+        create: {
+          user_id: user.id,
+          sign_id: signId,
+          daily: daily ?? true,
+          weekly: weekly ?? true,
+          notify_time: notifyTime ?? '08:00',
+          timezone: timezone ?? 'Europe/Rome',
+        },
+      });
+
+      return res.json(pref);
+    } catch (error) {
+      console.error('[NotificationPreferences POST] Error:', error);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // DELETE /api/notifications/preferences/:signId — remove a sign notification preference
+  app.delete('/api/notifications/preferences/:signId', async (req, res) => {
+    const clerkId = req.headers['x-clerk-user-id'] as string | undefined;
+    if (!clerkId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const signId = parseInt(req.params.signId, 10);
+    if (isNaN(signId)) return res.status(400).json({ error: 'Invalid signId' });
+
+    try {
+      const user = await prisma.user.findUnique({ where: { clerkId } });
+      if (!user) return res.status(404).json({ error: 'User not found' });
+
+      const deleted = await prisma.userNotificationPreference.deleteMany({
+        where: { user_id: user.id, sign_id: signId },
+      });
+
+      if (deleted.count === 0) return res.status(404).json({ error: 'Preference not found' });
+
+      return res.json({ ok: true });
+    } catch (error) {
+      console.error('[NotificationPreferences DELETE] Error:', error);
+      return res.status(500).json({ error: 'Internal server error' });
     }
   });
 

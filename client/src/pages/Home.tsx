@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/popover";
 import { RefreshCw, CalendarDays } from "lucide-react";
 import { ZodiacCard } from "@/components/ZodiacCard";
+import { NotificationBell } from "@/components/NotificationBell";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { AppHeader } from "@/components/AppHeader";
 import { useToast } from "@/hooks/use-toast";
@@ -351,6 +352,12 @@ export default function Home() {
                     isFavorite={true}
                     onToggleFavorite={() =>
                       toggleHomeFavorite(sign.name_english)
+                    }
+                    notificationBell={
+                      <NotificationBell
+                        signId={sign.id}
+                        signNameItalian={sign.name_italian}
+                      />
                     }
                     className="ring-2 ring-red-200 border-red-300"
                   />
