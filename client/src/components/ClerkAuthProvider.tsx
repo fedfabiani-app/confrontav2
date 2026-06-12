@@ -1,14 +1,39 @@
 import { ReactNode, useState, useEffect } from 'react';
 import { ClerkProvider, useUser } from '@clerk/clerk-react';
 import { itIT } from '@clerk/localizations';
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, type PluginListenerHandle } from '@capacitor/core';
+import { PushNotifications } from '@capacitor/push-notifications';
+import { useLocation } from 'wouter';
 import { AuthContext, AuthContextValue, defaultAuthState } from '../contexts/auth-context';
 
 function ClerkAuthSync({ children }: { children: ReactNode }) {
   const { isLoaded, isSignedIn, user } = useUser();
   const [state, setState] = useState<AuthContextValue>({ ...defaultAuthState, isLoading: true });
+  const [, navigate] = useLocation();
 
   const userId = user?.id;
+
+  // Tap handler — runs once on mount, independent of auth state.
+  // Navigates to notification.data.route when user taps a push notification.
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    let removed = false;
+    let handle: PluginListenerHandle | null = null;
+
+    PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
+      const route = (action.notification.data as Record<string, string> | undefined)?.route;
+      if (route) navigate(route);
+    }).then((h) => {
+      handle = h;
+      if (removed) h.remove();
+    });
+
+    return () => {
+      removed = true;
+      handle?.remove();
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!isLoaded) return;

@@ -199,8 +199,11 @@ function SignDetail({ sign }: SignDetailProps) {
   const [refreshDismissed, setRefreshDismissed] = useState(false);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Daily/Weekly view state
-  const [viewType, setViewType] = useState<"daily" | "weekly">("daily");
+  // Daily/Weekly view state — initialized from ?tab=settimanale if present
+  const [viewType, setViewType] = useState<"daily" | "weekly">(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('tab') === 'settimanale' ? 'weekly' : 'daily';
+  });
   const [weekOffset, setWeekOffset] = useState(0);
   const { canAccessDateWithOverlay, canAccessWeekWithOverlay } = useAccess();
   const [premiumOverlay, setPremiumOverlay] = useState<{ type: 'daily' | 'weekly'; date: string } | null>(null);
