@@ -118,23 +118,23 @@ export function NotificationModal({
         </DialogHeader>
 
         {osPermission === 'denied' ? (
-          <p className="text-sm text-muted-foreground py-2">
+          <p className="text-sm text-white/70 py-2">
             Per ricevere notifiche, vai in Impostazioni → Notifiche sul tuo dispositivo
           </p>
         ) : (
           <div className="space-y-5 py-2">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Giornaliero</span>
+              <span className="text-sm font-medium text-white">Giornaliero</span>
               <Switch checked={daily} onCheckedChange={setDaily} />
             </div>
 
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Settimanale (ogni lunedì)</span>
+              <span className="text-sm font-medium text-white">Settimanale (ogni lunedì)</span>
               <Switch checked={weekly} onCheckedChange={setWeekly} />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Orario</label>
+              <label className="text-sm font-medium text-white">Orario</label>
               <input
                 type="time"
                 value={notifyTime}
