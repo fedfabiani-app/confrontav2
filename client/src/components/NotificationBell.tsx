@@ -112,9 +112,9 @@ export function NotificationModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-sm">
+      <DialogContent className="sm:max-w-sm text-white">
         <DialogHeader>
-          <DialogTitle>Notifiche per {signNameItalian}</DialogTitle>
+          <DialogTitle className="text-white">Notifiche per {signNameItalian}</DialogTitle>
         </DialogHeader>
 
         {osPermission === 'denied' ? (
@@ -139,7 +139,7 @@ export function NotificationModal({
                 type="time"
                 value={notifyTime}
                 onChange={(e) => { setNotifyTime(e.target.value); setTimeError(''); }}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-ring"
               />
               {timeError && <p className="text-xs text-destructive">{timeError}</p>}
             </div>
@@ -147,11 +147,11 @@ export function NotificationModal({
         )}
 
         <div className="flex justify-end gap-2 pt-2">
-          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} className="text-white">
             Annulla
           </Button>
           {osPermission !== 'denied' && (
-            <Button size="sm" onClick={handleSave} disabled={saving}>
+            <Button size="sm" onClick={handleSave} disabled={saving} className="text-white">
               {saving ? 'Salvataggio…' : 'Salva'}
             </Button>
           )}
