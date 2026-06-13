@@ -152,27 +152,73 @@ function buildIoDonnaUrl(input: ScraperInput): string {
 }
 
 /**
- * Builds URLs for Fanpage.it with both direct and archive URLs
+ * Builds URLs for Fanpage.it with both direct and archive URLs.
+ * On weekends Fanpage publishes a single combined article for Saturday + Sunday,
+ * so we generate the likely weekend URL variants in addition to the archive fallback.
  */
 function buildFanpageUrls(input: ScraperInput): string[] {
   const targetDate = new Date(input.dateISO);
+  const dayOfWeek = targetDate.getDay(); // 0=Sunday, 6=Saturday
+  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
   const day = targetDate.getDate();
   const month = ITALIAN_MONTHS[targetDate.getMonth()];
   const weekday = ITALIAN_WEEKDAYS[targetDate.getDay()];
   const year = targetDate.getFullYear();
 
+  const archiveUrl = 'https://www.fanpage.it/stile-e-trend/story/oroscopo/';
+  const urls: string[] = [];
+
+  if (isWeekend) {
+    // Determine the Saturday and Sunday of this weekend
+    const satDate = new Date(targetDate);
+    const sunDate = new Date(targetDate);
+    if (dayOfWeek === 6) {
+      sunDate.setDate(sunDate.getDate() + 1);
+    } else {
+      satDate.setDate(satDate.getDate() - 1);
+    }
+
+    const satDay = satDate.getDate();
+    const sunDay = sunDate.getDate();
+    const satMonth = ITALIAN_MONTHS[satDate.getMonth()];
+    const sunMonth = ITALIAN_MONTHS[sunDate.getMonth()];
+    const satYear = satDate.getFullYear();
+
+    if (satDate.getMonth() === sunDate.getMonth()) {
+      // Same month: e.g., "loroscopo-del-weekend-13-e-14-giugno-2026"
+      urls.push(`${input.baseUrl}/attualita/loroscopo-del-weekend-${satDay}-e-${sunDay}-${satMonth}-${satYear}/`);
+      urls.push(`${input.baseUrl}/attualita/oroscopo-del-weekend-${satDay}-e-${sunDay}-${satMonth}-${satYear}/`);
+      // Without "e": e.g., "oroscopo-del-weekend-30-31-maggio-2026"
+      urls.push(`${input.baseUrl}/attualita/oroscopo-del-weekend-${satDay}-${sunDay}-${satMonth}-${satYear}/`);
+      urls.push(`${input.baseUrl}/attualita/loroscopo-del-weekend-${satDay}-${sunDay}-${satMonth}-${satYear}/`);
+      // Long form: "oroscopo-weekend-il-cielo-di-sabato-6-e-domenica-7-giugno-2026"
+      urls.push(`${input.baseUrl}/attualita/oroscopo-weekend-il-cielo-di-sabato-${satDay}-e-domenica-${sunDay}-${satMonth}-${satYear}/`);
+    } else {
+      // Cross-month: e.g., "oroscopo-del-weekend-31-maggio-e-1-giugno-2026"
+      urls.push(`${input.baseUrl}/attualita/loroscopo-del-weekend-${satDay}-${satMonth}-e-${sunDay}-${sunMonth}-${satYear}/`);
+      urls.push(`${input.baseUrl}/attualita/oroscopo-del-weekend-${satDay}-${satMonth}-e-${sunDay}-${sunMonth}-${satYear}/`);
+      urls.push(`${input.baseUrl}/attualita/oroscopo-weekend-il-cielo-di-sabato-${satDay}-${satMonth}-e-domenica-${sunDay}-${sunMonth}-${satYear}/`);
+    }
+
+    console.log(`Fanpage.it - Weekend detected (${dayOfWeek === 6 ? 'Sabato' : 'Domenica'}), Sat=${satDay} Sun=${sunDay} ${satMonth} ${satYear}`);
+  }
+
+  // Daily URL (for weekdays, or as a fallback on weekends)
   let directUrl = input.baseUrl + input.urlPattern;
   directUrl = directUrl.replace('{weekday}', weekday);
   directUrl = directUrl.replace('{day}', day.toString());
   directUrl = directUrl.replace('{month}', month);
   directUrl = directUrl.replace('{year}', year.toString());
+  urls.push(directUrl);
 
-  const archiveUrl = 'https://www.fanpage.it/stile-e-trend/story/oroscopo/';
+  // Archive fallback is always last
+  urls.push(archiveUrl);
 
-  console.log(`Fanpage.it - Direct URL: ${directUrl}`);
-  console.log(`Fanpage.it - Archive fallback: ${archiveUrl}`);
+  console.log(`Fanpage.it - Generated ${urls.length} URLs for ${input.dateISO}:`);
+  urls.forEach((u, i) => console.log(`  [${i + 1}] ${u}`));
 
-  return [directUrl, archiveUrl];
+  return urls;
 }
 
 export async function scrapeHoroscope(input: ScraperInput): Promise<ScraperOutput> {
@@ -1829,18 +1875,87 @@ async function findFanpageArticleUrl(archiveUrl: string, targetDate: string): Pr
     const month = ITALIAN_MONTHS[dateObj.getMonth()];
     const weekday = ITALIAN_WEEKDAYS[dateObj.getDay()];
     const year = dateObj.getFullYear();
-
-    // Pattern: oroscopo-di-weekday-day-month-year (primary)
-    const datePattern = `oroscopo-di-${weekday}-${day}-${month}-${year}`;
-    console.log(`Fanpage.it - Looking for pattern: ${datePattern}`);
+    const dayOfWeek = dateObj.getDay();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
     // Helper to safely build regex from dynamic string
     const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
     const candidates = new Set<string>();
-    const urlPattern = new RegExp(`href=["']([^"']*${esc(datePattern)}[^"']*)["']`, 'gi');
     let m: RegExpExecArray | null;
 
+    if (isWeekend) {
+      // Determine Saturday of this weekend
+      const satDate = new Date(dateObj);
+      if (dayOfWeek === 0) satDate.setDate(satDate.getDate() - 1);
+      const sunDate = new Date(satDate);
+      sunDate.setDate(sunDate.getDate() + 1);
+
+      const satDay = satDate.getDate();
+      const sunDay = sunDate.getDate();
+      const satMonth = ITALIAN_MONTHS[satDate.getMonth()];
+      const satYear = satDate.getFullYear();
+
+      console.log(`Fanpage.it - Weekend mode: looking for weekend article (Sat=${satDay}, Sun=${sunDay}, ${satMonth} ${satYear})`);
+
+      // Pattern 1: href contains "weekend" + satDay + satMonth + satYear (most reliable)
+      const weekendPattern1 = new RegExp(
+        `href=["']([^"']*weekend[^"']*${esc(String(satDay))}[^"']*${esc(satMonth)}[^"']*${esc(String(satYear))}[^"']*)["']`,
+        'gi'
+      );
+      while ((m = weekendPattern1.exec(html)) !== null) {
+        let foundUrl = m[1];
+        if (foundUrl.startsWith('/')) foundUrl = 'https://www.fanpage.it' + foundUrl;
+        candidates.add(foundUrl);
+      }
+
+      // Pattern 2: href contains "weekend" + satDay (shorter, catches cross-month cases)
+      const weekendPattern2 = new RegExp(
+        `href=["']([^"']*(?:loroscopo|oroscopo)-del-weekend-${esc(String(satDay))}[^"']*)["']`,
+        'gi'
+      );
+      while ((m = weekendPattern2.exec(html)) !== null) {
+        let foundUrl = m[1];
+        if (foundUrl.startsWith('/')) foundUrl = 'https://www.fanpage.it' + foundUrl;
+        candidates.add(foundUrl);
+      }
+
+      // Pattern 3: href contains "oroscopo-weekend" + sabato + satDay
+      const weekendPattern3 = new RegExp(
+        `href=["']([^"']*oroscopo-weekend[^"']*sabato-${esc(String(satDay))}[^"']*)["']`,
+        'gi'
+      );
+      while ((m = weekendPattern3.exec(html)) !== null) {
+        let foundUrl = m[1];
+        if (foundUrl.startsWith('/')) foundUrl = 'https://www.fanpage.it' + foundUrl;
+        candidates.add(foundUrl);
+      }
+
+      // Pattern 4: generic "weekend" + year (broad catch-all)
+      const weekendPattern4 = new RegExp(
+        `href=["']([^"']*weekend[^"']*${esc(String(satYear))}[^"']*)["']`,
+        'gi'
+      );
+      while ((m = weekendPattern4.exec(html)) !== null) {
+        let foundUrl = m[1];
+        if (foundUrl.startsWith('/')) foundUrl = 'https://www.fanpage.it' + foundUrl;
+        candidates.add(foundUrl);
+      }
+
+      // Prioritize weekend article URLs
+      for (const candidate of Array.from(candidates)) {
+        if (/\/attualita\/.*weekend|\/story\/.*weekend/i.test(candidate)) {
+          console.log(`Fanpage.it - Found weekend article URL: ${candidate}`);
+          return candidate;
+        }
+      }
+    }
+
+    // Daily pattern: oroscopo-di-weekday-day-month-year
+    const datePattern = `oroscopo-di-${weekday}-${day}-${month}-${year}`;
+    console.log(`Fanpage.it - Looking for daily pattern: ${datePattern}`);
+
+    const urlPattern = new RegExp(`href=["']([^"']*${esc(datePattern)}[^"']*)["']`, 'gi');
     while ((m = urlPattern.exec(html)) !== null) {
       let foundUrl = m[1];
       if (foundUrl.startsWith('/')) foundUrl = 'https://www.fanpage.it' + foundUrl;
