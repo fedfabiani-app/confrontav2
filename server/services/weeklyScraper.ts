@@ -1016,7 +1016,8 @@ function buildGazzettaWeeklyUrl(input: WeeklyScraperInput): string {
               const yr = parseInt(settimanaMatch[3]);
               if (m) {
                 startDate = new Date(yr, m - 1, parseInt(settimanaMatch[1]));
-                endDate   = new Date(startDate.getTime() + 6 * 24 * 60 * 60 * 1000);
+                // ELLE publishes biweekly — cover 14 days from the start date
+                endDate   = new Date(startDate.getTime() + 13 * 24 * 60 * 60 * 1000);
               }
             }
           }
@@ -1033,9 +1034,13 @@ function buildGazzettaWeeklyUrl(input: WeeklyScraperInput): string {
 
           // Score: 100 if target falls inside the period; then linear decay up to 14 days
           const targetInRange = thursdayDate >= startDate && thursdayDate <= endDate;
-          const daysDiff = Math.abs(
-            Math.floor((startDate.getTime() - thursdayDate.getTime()) / (1000 * 60 * 60 * 24))
-          );
+          // Distance from the nearest edge of the coverage period so biweekly articles
+          // that have just expired (e.g. endDate 2 days ago) score higher than stale ones.
+          const daysDiff = targetInRange
+            ? 0
+            : thursdayDate < startDate
+            ? Math.floor((startDate.getTime() - thursdayDate.getTime()) / (1000 * 60 * 60 * 24))
+            : Math.floor((thursdayDate.getTime() - endDate.getTime()) / (1000 * 60 * 60 * 24));
 
           let score = 0;
           if (targetInRange || daysDiff === 0) {
