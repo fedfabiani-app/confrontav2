@@ -1557,6 +1557,30 @@ function buildOggiFinalContent(sections: Record<string, string[]>): string {
   return content;
 }
 
+function filterWeekendDayText(text: string, dateISO: string): string {
+  const date = new Date(dateISO);
+  const dayOfWeek = date.getDay(); // 0=Sunday, 6=Saturday
+  if (dayOfWeek !== 0 && dayOfWeek !== 6) return text;
+
+  const sabatoMatch = text.match(/\bSabato\b\s*:/i);
+  const domenicaMatch = text.match(/\bDomenica\b\s*:/i);
+  if (!sabatoMatch && !domenicaMatch) return text;
+
+  if (dayOfWeek === 6 && sabatoMatch) {
+    // Saturday: from "Sabato:" to just before "Domenica:"
+    const start = sabatoMatch.index! + sabatoMatch[0].length;
+    const end = domenicaMatch ? domenicaMatch.index! : text.length;
+    return text.slice(start, end).trim();
+  }
+  if (dayOfWeek === 0 && domenicaMatch) {
+    // Sunday: from "Domenica:" to end
+    const start = domenicaMatch.index! + domenicaMatch[0].length;
+    return text.slice(start).trim();
+  }
+
+  return text;
+}
+
 async function scrapeFanpageHoroscopeText(url: string, input: ScraperInput): Promise<ScrapeResult> {
   try {
     console.log('Fanpage.it - Starting specialized extraction for:', input.signSlugIt);
@@ -1655,9 +1679,14 @@ async function scrapeFanpageHoroscopeText(url: string, input: ScraperInput): Pro
 
     console.log(`Fanpage.it - Successfully extracted content, score: ${highestScore}, length: ${bestContent.length}`);
 
+    const filteredContent = filterWeekendDayText(bestContent, input.dateISO);
+    if (filteredContent !== bestContent) {
+      console.log(`Fanpage.it - Weekend day filter applied, new length: ${filteredContent.length}`);
+    }
+
     return {
       success: true,
-      text: bestContent.substring(0, 3500),
+      text: filteredContent.substring(0, 3500),
       url,
       actualUrl: url
     };
