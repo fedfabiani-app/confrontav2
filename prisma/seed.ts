@@ -79,7 +79,7 @@ const WEEKLY_SOURCES = [
     domain: 'starbene.it',
     logo_url: 'https://www.starbene.it/favicon.ico',
     base_url: 'https://www.starbene.it',
-    url_pattern: '/oroscopo/{sign}-dal-{start_day}-al-{end_day}-{month}-{year}/',
+    url_pattern: '/oroscopo/{sign}/{sign}-dal-{start_day}-al-{end_day}-{month}-{year}/',
     scrape_strategy: 'pattern',
     slug: null,
     is_active: true,

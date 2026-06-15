@@ -21,15 +21,14 @@ import prisma from "./services/database";
  */
 async function runStartupPatches(): Promise<void> {
   try {
-    // Fix Starbene (weekly_sources): url_pattern was set to the old
-    // "previsioni-settimana" path which doesn't include the sign slug or "dal/al".
-    // Correct pattern: /oroscopo/{sign}-dal-{start_day}-al-{end_day}-{month}-{year}/
+    // Fix Starbene (weekly_sources): correct URL is /oroscopo/{sign}/{sign}-dal-...
+    // (sign appears twice: once as directory, once as slug prefix)
     const starbeneFixed = await prisma.weeklySource.updateMany({
       where: {
         domain: 'starbene.it',
-        url_pattern: { not: '/oroscopo/{sign}-dal-{start_day}-al-{end_day}-{month}-{year}/' },
+        url_pattern: { not: '/oroscopo/{sign}/{sign}-dal-{start_day}-al-{end_day}-{month}-{year}/' },
       },
-      data: { url_pattern: '/oroscopo/{sign}-dal-{start_day}-al-{end_day}-{month}-{year}/' },
+      data: { url_pattern: '/oroscopo/{sign}/{sign}-dal-{start_day}-al-{end_day}-{month}-{year}/' },
     });
     if (starbeneFixed.count > 0) {
       log(`[startup] patched Starbene url_pattern (${starbeneFixed.count} row)`);

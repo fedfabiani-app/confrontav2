@@ -683,35 +683,70 @@ async function discoverFanpageWeeklyUrl(
     return fanpageWeeklyUrlCache.get(weekStart)!;
   }
 
+  const MONTH_NAMES: Record<number, string> = {
+    0: 'gennaio', 1: 'febbraio', 2: 'marzo', 3: 'aprile', 4: 'maggio', 5: 'giugno',
+    6: 'luglio', 7: 'agosto', 8: 'settembre', 9: 'ottobre', 10: 'novembre', 11: 'dicembre'
+  };
+
+  const weekStartDate = new Date(weekStart);
+  const weekEndDate = new Date(weekStartDate);
+  weekEndDate.setDate(weekStartDate.getDate() + 6);
+  const startDay = weekStartDate.getDate();
+  const endDay = weekEndDate.getDate();
+  const startMonth = MONTH_NAMES[weekStartDate.getMonth()];
+  const endMonth = MONTH_NAMES[weekEndDate.getMonth()];
+  const year = weekStartDate.getFullYear();
+  const crossMonth = weekStartDate.getMonth() !== weekEndDate.getMonth();
+  const base = 'https://www.fanpage.it/attualita';
+
+  // Build candidate URLs directly from the known format
+  const directCandidates = crossMonth
+    ? [
+        `${base}/loroscopo-della-settimana-dal-${startDay}-${startMonth}-al-${endDay}-${endMonth}-${year}/`,
+        `${base}/oroscopo-della-settimana-dal-${startDay}-${startMonth}-al-${endDay}-${endMonth}-${year}/`,
+      ]
+    : [
+        `${base}/loroscopo-della-settimana-dal-${startDay}-al-${endDay}-${startMonth}-${year}/`,
+        `${base}/oroscopo-della-settimana-dal-${startDay}-al-${endDay}-${startMonth}-${year}/`,
+      ];
+
+  // Verify which direct URL actually exists (HEAD request)
+  for (const url of directCandidates) {
+    try {
+      const res = await axios.head(url, {
+        headers: { 'User-Agent': userAgent },
+        timeout: 8000,
+        maxRedirects: 5,
+        validateStatus: (s) => s < 500,
+      });
+      if (res.status === 200) {
+        console.log(`Fanpage weekly - Direct URL confirmed: ${url}`);
+        fanpageWeeklyUrlCache.set(weekStart, url);
+        return url;
+      }
+    } catch { /* try next */ }
+  }
+
+  // Fallback: scrape the /attualita/ category page to find the article
   try {
-    const html = await fetchHtml(
-      'https://www.fanpage.it/stile-e-trend/story/oroscopo/',
-      userAgent
-    );
-
-    const startDay = new Date(weekStart).getDate();
-
-    // Matches all variants: dall11, dal-11, dall-11, dal11, dall-04, dal-4, etc.
+    const html = await fetchHtml(`${base}/`, userAgent);
     const regex = new RegExp(
-      `href="(https://www\\.fanpage\\.it/attualita/loroscopo-della-settimana-dall?-?0?${startDay}[^"]*)"`,
+      `href="(https://www\\.fanpage\\.it/attualita/[^"]*settimana[^"]*dall?-?0?${startDay}[^"]*)"`,
       'i'
     );
     const match = html.match(regex);
-    const url = match?.[1] ?? null;
-
-    console.log(
-      url
-        ? `Fanpage weekly - Discovered: ${url}`
-        : `Fanpage weekly - Not found on index for week starting ${weekStart}`
-    );
-
-    fanpageWeeklyUrlCache.set(weekStart, url);
-    return url;
+    if (match?.[1]) {
+      console.log(`Fanpage weekly - Archive URL found: ${match[1]}`);
+      fanpageWeeklyUrlCache.set(weekStart, match[1]);
+      return match[1];
+    }
+    console.log(`Fanpage weekly - Not found in /attualita/ for week starting ${weekStart}`);
   } catch (err) {
     console.log(`Fanpage weekly - Discovery error: ${err}`);
-    fanpageWeeklyUrlCache.set(weekStart, null);
-    return null;
   }
+
+  fanpageWeeklyUrlCache.set(weekStart, null);
+  return null;
 }
 
 // ==================== END FANPAGE.IT FUNCTIONS ====================
