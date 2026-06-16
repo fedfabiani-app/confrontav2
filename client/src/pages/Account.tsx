@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useClerk } from '@clerk/clerk-react';
 import { useLocation } from 'wouter';
 import { ArrowLeft, Star, BookmarkCheck } from 'lucide-react';
@@ -7,6 +7,17 @@ import { useAuth } from '../hooks/use-auth';
 import { useAccess } from '../hooks/use-access';
 import { useHomeFavorites } from '../hooks/use-favorites';
 import { useFavorites } from '../hooks/use-favorites';
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from '@/components/ui/alert-dialog';
 
 export default function Account() {
   const { isLoggedIn, isLoading, user, clerkUserId } = useAuth();
@@ -15,6 +26,7 @@ export default function Account() {
   const { homeFavorites } = useHomeFavorites();
   const { favorites } = useFavorites();
   const [, navigate] = useLocation();
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !isLoggedIn) {
@@ -38,6 +50,27 @@ export default function Account() {
   async function handleSignOut() {
     await signOut();
     navigate('/');
+  }
+
+  async function handleDeleteAccount() {
+    setIsDeleting(true);
+    try {
+      const res = await fetch('/api/user/account', {
+        method: 'DELETE',
+        headers: { 'x-clerk-user-id': clerkUserId || '' },
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "Impossibile eliminare l'account. Riprova.");
+        setIsDeleting(false);
+        return;
+      }
+      await signOut();
+      navigate('/');
+    } catch {
+      alert('Errore di rete. Riprova.');
+      setIsDeleting(false);
+    }
   }
 
   return (
@@ -151,6 +184,39 @@ export default function Account() {
         >
           Esci dall'account
         </button>
+
+        {/* Zona pericolosa */}
+        <section className="space-y-2 pt-2">
+          <h2 className="text-white/40 text-xs font-semibold uppercase tracking-wider">Zona pericolosa</h2>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <button
+                className="w-full py-2.5 rounded-xl text-sm font-medium text-red-400 hover:text-red-300 transition-colors"
+                style={{ border: '1px solid rgba(248,113,113,0.3)' }}
+              >
+                Elimina account
+              </button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Eliminare il tuo account?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Questa azione è irreversibile e cancellerà definitivamente tutti i tuoi dati, inclusi preferiti ed eventuale abbonamento attivo.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={isDeleting}>Annulla</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDeleteAccount}
+                  disabled={isDeleting}
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                >
+                  {isDeleting ? 'Eliminazione…' : 'Elimina account'}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </section>
 
       </main>
     </div>

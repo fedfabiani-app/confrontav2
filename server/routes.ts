@@ -1956,6 +1956,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // DELETE /api/user/account
+  app.delete("/api/user/account", async (req, res) => {
+    const clerkId = req.headers['x-clerk-user-id'] as string;
+    if (!clerkId) return res.status(401).json({ error: 'Unauthorized' });
+
+    try {
+      const user = await prisma.user.findUnique({ where: { clerkId } });
+      if (!user) return res.status(404).json({ error: 'User not found' });
+
+      // Best-effort: cancel any active Stripe subscription so the user isn't
+      // billed after their account (and access to manage it) is gone.
+      if (user.stripe_customer_id) {
+        try {
+          const subscriptions = await getStripe().subscriptions.list({
+            customer: user.stripe_customer_id,
+            status: 'active',
+          });
+          for (const sub of subscriptions.data) {
+            await getStripe().subscriptions.cancel(sub.id);
+          }
+        } catch (err) {
+          console.error('[Delete Account] Failed to cancel Stripe subscription:', err);
+        }
+      }
+
+      await prisma.$transaction([
+        prisma.userPreferences.deleteMany({ where: { user_id: user.id } }),
+        prisma.user.delete({ where: { id: user.id } }),
+      ]);
+
+      // Best-effort: remove the user from Clerk too, so they can't sign back
+      // in to an account whose app data no longer exists.
+      try {
+        const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
+        await clerk.users.deleteUser(clerkId);
+      } catch (err) {
+        console.error('[Delete Account] Failed to delete Clerk user:', err);
+      }
+
+      return res.json({ success: true });
+    } catch (error) {
+      console.error('[Delete Account] Error:', error);
+      return res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
   // POST /api/stripe/portal
   app.post("/api/stripe/portal", async (req, res) => {
     const clerkId = req.headers['x-clerk-user-id'] as string;
