@@ -187,7 +187,7 @@ export default function Account() {
 
         {/* Zona pericolosa */}
         <section className="space-y-2 pt-2">
-          <h2 className="text-white/40 text-xs font-semibold uppercase tracking-wider">Zona pericolosa</h2>
+          <h2 className="text-white/70 text-xs font-semibold uppercase tracking-wider">Zona pericolosa</h2>
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <button
@@ -197,15 +197,15 @@ export default function Account() {
                 Elimina account
               </button>
             </AlertDialogTrigger>
-            <AlertDialogContent>
+            <AlertDialogContent className="bg-[#1a1438] border-white/10">
               <AlertDialogHeader>
-                <AlertDialogTitle>Eliminare il tuo account?</AlertDialogTitle>
-                <AlertDialogDescription>
+                <AlertDialogTitle className="text-white">Eliminare il tuo account?</AlertDialogTitle>
+                <AlertDialogDescription className="text-white">
                   Questa azione è irreversibile e cancellerà definitivamente tutti i tuoi dati, inclusi preferiti ed eventuale abbonamento attivo.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel disabled={isDeleting}>Annulla</AlertDialogCancel>
+                <AlertDialogCancel disabled={isDeleting} className="text-white">Annulla</AlertDialogCancel>
                 <AlertDialogAction
                   onClick={handleDeleteAccount}
                   disabled={isDeleting}
