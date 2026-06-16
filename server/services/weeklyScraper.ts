@@ -2367,14 +2367,31 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
       const allParagraphs = container.find('p').toArray();
 
       // Find the sign header paragraph: <p><strong>SignName</strong></p>
+      // (occasionally the sign name and the horoscope text share the same <p>,
+      // separated by a <br/> instead of a sibling paragraph — e.g. Capricorno)
       let signParagraphIndex = -1;
+      let inlineText: string | null = null;
+      const signNamePrefixRegex = new RegExp('^' + signId, 'i');
       for (let i = 0; i < allParagraphs.length; i++) {
         const $p = $(allParagraphs[i]);
-        const pText = $p.text().trim().toLowerCase();
-        if (pText === signId) {
+        const pText = $p.text().trim();
+        const pTextLower = pText.toLowerCase();
+        if (pTextLower === signId) {
           signParagraphIndex = i;
           break;
         }
+        if (signNamePrefixRegex.test(pText)) {
+          const rest = pText.replace(signNamePrefixRegex, '').trim();
+          if (rest.length > 30) {
+            signParagraphIndex = i;
+            inlineText = rest;
+            break;
+          }
+        }
+      }
+
+      if (inlineText) {
+        return { success: true, text: inlineText.substring(0, 3500), url };
       }
 
       if (signParagraphIndex >= 0) {
