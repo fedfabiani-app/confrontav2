@@ -91,7 +91,7 @@ const signColors = {
             <div className="flex items-center justify-between mb-2">
           <div className="flex items-center space-x-3">
             <img
-              src={`/icons/zodiac/${sign.name_english.toLowerCase()}.svg`}
+              src={`/icons/zodiac/${sign.name_english.toLowerCase()}.svg?v=2`}
               alt={sign.name_italian}
               className="w-10 h-10 object-contain"
               draggable={false}

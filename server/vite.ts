@@ -81,8 +81,12 @@ export function serveStatic(app: Express) {
   app.use(
     express.static(distPath, {
       setHeaders(res, filePath) {
-        if (/\.(js|css|woff2?|ttf|otf|svg|png|jpg|jpeg|webp|ico)$/.test(filePath)) {
+        if (/\.(js|css|woff2?|ttf|otf)$/.test(filePath)) {
+          // JS/CSS/fonts are content-hashed by Vite — safe to cache forever
           res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+        } else if (/\.(svg|png|jpg|jpeg|webp|ico)$/.test(filePath)) {
+          // Images use fixed filenames (not hashed) — allow revalidation daily
+          res.setHeader("Cache-Control", "public, max-age=86400");
         } else {
           res.setHeader("Cache-Control", "no-cache");
         }
