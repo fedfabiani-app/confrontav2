@@ -485,15 +485,19 @@ async function executeMondayWeeklyScraper() {
       return;
     }
     
+    // ELLE publishes on Thursday — exclude from Monday scraping
+    const thursdaySourceIds = await getWeeklySourceIdsByDomain(['elle.com']);
+
     // Execute orchestrator
     const result = await runWeeklyScraperCycle({
       weekStart,
       sourceGroup: 'all',
       forceRescrape: false, // Use skip logic
-      triggerType: 'scheduled'
+      triggerType: 'scheduled',
+      excludeSources: thursdaySourceIds,
     });
-    
-    
+
+
   } catch (error) {
     console.error('[MondayWeekly] ✗ Error:', error);
   }
@@ -763,6 +767,7 @@ export async function initializeScheduledTasks() {
   cron.schedule('0 14 * * 1', executeWeeklyFallbackRetry, { timezone: 'Europe/Rome' }); // Lun 14:00
   cron.schedule('0 9 * * 2',  executeWeeklyFallbackRetry, { timezone: 'Europe/Rome' }); // Mar 09:00
   cron.schedule('0 9 * * 3',  executeWeeklyFallbackRetry, { timezone: 'Europe/Rome' }); // Mer 09:00
+  cron.schedule('0 16 * * 4', executeWeeklyFallbackRetry, { timezone: 'Europe/Rome' }); // Gio 16:00 (ELLE retry)
 
   // ============================================================================
   // CLEANUP SCHEDULER

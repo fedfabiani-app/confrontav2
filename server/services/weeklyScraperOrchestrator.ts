@@ -15,6 +15,7 @@ export interface WeeklyScraperOptions {
   weekStart?: Date;
   forceRescrape?: boolean;
   specificSources?: number[];
+  excludeSources?: number[];
   sourceGroup?: SourceGroup;
   dryRun?: boolean;
   triggerType?: 'scheduled' | 'fallback' | 'manual';
@@ -301,7 +302,12 @@ export async function runWeeklyScraperCycle(
         return group === sourceGroup;
       });
     }
-    
+
+    if (options.excludeSources && options.excludeSources.length > 0) {
+      const excludeSet = new Set(options.excludeSources);
+      sources = sources.filter(source => !excludeSet.has(source.id));
+    }
+
     const zodiacSigns = await prisma.zodiacSign.findMany({
       orderBy: { id: 'asc' },
     });
