@@ -620,7 +620,7 @@ function SignDetail({ sign }: SignDetailProps) {
           <div className="flex items-center space-x-4">
             {/* Icona zodiacale SVG con glow e animazione */}
             <img
-              src={`/icons/zodiac/${currentSign.name_english.toLowerCase()}.svg?v=2`}
+              src={`/icons/zodiac/${currentSign.name_english.toLowerCase()}.svg`}
               alt={currentSign.name_italian}
               className="w-12 h-12 object-contain transition-transform hover:scale-110 duration-300"
               draggable={false}
