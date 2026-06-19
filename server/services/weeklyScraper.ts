@@ -2798,6 +2798,7 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
       }
 
       if (gazzettaContent.length > 50) {
+        gazzettaContent = gazzettaContent.replace(/^La tua settimana:\s*/i, '');
         return { success: true, text: gazzettaContent.substring(0, 3500), url };
       }
       return { success: false, error: `Could not extract weekly content for ${input.signSlugIt} from Gazzetta.it` };
