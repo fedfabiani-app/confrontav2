@@ -385,7 +385,7 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
   // Special handling for Marie Claire
   else if (input.domain.includes('marieclaire.it')) {
 
-    const urlPattern = /\/lifestyle\/coolmix\/a\d+\/oroscopo[-_]settimana/i;
+    const urlPattern = /\/lifestyle\/coolmix\/a\d+\/oroscopo[-_](?:settimana|\d)/i;
 
     $('a').each((_, elem) => {
       const href = $(elem).attr('href');

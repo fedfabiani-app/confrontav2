@@ -71,7 +71,7 @@ export class WeeklyScraperWorker {
       $('a').each((_, element) => {
         const href = $(element).attr('href');
 
-        if (href && href.includes('oroscopo-settimana') && href.includes('/lifestyle/coolmix/a')) {
+        if (href && /oroscopo[-_](?:settimana|\d)/.test(href) && href.includes('/lifestyle/coolmix/a')) {
           const fullUrl = href.startsWith('http') ? href : `https://www.marieclaire.it${href}`;
 
           if (!urls.includes(fullUrl)) {
@@ -120,8 +120,8 @@ export class WeeklyScraperWorker {
         const href = $(element).attr('href');
         const text = $(element).text().toLowerCase();
 
-        if (href && 
-            (href.includes('oroscopo-settimana') || text.includes('oroscopo')) &&
+        if (href &&
+            (/oroscopo[-_](?:settimana|\d)/.test(href) || text.includes('oroscopo')) &&
             href.includes('/lifestyle/coolmix/a')) {
           const fullUrl = href.startsWith('http') ? href : `https://www.marieclaire.it${href}`;
 
