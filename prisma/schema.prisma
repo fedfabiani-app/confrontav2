@@ -71,6 +71,7 @@ model WeeklySource {
   scrape_strategy  String   @default("pattern") // 'pattern' or 'archive'
   slug             String?  // Source identifier for source group classification
   reliability_score Decimal  @db.Decimal(3, 2) @default(3.0)
+  is_biweekly      Boolean  @default(false)
   is_active        Boolean  @default(true)
   created_at       DateTime @default(now())
   updated_at       DateTime @updatedAt
@@ -120,6 +121,8 @@ model WeeklyHoroscopeData {
   tone_analysis    String   // 'positive', 'neutral', 'negative'
   original_url     String   @db.Text
   scraped_at       DateTime
+  valid_from       DateTime?  @db.Date
+  valid_to         DateTime?  @db.Date
   created_at       DateTime @default(now())
   updated_at       DateTime @updatedAt
 
@@ -128,6 +131,7 @@ model WeeklyHoroscopeData {
 
   @@unique([source_id, zodiac_sign_id, week_start_date])
   @@index([week_start_date])
+  @@index([source_id, zodiac_sign_id, valid_from, valid_to])
   @@map("weekly_horoscope_data")
 }
 
