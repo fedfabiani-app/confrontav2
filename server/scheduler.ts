@@ -85,6 +85,20 @@ async function hasLateFallbackRunToday(): Promise<boolean> {
   return fallback !== null;
 }
 
+async function hasTenFiveFallbackRunToday(): Promise<boolean> {
+  const targetDate = getItalyToday();
+  const targetDateObj = new Date(targetDate + 'T00:00:00.000Z');
+
+  const fallback = await prisma.scraperExecution.findFirst({
+    where: {
+      target_date: targetDateObj,
+      trigger_type: 'fallback_late_10',
+    },
+  });
+
+  return fallback !== null;
+}
+
 async function hasTenAmRunToday(): Promise<boolean> {
   const targetDate = getItalyToday();
   const targetDateObj = new Date(targetDate + 'T00:00:00.000Z');
@@ -448,6 +462,33 @@ async function executeTenAmSources() {
 }
 
 // ============================================================================
+// 10:05 AM DAILY FALLBACK
+// Riprova fonti daily senza dati validi dopo Corriere (10:00) e late-start
+// ============================================================================
+
+async function executeTenFiveDailyFallback() {
+  try {
+    const config = await getDailyScraperConfig();
+    if (!config.enabled) return;
+
+    const targetDate = getItalyToday();
+
+    if (await hasTenFiveFallbackRunToday()) return;
+    if (await hasRunningExecution(targetDate)) return;
+
+    const result = await runDailyScraperCycle({
+      targetDate,
+      forceRescrape: false,
+      triggerType: 'fallback_late_10',
+    });
+
+    console.log(`[FallbackLate10] Enqueued ${result.stats.enqueued}, skipped ${result.stats.skipped}`);
+  } catch (error) {
+    console.error('[FallbackLate10] ✗ Error:', error);
+  }
+}
+
+// ============================================================================
 // MONDAY WEEKLY SCRAPER (All Sources)
 // ============================================================================
 
@@ -739,7 +780,7 @@ export async function initializeScheduledTasks() {
   // 10:05 AM DAILY FALLBACK
   // Riprova tutte le fonti daily senza dati validi (dopo Corriere e late-start)
   // ============================================================================
-  cron.schedule('5 10 * * *', executeLateDailyFallback, {
+  cron.schedule('5 10 * * *', executeTenFiveDailyFallback, {
     timezone: 'Europe/Rome'
   });
 
