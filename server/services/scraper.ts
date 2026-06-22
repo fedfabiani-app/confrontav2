@@ -113,8 +113,8 @@ function buildGazzettaUrls(input: ScraperInput): string[] {
 
   const urls: string[] = [];
 
-  // Try publishing dates D-1, D-2, D-3 with new path + new slugs (most likely)
-  for (let offset = 1; offset <= 3; offset++) {
+  // Try publishing dates D+0, D-1, D-2, D-3 with new path + new slugs (most likely)
+  for (let offset = 0; offset <= 3; offset++) {
     const pubDate = new Date(targetDate);
     pubDate.setDate(pubDate.getDate() - offset);
     const pubDateStr = formatDateDDMMYYYY(pubDate);
