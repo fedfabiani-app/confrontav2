@@ -1240,6 +1240,7 @@ async function scrapeGazzettaHoroscopeText(url: string, input: ScraperInput): Pr
             // "La tua giornata" which is the first real horoscope paragraph.
             const laTuaIdx = raw.search(/La tua giornata/i);
             if (laTuaIdx > 0) raw = raw.substring(laTuaIdx);
+            raw = raw.replace(/^La tua giornata:\s*/i, '');
             bestContent = raw;
             console.log(`Gazzetta.it - Extracted from JSON-LD articleBody, length: ${bestContent.length}`);
             break;
