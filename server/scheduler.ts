@@ -736,6 +736,14 @@ export async function initializeScheduledTasks() {
   });
 
   // ============================================================================
+  // 10:05 AM DAILY FALLBACK
+  // Riprova tutte le fonti daily senza dati validi (dopo Corriere e late-start)
+  // ============================================================================
+  cron.schedule('5 10 * * *', executeLateDailyFallback, {
+    timezone: 'Europe/Rome'
+  });
+
+  // ============================================================================
   // MONDAY WEEKLY SCRAPER
   // Runs every 20 minutes on Mondays, guards enforce 5:30-8:00 AM window
   // ============================================================================
