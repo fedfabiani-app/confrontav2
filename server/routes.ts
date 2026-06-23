@@ -30,6 +30,33 @@ function getStripe(): Stripe {
   return new Stripe(key, { apiVersion: '2026-04-22.dahlia' as any });
 }
 
+async function fetchWeeklyHoroscopes(zodiacSignId: number, weekStartDateStr: string, options?: { include?: any; take?: number; select?: any; orderBy?: any }) {
+  const weekStart = new Date(weekStartDateStr);
+  const weekEnd = new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000);
+
+  const [regular, biweekly] = await Promise.all([
+    prisma.weeklyHoroscopeData.findMany({
+      where: {
+        zodiac_sign_id: zodiacSignId,
+        week_start_date: weekStart,
+        weekly_source: { is_biweekly: false },
+      },
+      ...options,
+    }),
+    prisma.weeklyHoroscopeData.findMany({
+      where: {
+        zodiac_sign_id: zodiacSignId,
+        valid_from: { lte: weekEnd },
+        valid_to: { gte: weekStart },
+        weekly_source: { is_biweekly: true },
+      },
+      ...options,
+    }),
+  ]);
+
+  return [...regular, ...biweekly];
+}
+
 // In-memory CSRF state store for server-side Google OAuth.
 const pendingOAuthStates = new Map<string, number>();
 
@@ -582,17 +609,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: 'Zodiac sign not found' });
       }
 
-      const horoscopes = await prisma.weeklyHoroscopeData.findMany({
-        where: {
-          zodiac_sign_id: zodiacSign.id,
-          week_start_date: new Date(weekStartDate as string),
-        },
-        include: {
-          weekly_source: true,
-        },
-        orderBy: {
-          weekly_source: { reliability_score: 'desc' }
-        }
+      const horoscopes = await fetchWeeklyHoroscopes(zodiacSign.id, weekStartDate as string, {
+        include: { weekly_source: true },
+        orderBy: { weekly_source: { reliability_score: 'desc' } },
       });
 
       // Transform weekly_source to source for frontend compatibility
@@ -635,12 +654,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: 'Zodiac sign not found' });
       }
 
-      const horoscopes = await prisma.weeklyHoroscopeData.findMany({
-        where: {
-          zodiac_sign_id: zodiacSign.id,
-          week_start_date: new Date(weekStartDate as string),
-        },
-      });
+      const horoscopes = await fetchWeeklyHoroscopes(zodiacSign.id, weekStartDate as string);
 
       if (horoscopes.length === 0) {
         return res.json({
@@ -2206,20 +2220,27 @@ Scrivi 1 sola frase breve sulla compatibilità amorosa tra questi due segni.
     const periodDate = new Date(weekStartDate);
 
     try {
+      const weekEnd = new Date(periodDate.getTime() + 6 * 24 * 60 * 60 * 1000);
+
+      const fetchSignSummaries = async (signName: string) => {
+        const [regular, biweekly] = await Promise.all([
+          prisma.weeklyHoroscopeData.findMany({
+            where: { zodiac_sign: { name_english: signName }, week_start_date: periodDate, weekly_source: { is_biweekly: false } },
+            select: { summary: true },
+            take: 3,
+          }),
+          prisma.weeklyHoroscopeData.findMany({
+            where: { zodiac_sign: { name_english: signName }, valid_from: { lte: weekEnd }, valid_to: { gte: periodDate }, weekly_source: { is_biweekly: true } },
+            select: { summary: true },
+            take: 3,
+          }),
+        ]);
+        return [...regular, ...biweekly];
+      };
+
       const result = await getOrGenerateCompatibility(
         sign1, sign2, 'weekly', periodDate,
-        () => Promise.all([
-          prisma.weeklyHoroscopeData.findMany({
-            where: { zodiac_sign: { name_english: sign1 }, week_start_date: periodDate },
-            select: { summary: true },
-            take: 3,
-          }),
-          prisma.weeklyHoroscopeData.findMany({
-            where: { zodiac_sign: { name_english: sign2 }, week_start_date: periodDate },
-            select: { summary: true },
-            take: 3,
-          }),
-        ])
+        () => Promise.all([fetchSignSummaries(sign1), fetchSignSummaries(sign2)])
       );
       return res.json({ result });
     } catch (error) {

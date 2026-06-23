@@ -97,18 +97,35 @@ export async function getMissingDataWeeklySources(weekStart: Date): Promise<numb
   if (attempted.length === 0) return [];
 
   const attemptedIds = attempted.map((s: { source_id: number }) => s.source_id);
+  const weekEnd = new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000);
 
-  const withData = await prisma.weeklyHoroscopeData.findMany({
-    where: {
-      week_start_date: weekStart,
-      source_id: { in: attemptedIds },
-      summary: { not: '' },
-    },
-    select: { source_id: true },
-    distinct: ['source_id'],
-  });
+  const [withDataExact, withDataBiweekly] = await Promise.all([
+    prisma.weeklyHoroscopeData.findMany({
+      where: {
+        week_start_date: weekStart,
+        source_id: { in: attemptedIds },
+        summary: { not: '' },
+      },
+      select: { source_id: true },
+      distinct: ['source_id'],
+    }),
+    prisma.weeklyHoroscopeData.findMany({
+      where: {
+        source_id: { in: attemptedIds },
+        valid_from: { lte: weekEnd },
+        valid_to: { gte: weekStart },
+        summary: { not: '' },
+        weekly_source: { is_biweekly: true },
+      },
+      select: { source_id: true },
+      distinct: ['source_id'],
+    }),
+  ]);
 
-  const withDataSet = new Set(withData.map((s: { source_id: number }) => s.source_id));
+  const withDataSet = new Set([
+    ...withDataExact.map((s: { source_id: number }) => s.source_id),
+    ...withDataBiweekly.map((s: { source_id: number }) => s.source_id),
+  ]);
 
   return attemptedIds.filter((id: number) => !withDataSet.has(id));
 }

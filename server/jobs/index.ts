@@ -335,18 +335,28 @@ export async function enqueueWeeklyUpsertJob(scraperOutput: WeeklyScraperOutput,
       const zodiacSign = await prisma.zodiacSign.findFirst({
         where: { name_italian: scraperOutput.signSlugIt }
       });
-      
+
       if (!zodiacSign) {
         throw new Error(`Zodiac sign not found: ${scraperOutput.signSlugIt}`);
       }
-      
-      
+
+      const source = await prisma.weeklySource.findUnique({
+        where: { id: scraperOutput.sourceId },
+        select: { is_biweekly: true },
+      });
+
+      const weekStartDate = (source?.is_biweekly && scraperOutput.validFrom)
+        ? new Date(scraperOutput.validFrom)
+        : new Date(scraperOutput.weekStartDate);
+      const validFrom = scraperOutput.validFrom ? new Date(scraperOutput.validFrom) : null;
+      const validTo = scraperOutput.validTo ? new Date(scraperOutput.validTo) : null;
+
       const upsertResult = await prisma.weeklyHoroscopeData.upsert({
         where: {
           source_id_zodiac_sign_id_week_start_date: {
             source_id: scraperOutput.sourceId,
             zodiac_sign_id: zodiacSign.id,
-            week_start_date: new Date(scraperOutput.weekStartDate),
+            week_start_date: weekStartDate,
           }
         },
         update: {
@@ -359,12 +369,14 @@ export async function enqueueWeeklyUpsertJob(scraperOutput: WeeklyScraperOutput,
           tone_analysis: nlpOutput.tone,
           original_url: scraperOutput.original_url,
           scraped_at: scraperOutput.scraped_at,
+          valid_from: validFrom,
+          valid_to: validTo,
           updated_at: new Date(),
         },
         create: {
           source_id: scraperOutput.sourceId,
           zodiac_sign_id: zodiacSign.id,
-          week_start_date: new Date(scraperOutput.weekStartDate),
+          week_start_date: weekStartDate,
           original_text: scraperOutput.extracted_text,
           superquote: nlpOutput.superquote,
           summary: nlpOutput.summary,
@@ -374,6 +386,8 @@ export async function enqueueWeeklyUpsertJob(scraperOutput: WeeklyScraperOutput,
           tone_analysis: nlpOutput.tone,
           original_url: scraperOutput.original_url,
           scraped_at: scraperOutput.scraped_at,
+          valid_from: validFrom,
+          valid_to: validTo,
         },
       });
       

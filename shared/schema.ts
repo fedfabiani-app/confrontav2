@@ -226,6 +226,8 @@ export const weeklyScraperOutputSchema = z.object({
   original_url: z.string(),
   scraped_at: z.date(),
   extracted_text: z.string(),
+  validFrom: z.string().optional(),
+  validTo: z.string().optional(),
 });
 
 export const openaiInputSchema = z.object({

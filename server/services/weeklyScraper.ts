@@ -641,7 +641,8 @@ const COMPREHENSIVE_HOROSCOPE_KEYWORDS = [
 
 export async function scrapeWeeklyHoroscope(input: WeeklyScraperInput): Promise<WeeklyScraperOutput> {
   try {
-    const resolvedUrl = await buildWeeklyHoroscopeUrl(input);
+    const resolved = await buildWeeklyHoroscopeUrl(input);
+    const resolvedUrl = typeof resolved === 'string' ? resolved : resolved.url;
 
     await respectDomainRateLimit(input.domain);
 
@@ -651,8 +652,6 @@ export async function scrapeWeeklyHoroscope(input: WeeklyScraperInput): Promise<
       throw new Error(`Failed to scrape weekly horoscope: ${scrapeResult.error}`);
     }
 
-    // Store the actual URL that was successfully scraped
-
     const result: WeeklyScraperOutput = {
       sourceId: input.sourceId,
       signSlugIt: input.signSlugIt,
@@ -660,6 +659,7 @@ export async function scrapeWeeklyHoroscope(input: WeeklyScraperInput): Promise<
       original_url: resolvedUrl,
       scraped_at: new Date(),
       extracted_text: scrapeResult.text,
+      ...(typeof resolved !== 'string' && { validFrom: resolved.validFrom, validTo: resolved.validTo }),
     };
 
     return weeklyScraperOutputSchema.parse(result);
@@ -819,7 +819,7 @@ function buildGazzettaWeeklyUrl(input: WeeklyScraperInput): string {
 
 // ==================== END GAZZETTA.IT SPECIFIC FUNCTIONS ====================
 
-      async function buildWeeklyHoroscopeUrl(input: WeeklyScraperInput): Promise<string> {
+      async function buildWeeklyHoroscopeUrl(input: WeeklyScraperInput): Promise<string | { url: string; validFrom: string; validTo: string }> {
         // SIMON AND THE STARS SPECIFIC: URL has no dal/al, built directly from dates
         if (input.domain.includes('simonandthestars.it')) {
           return buildSimonAndTheStarsUrl(input);
@@ -860,7 +860,7 @@ function buildGazzettaWeeklyUrl(input: WeeklyScraperInput): string {
        * Elle.com/it specific archive resolution
        * Strategy: Find ANY weekly horoscope URL, then extract all sign URLs from its content
        */
-      async function resolveElleUrlFromArchive(input: WeeklyScraperInput): Promise<string> {
+      async function resolveElleUrlFromArchive(input: WeeklyScraperInput): Promise<{ url: string; validFrom: string; validTo: string }> {
 
         const archiveUrl = 'https://www.elle.com/it/oroscopo/';
 
@@ -943,7 +943,7 @@ function buildGazzettaWeeklyUrl(input: WeeklyScraperInput): string {
 
         const targetDateStr = thursdayDate.toISOString().split('T')[0];
 
-        const candidates: Array<{ url: string; startDate: Date; score: number }> = [];
+        const candidates: Array<{ url: string; startDate: Date; endDate: Date; score: number }> = [];
 
 
         // Month name → number map (shared by both URL formats)
@@ -1069,7 +1069,7 @@ function buildGazzettaWeeklyUrl(input: WeeklyScraperInput): string {
           }
 
           if (score > 0) {
-            candidates.push({ url: absoluteUrl, startDate, score });
+            candidates.push({ url: absoluteUrl, startDate, endDate, score });
           }
         });
 
@@ -1091,7 +1091,11 @@ function buildGazzettaWeeklyUrl(input: WeeklyScraperInput): string {
         );
         if (directMatch) {
           console.log(`Elle.com/it - Direct archive match for ${input.signSlugIt}: ${directMatch.url}`);
-          return directMatch.url;
+          return {
+            url: directMatch.url,
+            validFrom: directMatch.startDate.toISOString().split('T')[0],
+            validTo: directMatch.endDate.toISOString().split('T')[0],
+          };
         }
 
         // ── Strategy 2: load the best-scoring article and extract the sign link ──
@@ -1101,12 +1105,20 @@ function buildGazzettaWeeklyUrl(input: WeeklyScraperInput): string {
 
         const signUrl = await extractElleSignUrlFromPage(bestMatch.url, input.signSlugIt, headers);
         if (signUrl) {
-          return signUrl;
+          return {
+            url: signUrl,
+            validFrom: bestMatch.startDate.toISOString().split('T')[0],
+            validTo: bestMatch.endDate.toISOString().split('T')[0],
+          };
         }
 
         // ── Strategy 3: return best-scoring URL as last resort ────────────────────
         console.warn(`Elle.com/it - Could not find sign-specific URL for ${input.signSlugIt}, using best match`);
-        return bestMatch.url;
+        return {
+          url: bestMatch.url,
+          validFrom: bestMatch.startDate.toISOString().split('T')[0],
+          validTo: bestMatch.endDate.toISOString().split('T')[0],
+        };
       }
 
       /**

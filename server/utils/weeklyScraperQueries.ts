@@ -69,8 +69,9 @@ export interface FailedSourceResult {
  * Shows which sources have data and how complete they are
  */
 export async function getWeeklyCoverage(weekStart: Date): Promise<WeeklyCoverageResult[]> {
+  const weekEnd = new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000);
   const results = await prisma.$queryRaw<any[]>`
-    SELECT 
+    SELECT
       ws.id as "sourceId",
       ws.name as "sourceName",
       ws.domain,
@@ -79,9 +80,13 @@ export async function getWeeklyCoverage(weekStart: Date): Promise<WeeklyCoverage
       MAX(whd.scraped_at) as "lastScraped",
       (COUNT(DISTINCT whd.sign_id) = 12) as "isComplete"
     FROM weekly_sources ws
-    LEFT JOIN weekly_horoscope_data whd 
-      ON ws.id = whd.source_id 
-      AND whd.week_start_date = ${weekStart}
+    LEFT JOIN weekly_horoscope_data whd
+      ON ws.id = whd.source_id
+      AND (
+        (ws.is_biweekly = false AND whd.week_start_date = ${weekStart})
+        OR
+        (ws.is_biweekly = true AND whd.valid_from <= ${weekEnd} AND whd.valid_to >= ${weekStart})
+      )
     WHERE ws.is_active = true
     GROUP BY ws.id, ws.name, ws.domain
     ORDER BY "signsCovered" DESC, ws.name
