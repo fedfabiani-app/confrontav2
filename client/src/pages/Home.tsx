@@ -7,7 +7,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { RefreshCw, CalendarDays } from "lucide-react";
+import { RefreshCw, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { ZodiacCard } from "@/components/ZodiacCard";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { AppHeader } from "@/components/AppHeader";
@@ -284,18 +284,30 @@ export default function Home() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         {/* Date Selector */}
         <div className="mb-4 flex justify-center">
-          <div className="w-full max-w-md">
+          <div className="flex items-center justify-between gap-6 bg-indigo-950 border border-indigo-800 rounded-full px-4 py-3 shadow-md w-full max-w-md">
+            <button
+              onClick={() => {
+                const prevDate = new Date(selectedDate);
+                prevDate.setDate(prevDate.getDate() - 1);
+                handleDateSelect(prevDate);
+              }}
+              className="p-1 rounded-full transition-colors flex-shrink-0 hover:bg-indigo-800"
+              aria-label="Giorno precedente"
+            >
+              <ChevronLeft size={24} className="text-indigo-100" />
+            </button>
+
             <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
               <PopoverTrigger asChild>
                 <button
-  className="w-full bg-indigo-950 rounded-full px-6 py-3 flex items-center justify-center gap-3 shadow-md hover:shadow-lg transition-shadow border border-indigo-800"
-  data-testid="date-selector-trigger"
->
-  <CalendarDays className="w-5 h-5 text-[#E1B64E]" />
-  <span className="font-semibold text-indigo-100 text-base">
-    {formatDate(selectedDate)}
-  </span>
-</button>
+                  className="flex items-center justify-center gap-3 flex-1"
+                  data-testid="date-selector-trigger"
+                >
+                  <CalendarDays className="w-5 h-5 text-[#E1B64E]" />
+                  <span className="font-semibold text-indigo-100 text-base">
+                    {formatDate(selectedDate)}
+                  </span>
+                </button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="center">
                 <div className="p-3 border-b border-border">
@@ -320,6 +332,22 @@ export default function Home() {
                 />
               </PopoverContent>
             </Popover>
+
+            <button
+              onClick={() => {
+                const nextDate = new Date(selectedDate);
+                nextDate.setDate(nextDate.getDate() + 1);
+                nextDate.setHours(0, 0, 0, 0);
+                if (nextDate <= todayStart) {
+                  handleDateSelect(nextDate);
+                }
+              }}
+              className="p-1 rounded-full transition-colors flex-shrink-0 hover:bg-indigo-800 disabled:opacity-40 disabled:cursor-not-allowed"
+              aria-label="Giorno successivo"
+              disabled={selectedDate >= todayStart}
+            >
+              <ChevronRight size={24} className="text-indigo-100" />
+            </button>
           </div>
         </div>
 
