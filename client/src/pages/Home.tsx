@@ -207,12 +207,11 @@ export default function Home() {
   };
 
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString("it-IT", {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
+    const weekday = date.toLocaleDateString("it-IT", { weekday: "long" });
+    const day = date.getDate();
+    const month = date.toLocaleDateString("it-IT", { month: "long" });
+    const year = date.getFullYear();
+    return { line1: `${weekday} ${day}`, line2: `${month} ${year}` };
   };
 
   const handleDateSelect = (date: Date | undefined) => {
@@ -303,9 +302,9 @@ export default function Home() {
                   className="flex items-center justify-center gap-3 flex-1"
                   data-testid="date-selector-trigger"
                 >
-                  <CalendarDays className="w-5 h-5 text-[#E1B64E]" />
-                  <span className="font-semibold text-indigo-100 text-base">
-                    {formatDate(selectedDate)}
+                  <CalendarDays className="w-5 h-5 flex-shrink-0 text-[#E1B64E]" />
+                  <span className="font-semibold text-indigo-100 text-base text-center leading-tight">
+                    {formatDate(selectedDate).line1}<br />{formatDate(selectedDate).line2}
                   </span>
                 </button>
               </PopoverTrigger>
