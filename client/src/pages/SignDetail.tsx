@@ -148,7 +148,7 @@ function SourceIcon({ source, "data-testid": dataTestId }: SourceIconProps) {
     return (
       <div className="relative group">
         <div
-          className="w-6 h-6 bg-gradient-to-br from-orange-100 to-red-100 rounded flex items-center justify-center border border-border hover:border-orange-300 transition-colors"
+          className="w-8 h-8 bg-gradient-to-br from-orange-100 to-red-100 rounded flex items-center justify-center border border-border hover:border-orange-300 transition-colors"
           data-testid={dataTestId}
           title={source.name}
         >
@@ -170,14 +170,14 @@ function SourceIcon({ source, "data-testid": dataTestId }: SourceIconProps) {
       <img
         src={initialSrc}
         alt={source.name}
-        className="w-6 h-6 rounded object-contain bg-white p-0.5 border border-border hover:border-orange-300 transition-colors"
+        className="w-8 h-8 rounded object-contain bg-white p-0.5 border border-border hover:border-orange-300 transition-colors"
         data-testid={dataTestId}
         title={source.name}
         onError={handleImageError}
         referrerPolicy="no-referrer"
         loading="lazy"
-        width={24}
-        height={24}
+        width={32}
+        height={32}
       />
 
       {/* Tooltip */}
