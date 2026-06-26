@@ -154,29 +154,35 @@ function createWeeklyScraperInput(source: any, zodiacSign: any, weekStart: Date)
 }
 
 async function buildProcessedCache(weekStart: Date): Promise<ProcessedCache> {
-  
+
   const cache: ProcessedCache = {};
-  
-  // Query all successfully processed weekly horoscopes for the target week
-  const processedHoroscopes = await prisma.weeklyHoroscopeData.findMany({
-    where: {
-      week_start_date: weekStart,
-      summary: {
-        not: '',
+  const weekEnd = new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000);
+
+  const [regular, biweekly] = await Promise.all([
+    prisma.weeklyHoroscopeData.findMany({
+      where: {
+        week_start_date: weekStart,
+        summary: { not: '' },
+        weekly_source: { is_biweekly: false },
       },
-    },
-    select: {
-      source_id: true,
-      zodiac_sign_id: true,
-    },
-  });
-  
-  // Build cache key: "sourceId-signId"
-  for (const record of processedHoroscopes) {
+      select: { source_id: true, zodiac_sign_id: true },
+    }),
+    prisma.weeklyHoroscopeData.findMany({
+      where: {
+        valid_from: { lte: weekEnd },
+        valid_to: { gte: weekStart },
+        summary: { not: '' },
+        weekly_source: { is_biweekly: true },
+      },
+      select: { source_id: true, zodiac_sign_id: true },
+    }),
+  ]);
+
+  for (const record of [...regular, ...biweekly]) {
     const key = `${record.source_id}-${record.zodiac_sign_id}`;
     cache[key] = true;
   }
-  
+
   return cache;
 }
 

@@ -54,7 +54,16 @@ async function fetchWeeklyHoroscopes(zodiacSignId: number, weekStartDateStr: str
     }),
   ]);
 
-  return [...regular, ...biweekly];
+  const seen = new Set<number>();
+  const deduped = [];
+  for (const h of [...biweekly, ...regular]) {
+    if (!seen.has((h as any).source_id)) {
+      seen.add((h as any).source_id);
+      deduped.push(h);
+    }
+  }
+
+  return deduped;
 }
 
 // In-memory CSRF state store for server-side Google OAuth.
@@ -757,6 +766,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         let totalEnqueued = 0;
         let totalSkipped = 0;
         let totalFailed = 0;
+        const weekEnd = new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000);
 
         for (let i = 0; i < zodiacSigns.length; i++) {
           const sign = zodiacSigns[i];
@@ -765,14 +775,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const sourcesToProcess: typeof sources = [];
           for (const source of sources) {
             if (!forceRescrape) {
-              const existing = await prisma.weeklyHoroscopeData.findFirst({
-                where: {
-                  source_id: source.id,
-                  zodiac_sign_id: sign.id,
-                  week_start_date: weekStart,
-                  summary: { not: '' },
-                },
-              });
+              const existing = source.is_biweekly
+                ? await prisma.weeklyHoroscopeData.findFirst({
+                    where: {
+                      source_id: source.id,
+                      zodiac_sign_id: sign.id,
+                      valid_from: { lte: weekEnd },
+                      valid_to: { gte: weekStart },
+                      summary: { not: '' },
+                    },
+                  })
+                : await prisma.weeklyHoroscopeData.findFirst({
+                    where: {
+                      source_id: source.id,
+                      zodiac_sign_id: sign.id,
+                      week_start_date: weekStart,
+                      summary: { not: '' },
+                    },
+                  });
               if (existing) {
                 totalSkipped++;
                 continue;
@@ -918,17 +938,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       };
 
+      const weekEnd = new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000);
+
       for (const source of sources) {
         // Check if already processed (unless force rescrape)
         if (!forceRescrape) {
-          const existing = await prisma.weeklyHoroscopeData.findFirst({
-            where: {
-              source_id: source.id,
-              zodiac_sign_id: zodiacSign.id,
-              week_start_date: weekStart,
-              summary: { not: '' }
-            }
-          });
+          const existing = source.is_biweekly
+            ? await prisma.weeklyHoroscopeData.findFirst({
+                where: {
+                  source_id: source.id,
+                  zodiac_sign_id: zodiacSign.id,
+                  valid_from: { lte: weekEnd },
+                  valid_to: { gte: weekStart },
+                  summary: { not: '' },
+                },
+              })
+            : await prisma.weeklyHoroscopeData.findFirst({
+                where: {
+                  source_id: source.id,
+                  zodiac_sign_id: zodiacSign.id,
+                  week_start_date: weekStart,
+                  summary: { not: '' },
+                },
+              });
 
           if (existing) {
             skipped++;
