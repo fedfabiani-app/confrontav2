@@ -145,21 +145,26 @@ export async function getExecutionHistory(
  * Shows scraped_at timestamps and day of week to verify replacement scrapes worked
  */
 export async function getUpsertVerification(weekStart: Date): Promise<UpsertVerificationResult[]> {
+  const weekEnd = new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000);
   const results = await prisma.$queryRaw<any[]>`
-    SELECT 
+    SELECT
       ws.name as "sourceName",
       ws.domain,
       zs.name_it as "sign",
       whd.scraped_at as "scrapedAt",
       EXTRACT(DOW FROM whd.scraped_at)::int as "dayOfWeek",
       (
-        EXTRACT(DOW FROM whd.scraped_at) != 1 AND 
+        EXTRACT(DOW FROM whd.scraped_at) != 1 AND
         ws.domain IN ('elle.com', 'd.repubblica.it', 'www.iodonna.it', 'www.sorrisi.com')
       ) as "wasReplaced"
     FROM weekly_horoscope_data whd
     JOIN weekly_sources ws ON ws.id = whd.source_id
     JOIN zodiac_signs zs ON zs.id = whd.sign_id
-    WHERE whd.week_start_date = ${weekStart}
+    WHERE (
+      (ws.is_biweekly = false AND whd.week_start_date = ${weekStart})
+      OR
+      (ws.is_biweekly = true AND whd.valid_from <= ${weekEnd} AND whd.valid_to >= ${weekStart})
+    )
       AND ws.domain IN ('elle.com', 'd.repubblica.it', 'www.iodonna.it', 'www.sorrisi.com')
     ORDER BY ws.name, zs.id
   `;
@@ -178,8 +183,9 @@ export async function getUpsertVerification(weekStart: Date): Promise<UpsertVeri
  * Find gaps in coverage (sources with incomplete data)
  */
 export async function findGapsInCoverage(weekStart: Date): Promise<CoverageGap[]> {
+  const weekEnd = new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000);
   const results = await prisma.$queryRaw<any[]>`
-    SELECT 
+    SELECT
       ws.id as "sourceId",
       ws.name as "sourceName",
       ws.domain,
@@ -187,9 +193,13 @@ export async function findGapsInCoverage(weekStart: Date): Promise<CoverageGap[]
       12 as "expectedRows",
       (12 - COUNT(whd.id))::int as "missingRows"
     FROM weekly_sources ws
-    LEFT JOIN weekly_horoscope_data whd 
-      ON ws.id = whd.source_id 
-      AND whd.week_start_date = ${weekStart}
+    LEFT JOIN weekly_horoscope_data whd
+      ON ws.id = whd.source_id
+      AND (
+        (ws.is_biweekly = false AND whd.week_start_date = ${weekStart})
+        OR
+        (ws.is_biweekly = true AND whd.valid_from <= ${weekEnd} AND whd.valid_to >= ${weekStart})
+      )
     WHERE ws.is_active = true
     GROUP BY ws.id, ws.name, ws.domain
     HAVING COUNT(whd.id) < 12
