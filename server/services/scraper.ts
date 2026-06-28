@@ -382,6 +382,12 @@ function buildHoroscopeUrl(input: ScraperInput): string | string[] {
     return input.baseUrl; // This should be: https://www.quotidiano.net/oroscopo
   }
 
+  // ========== SPECIAL HANDLING: Oroscopo.it ==========
+  if (input.domain === 'oroscopo.it') {
+    const signSlug = ZODIAC_SIGN_MAP[input.signSlugIt] || input.signSlugIt.toLowerCase();
+    return `${input.baseUrl}/${signSlug}/`;
+  }
+
   // ========== SPECIAL HANDLING: Alfemminile.com ==========
   if (input.domain.includes('alfemminile.com') && input.urlPattern.includes('{weekday}')) {
     const targetDate = new Date(input.dateISO);
@@ -2386,6 +2392,20 @@ async function scrapeHoroscopeText(url: string, input: ScraperInput): Promise<Sc
       return await scrapeIlGazzettinoHoroscopeText(url, input);
     }
 
+    // Special handling for Oroscopo.it (archive-based discovery)
+    if (input.domain === 'oroscopo.it') {
+      const articleUrl = await findOroscopoItArticleUrl(url, input);
+      if (articleUrl) {
+        console.log(`Oroscopo.it - Found article URL: ${articleUrl}`);
+        await respectDomainRateLimit(input.domain);
+        const result = await scrapeOroscopoItHoroscopeText(articleUrl, input);
+        if (result.success && result.text) {
+          return { ...result, actualUrl: articleUrl };
+        }
+      }
+      return { success: false, error: 'Oroscopo.it - Could not find today\'s horoscope article' };
+    }
+
 // ============================================================================
 // IL GAZZETTINO — Handler dedicato
 // ============================================================================
@@ -2702,7 +2722,125 @@ async function scrapeGraziaHoroscopeText(url: string, input: ScraperInput): Prom
   }
 }
 
-// All old extraction functions removed - using new source-specific scraping functions instead
+// ============================================================================
+// OROSCOPO.IT — Archive discovery + dedicated handler
+// ============================================================================
+
+async function findOroscopoItArticleUrl(archiveUrl: string, input: ScraperInput): Promise<string | null> {
+  try {
+    console.log('Oroscopo.it - Searching archive page for today\'s horoscope...');
+    const html = await fetchHtml(archiveUrl, input.userAgent);
+
+    const dateObj = new Date(input.dateISO);
+    const day = dateObj.getDate();
+    const monthName = ITALIAN_MONTHS[dateObj.getMonth()];
+    const year = dateObj.getFullYear();
+
+    const dateSuffix = `${day}-${monthName}-${year}`;
+    console.log(`Oroscopo.it - Looking for URLs ending with: ${dateSuffix}`);
+
+    const pattern = new RegExp(
+      `href=["']([^"']*${dateSuffix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[^"']*)["']`,
+      'gi'
+    );
+
+    let match;
+    while ((match = pattern.exec(html)) !== null) {
+      let foundUrl = match[1];
+      if (foundUrl.startsWith('/')) {
+        foundUrl = 'https://www.oroscopo.it' + foundUrl;
+      }
+      const signSlug = (ZODIAC_SIGN_MAP[input.signSlugIt] || input.signSlugIt.toLowerCase());
+      if (foundUrl.includes(`/${signSlug}/`)) {
+        console.log(`Oroscopo.it - Found article URL: ${foundUrl}`);
+        return foundUrl;
+      }
+    }
+
+    console.log('Oroscopo.it - No article found in archive page');
+    return null;
+  } catch (error) {
+    console.error('Oroscopo.it - Error searching archive:', error);
+    return null;
+  }
+}
+
+async function scrapeOroscopoItHoroscopeText(url: string, input: ScraperInput): Promise<ScrapeResult> {
+  try {
+    console.log('Oroscopo.it - Starting dedicated scraping for:', input.signSlugIt);
+
+    const html = await fetchHtml(url, input.userAgent);
+    const $ = cheerio.load(html);
+
+    const publishedTime = $('meta[property="article:published_time"]').attr('content') || '';
+    if (publishedTime) {
+      const publishedDate = publishedTime.split('T')[0];
+      if (publishedDate !== input.dateISO) {
+        console.log(`Oroscopo.it - Stale article: published ${publishedDate} vs target ${input.dateISO}`);
+        return { success: false, error: `Stale article (${publishedDate})` };
+      }
+    }
+
+    const paragraphs: string[] = [];
+    const entryContent = $('div.entry-content');
+
+    if (entryContent.length === 0) {
+      console.log('Oroscopo.it - No div.entry-content found');
+      return { success: false, error: 'No entry-content container found' };
+    }
+
+    entryContent.children().each((_, el) => {
+      const tag = ((el as any).tagName || '').toLowerCase();
+
+      if ($(el).hasClass('av-social-share')) return false;
+
+      if (tag === 'av-adv-slot') return;
+
+      if (tag === 'h2') {
+        const text = $(el).text().trim();
+        if (text) paragraphs.push(text);
+        return;
+      }
+
+      if (tag === 'p') {
+        const text = $(el).text().trim();
+        if (!text || text.length < 5) return;
+        if (text.startsWith('Pagella di oggi')) return false;
+        if (/^(AMORE|FORTUNA|SOLDI|LAVORO|SALUTE|BENESSERE)\s*:?\s*[★☆]/.test(text)) return;
+        if (text === '—' || text === '—') return;
+        paragraphs.push(text);
+        return;
+      }
+
+      if (tag === 'ul') {
+        $(el).find('li').each((_, li) => {
+          const text = $(li).text().trim();
+          if (text.length > 10) paragraphs.push('• ' + text);
+        });
+      }
+    });
+
+    if (paragraphs.length === 0) {
+      console.log('Oroscopo.it - No paragraphs extracted');
+      return { success: false, error: 'No content extracted' };
+    }
+
+    const extractedText = paragraphs.join('\n\n');
+    console.log(`Oroscopo.it - Extracted ${extractedText.length} chars, ${paragraphs.length} paragraphs`);
+
+    return {
+      success: true,
+      text: extractedText.substring(0, 3500),
+      url,
+    };
+  } catch (error) {
+    console.error('Oroscopo.it - Scraping error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown scraping error'
+    };
+  }
+}
 
 export async function scrapeWithRetry(
   input: ScraperInput,

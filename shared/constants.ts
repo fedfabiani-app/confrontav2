@@ -131,6 +131,12 @@ export const HOROSCOPE_SOURCES = [
     baseUrl: 'https://oroscopo.grazia.it',
     urlPattern: '/oroscopo-del-giorno/{sign}/',
   },
+  {
+    name: 'Oroscopo.it',
+    domain: 'oroscopo.it',
+    baseUrl: 'https://www.oroscopo.it',
+    urlPattern: '/{sign}/',
+  },
 ] as const;
 
 // Tone mappings for UI
