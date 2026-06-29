@@ -2306,6 +2306,137 @@ async function scrapeRadioSubasioHoroscopeText(url: string, input: ScraperInput)
   }
 }
 
+// ============================================================================
+// TGCOM24 — Handler dedicato
+// Archive-based discovery: loads /oroscopo/ to find sign URL, then extracts
+// day-specific text from JSON-LD articleBody.
+// On weekends TGcom24 publishes a combined Sat/Sun/Mon horoscope.
+// ============================================================================
+
+const TGCOM24_SIGN_SLUGS: Record<string, string> = {
+  'ariete': 'ariete', 'toro': 'toro', 'gemelli': 'gemelli',
+  'cancro': 'cancro', 'leone': 'leone', 'vergine': 'vergine',
+  'bilancia': 'bilancia', 'scorpione': 'scorpione', 'sagittario': 'sagittario',
+  'capricorno': 'capricorno', 'acquario': 'acquario', 'pesci': 'pesci',
+};
+
+function filterTgcom24DayText(text: string, dateISO: string): string {
+  const date = new Date(dateISO);
+  const dayOfWeek = date.getDay();
+  const dayNum = date.getDate();
+
+  const ITALIAN_DAY_NAMES: Record<number, string> = {
+    0: 'Domenica', 1: 'Lunedì', 2: 'Martedì', 3: 'Mercoledì',
+    4: 'Giovedì', 5: 'Venerdì', 6: 'Sabato',
+  };
+  const targetDay = ITALIAN_DAY_NAMES[dayOfWeek];
+
+  const dayHeaderPattern = /(?:Sabato|Domenica|Luned[iì]|Marted[iì]|Mercoled[iì]|Gioved[iì]|Venerd[iì])\s+\d{1,2}\s+\w+/gi;
+  const headers: { name: string; index: number }[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = dayHeaderPattern.exec(text)) !== null) {
+    headers.push({ name: m[0], index: m.index });
+  }
+
+  if (headers.length <= 1) return text;
+
+  for (let i = 0; i < headers.length; i++) {
+    const headerLower = headers[i].name.toLowerCase();
+    const matchesDay = headerLower.startsWith(targetDay.toLowerCase()) && headerLower.includes(String(dayNum));
+    if (matchesDay) {
+      const start = headers[i].index + headers[i].name.length;
+      const end = i + 1 < headers.length ? headers[i + 1].index : text.length;
+      const extracted = text.slice(start, end).replace(/^[\s,]+/, '').trim();
+      if (extracted.length > 30) return extracted;
+    }
+  }
+
+  return text;
+}
+
+async function scrapeTgcom24HoroscopeText(url: string, input: ScraperInput): Promise<ScrapeResult> {
+  try {
+    const signSlug = TGCOM24_SIGN_SLUGS[input.signSlugIt.toLowerCase()];
+    if (!signSlug) {
+      return { success: false, error: `TGcom24 - Unknown sign: ${input.signSlugIt}` };
+    }
+
+    console.log('TGcom24 - Starting scrape for:', input.signSlugIt);
+
+    const archiveHtml = await fetchHtml('https://www.tgcom24.mediaset.it/oroscopo/', input.userAgent);
+    const $archive = cheerio.load(archiveHtml);
+
+    let signUrl = '';
+    $archive('a').each((_, elem) => {
+      const href = $archive(elem).attr('href');
+      if (!href || !href.includes('/oroscopo/') || !href.endsWith('.shtml')) return;
+      const hrefLower = href.toLowerCase();
+      if (hrefLower.includes(`/oroscopo/${signSlug}_`) || hrefLower.includes(`/oroscopo/${signSlug}-`)) {
+        if (!signUrl) signUrl = href;
+      }
+    });
+
+    if (!signUrl) {
+      return { success: false, error: `TGcom24 - no URL found for ${input.signSlugIt} in archive` };
+    }
+
+    console.log(`TGcom24 - Found sign URL: ${signUrl}`);
+
+    await respectDomainRateLimit(input.domain);
+    const html = await fetchHtml(signUrl, input.userAgent);
+    const $ = cheerio.load(html);
+
+    // Strategy 1: JSON-LD articleBody
+    let articleBody = '';
+    $('script[type="application/ld+json"]').each((_, el) => {
+      try {
+        const json = JSON.parse($(el).html() || '');
+        if (json.articleBody) articleBody = json.articleBody;
+        else if (json['@graph']) {
+          for (const item of json['@graph']) {
+            if (item.articleBody) { articleBody = item.articleBody; break; }
+          }
+        }
+      } catch {}
+    });
+
+    if (articleBody.length > 50) {
+      const elementoIdx = articleBody.indexOf('Elemento:');
+      if (elementoIdx > 0) articleBody = articleBody.substring(0, elementoIdx).trim();
+      articleBody = articleBody.replace(/,\s*$/, '').trim();
+
+      const dayText = filterTgcom24DayText(articleBody, input.dateISO);
+      if (dayText.length > 30) {
+        console.log(`TGcom24 - ✓ JSON-LD extraction: ${dayText.length} chars`);
+        return { success: true, text: dayText.substring(0, 3500), url: signUrl, actualUrl: signUrl };
+      }
+    }
+
+    // Strategy 2: DOM extraction
+    const paragraphs: string[] = [];
+    $('article p, .article-body p, [class*="article"] p').each((_, el) => {
+      const text = $(el).text().trim();
+      if (text.length > 30) paragraphs.push(text);
+    });
+
+    if (paragraphs.length > 0) {
+      let fullText = paragraphs.join(' ');
+      const elementoIdx = fullText.indexOf('Elemento:');
+      if (elementoIdx > 0) fullText = fullText.substring(0, elementoIdx).trim();
+
+      const dayText = filterTgcom24DayText(fullText, input.dateISO);
+      if (dayText.length > 30) {
+        console.log(`TGcom24 - ✓ DOM extraction: ${dayText.length} chars`);
+        return { success: true, text: dayText.substring(0, 3500), url: signUrl, actualUrl: signUrl };
+      }
+    }
+
+    return { success: false, error: `TGcom24 - no horoscope text found for ${input.signSlugIt}` };
+  } catch (error) {
+    return { success: false, error: `TGcom24 - ${error instanceof Error ? error.message : 'Unknown error'}` };
+  }
+}
+
 async function scrapeHoroscopeText(url: string, input: ScraperInput): Promise<ScrapeResult> {
   try {
     console.log(`Starting scrape for ${input.signSlugIt} at URL: ${url}`);
@@ -2410,140 +2541,6 @@ async function scrapeHoroscopeText(url: string, input: ScraperInput): Promise<Sc
       }
       return { success: false, error: 'Oroscopo.it - Could not find today\'s horoscope article' };
     }
-
-// ============================================================================
-// TGCOM24 — Handler dedicato
-// Archive-based discovery: loads /oroscopo/ to find sign URL, then extracts
-// day-specific text from JSON-LD articleBody.
-// On weekends TGcom24 publishes a combined Sat/Sun/Mon horoscope.
-// ============================================================================
-
-const TGCOM24_SIGN_SLUGS: Record<string, string> = {
-  'ariete': 'ariete', 'toro': 'toro', 'gemelli': 'gemelli',
-  'cancro': 'cancro', 'leone': 'leone', 'vergine': 'vergine',
-  'bilancia': 'bilancia', 'scorpione': 'scorpione', 'sagittario': 'sagittario',
-  'capricorno': 'capricorno', 'acquario': 'acquario', 'pesci': 'pesci',
-};
-
-function filterTgcom24DayText(text: string, dateISO: string): string {
-  const date = new Date(dateISO);
-  const dayOfWeek = date.getDay();
-  const dayNum = date.getDate();
-
-  const ITALIAN_DAY_NAMES: Record<number, string> = {
-    0: 'Domenica', 1: 'Lunedì', 2: 'Martedì', 3: 'Mercoledì',
-    4: 'Giovedì', 5: 'Venerdì', 6: 'Sabato',
-  };
-  const targetDay = ITALIAN_DAY_NAMES[dayOfWeek];
-
-  const dayHeaderPattern = /(?:Sabato|Domenica|Luned[iì]|Marted[iì]|Mercoled[iì]|Gioved[iì]|Venerd[iì])\s+\d{1,2}\s+\w+/gi;
-  const headers: { name: string; index: number }[] = [];
-  let match: RegExpExecArray | null;
-  while ((match = dayHeaderPattern.exec(text)) !== null) {
-    headers.push({ name: match[0], index: match.index });
-  }
-
-  if (headers.length <= 1) return text;
-
-  for (let i = 0; i < headers.length; i++) {
-    const headerLower = headers[i].name.toLowerCase();
-    const matchesDay = headerLower.startsWith(targetDay.toLowerCase()) && headerLower.includes(String(dayNum));
-    if (matchesDay) {
-      const start = headers[i].index + headers[i].name.length;
-      const end = i + 1 < headers.length ? headers[i + 1].index : text.length;
-      const extracted = text.slice(start, end).replace(/^[\s,]+/, '').trim();
-      if (extracted.length > 30) return extracted;
-    }
-  }
-
-  return text;
-}
-
-async function scrapeTgcom24HoroscopeText(url: string, input: ScraperInput): Promise<ScrapeResult> {
-  try {
-    const signSlug = TGCOM24_SIGN_SLUGS[input.signSlugIt.toLowerCase()];
-    if (!signSlug) {
-      return { success: false, error: `TGcom24 - Unknown sign: ${input.signSlugIt}` };
-    }
-
-    console.log('TGcom24 - Starting scrape for:', input.signSlugIt);
-
-    const archiveHtml = await fetchHtml('https://www.tgcom24.mediaset.it/oroscopo/', input.userAgent);
-    const $archive = cheerio.load(archiveHtml);
-
-    let signUrl = '';
-    $archive('a').each((_, elem) => {
-      const href = $archive(elem).attr('href');
-      if (!href || !href.includes('/oroscopo/') || !href.endsWith('.shtml')) return;
-      const hrefLower = href.toLowerCase();
-      if (hrefLower.includes(`/oroscopo/${signSlug}_`) || hrefLower.includes(`/oroscopo/${signSlug}-`)) {
-        if (!signUrl) signUrl = href;
-      }
-    });
-
-    if (!signUrl) {
-      return { success: false, error: `TGcom24 - no URL found for ${input.signSlugIt} in archive` };
-    }
-
-    console.log(`TGcom24 - Found sign URL: ${signUrl}`);
-
-    await respectDomainRateLimit(input.domain);
-    const html = await fetchHtml(signUrl, input.userAgent);
-    const $ = cheerio.load(html);
-
-    // Strategy 1: JSON-LD articleBody
-    let articleBody = '';
-    $('script[type="application/ld+json"]').each((_, el) => {
-      try {
-        const json = JSON.parse($(el).html() || '');
-        if (json.articleBody) articleBody = json.articleBody;
-        else if (json['@graph']) {
-          for (const item of json['@graph']) {
-            if (item.articleBody) { articleBody = item.articleBody; break; }
-          }
-        }
-      } catch {}
-    });
-
-    if (articleBody.length > 50) {
-      // Remove sign description section (starts with "Elemento:")
-      const elementoIdx = articleBody.indexOf('Elemento:');
-      if (elementoIdx > 0) articleBody = articleBody.substring(0, elementoIdx).trim();
-
-      // Remove trailing commas/whitespace between sections
-      articleBody = articleBody.replace(/,\s*$/, '').trim();
-
-      const dayText = filterTgcom24DayText(articleBody, input.dateISO);
-      if (dayText.length > 30) {
-        console.log(`TGcom24 - ✓ JSON-LD extraction: ${dayText.length} chars`);
-        return { success: true, text: dayText.substring(0, 3500), url: signUrl, actualUrl: signUrl };
-      }
-    }
-
-    // Strategy 2: DOM extraction — article body paragraphs
-    const paragraphs: string[] = [];
-    $('article p, .article-body p, [class*="article"] p').each((_, el) => {
-      const text = $(el).text().trim();
-      if (text.length > 30) paragraphs.push(text);
-    });
-
-    if (paragraphs.length > 0) {
-      let fullText = paragraphs.join(' ');
-      const elementoIdx = fullText.indexOf('Elemento:');
-      if (elementoIdx > 0) fullText = fullText.substring(0, elementoIdx).trim();
-
-      const dayText = filterTgcom24DayText(fullText, input.dateISO);
-      if (dayText.length > 30) {
-        console.log(`TGcom24 - ✓ DOM extraction: ${dayText.length} chars`);
-        return { success: true, text: dayText.substring(0, 3500), url: signUrl, actualUrl: signUrl };
-      }
-    }
-
-    return { success: false, error: `TGcom24 - no horoscope text found for ${input.signSlugIt}` };
-  } catch (error) {
-    return { success: false, error: `TGcom24 - ${error instanceof Error ? error.message : 'Unknown error'}` };
-  }
-}
 
 // ============================================================================
 // IL GAZZETTINO — Handler dedicato
