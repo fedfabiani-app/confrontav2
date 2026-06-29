@@ -71,6 +71,9 @@ function parseItalianWeekRange(text: string, currentYear: number): WeekDateRange
 
     // Pattern 4: "N al M month" without dal/dall prefix (e.g. Harper's Bazaar: "25-al-31-maggio-2026")
     /(\d{1,2})[-\s]+al[-\s]+(\d{1,2})[-\s]+(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:[-\s]*\d{4})?/i,
+
+    // Pattern 5: "N month N month" without dal/al (e.g. Webboh: "29-giugno-5-luglio-2026")
+    /(\d{1,2})[-\s]+(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)[-\s]+(\d{1,2})[-\s]+(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(?:[-\s]*\d{4})?/i,
   ];
 
   for (const pattern of patterns) {
@@ -141,6 +144,8 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
     archiveUrl = 'https://www.alfemminile.com/astrologia/oroscopo/';
   } else if (input.domain.includes('harpersbazaar.com')) {
     archiveUrl = 'https://www.harpersbazaar.com/it/cultura/oroscopo/';
+  } else if (input.domain.includes('webboh.it')) {
+    archiveUrl = 'https://www.webboh.it/category/oroscopo/';
   } else {
     // For other sources, use baseUrl + urlPattern (if it makes sense)
     archiveUrl = input.baseUrl + input.urlPattern;
@@ -1231,6 +1236,11 @@ function buildGazzettaWeeklyUrl(input: WeeklyScraperInput): string {
 
       // HARPER'S BAZAAR: Use archive strategy (URLs include article IDs, not constructable)
       if (input.domain.includes('harpersbazaar.com') || input.baseUrl.includes('harpersbazaar.com')) {
+        return await resolveWeeklyUrlFromArchive(input);
+      }
+
+      // WEBBOH: Use archive strategy (URLs include editorial text, not constructable)
+      if (input.domain.includes('webboh.it') || input.baseUrl.includes('webboh.it')) {
         return await resolveWeeklyUrlFromArchive(input);
       }
 
