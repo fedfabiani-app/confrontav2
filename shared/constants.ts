@@ -137,6 +137,12 @@ export const HOROSCOPE_SOURCES = [
     baseUrl: 'https://www.oroscopo.it',
     urlPattern: '/{sign}/',
   },
+  {
+    name: 'TGcom24',
+    domain: 'tgcom24.mediaset.it',
+    baseUrl: 'https://www.tgcom24.mediaset.it',
+    urlPattern: '/oroscopo/',
+  },
 ] as const;
 
 // Tone mappings for UI
