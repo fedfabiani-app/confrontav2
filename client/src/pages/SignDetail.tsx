@@ -758,7 +758,7 @@ function SignDetail({ sign }: SignDetailProps) {
         {/* Overview Cards */}
         {(viewType === "daily" ? aggregate : weeklyAggregate) && (
           <div className="grid grid-cols-3 md:grid-cols-4 gap-2 md:gap-4 mb-8">
-                    <Card>
+                    <Card className="border-2">
                       <CardContent className="p-2 md:p-4">
                 <div className="flex flex-col md:flex-row items-center md:justify-between">
                   <div className="text-center md:text-left">
@@ -774,7 +774,7 @@ function SignDetail({ sign }: SignDetailProps) {
               </CardContent>
             </Card>
 
-                   <Card>
+                   <Card className="border-2">
                      <CardContent className="p-2 md:p-4">
                 <div className="flex flex-col md:flex-row items-center md:justify-between">
                   <div className="text-center md:text-left">
@@ -790,7 +790,7 @@ function SignDetail({ sign }: SignDetailProps) {
               </CardContent>
             </Card>
 
-                <Card>
+                <Card className="border-2">
                   <CardContent className="p-2 md:p-4">
                 <div className="flex flex-col md:flex-row items-center md:justify-between">
                   <div className="text-center md:text-left">
@@ -806,7 +806,7 @@ function SignDetail({ sign }: SignDetailProps) {
               </CardContent>
             </Card>
 
-            <Card className="col-span-3 md:col-span-1">
+            <Card className="col-span-3 md:col-span-1 border-2">
               <CardContent className="p-2 md:p-4">
                 <div className="flex items-center justify-center gap-3 md:gap-4">
                   <span className="text-xs md:text-sm text-muted-foreground font-bold">Media Generale</span>
@@ -854,7 +854,7 @@ function SignDetail({ sign }: SignDetailProps) {
             return (
               <Card
                 key={horoscope.id}
-                className="relative cursor-pointer hover:shadow-md transition-shadow"
+                className="relative cursor-pointer border-2 hover:shadow-md transition-shadow"
                 onClick={() => toggleCollapse(horoscope.source.id)}
               >
                 <CardContent className="p-4">
@@ -931,7 +931,7 @@ function SignDetail({ sign }: SignDetailProps) {
                   {/* SUPERQUOTE - Always visible */}
 {horoscope.superquote && (
   <>
-    <p className="text-xs text-muted-foreground mb-1 px-2">La nostra sintesi:</p>
+    <p className="text-xs text-amber-300/90 mb-1 px-2">La nostra sintesi:</p>
     <div className="px-4 py-3 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-950/30 dark:to-yellow-950/30 border-l-4" style={{ borderLeftColor: '#E1B64E' }}>
       <p className="text-sm font-italic text-gray-800 dark:text-gray-200 italic">
         {horoscope.superquote}
@@ -958,7 +958,7 @@ function SignDetail({ sign }: SignDetailProps) {
                         href={horoscope.original_url}
                         target="_blank"
                         rel="noopener noreferrer"
-className="inline-flex items-center text-sm font-semibold text-indigo-700/60 hover:text-indigo-700 dark:text-indigo-700/60 dark:hover:text-indigo-700 transition-colors"                        data-testid={`link-read-more-${horoscope.source.id}`}
+className="inline-flex items-center text-sm font-semibold text-indigo-300/80 hover:text-indigo-100 transition-colors"                        data-testid={`link-read-more-${horoscope.source.id}`}
                       >
                         Leggi Tutto su {horoscope.source.name}
                         <ExternalLink className="w-3 h-3 ml-1" />

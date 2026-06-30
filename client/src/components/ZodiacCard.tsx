@@ -78,7 +78,7 @@ const signColors = {
   return (
     <Card 
       className={cn(
-        "zodiac-card bg-card border border-border cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-1",
+        "zodiac-card bg-card border-2 border-border cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-1",
         onClick && "hover:shadow-lg",
         isFavorite && "ring-2 ring-red-200 border-red-300",
         className
@@ -111,7 +111,7 @@ const signColors = {
                   variant="ghost"
                   size="sm"
                   onClick={handleFavoriteClick}
-                  className="p-1 h-8 w-8 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  className="p-1 h-8 w-8 hover:bg-white/5"
                   data-testid={`button-favorite-${sign.name_english}`}
                   title={isFavorite ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
                 >
@@ -128,7 +128,7 @@ const signColors = {
                   variant="ghost"
                   size="sm"
                   onClick={handleCollapseClick}
-                  className="p-1 h-8 w-8 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  className="p-1 h-8 w-8 hover:bg-white/5"
                   data-testid={`button-collapse-${sign.name_english}`}
                   title={isCollapsed ? 'Espandi dettagli' : 'Comprimi dettagli'}
                 >
