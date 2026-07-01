@@ -146,7 +146,7 @@ function SourceIcon({ source, "data-testid": dataTestId }: SourceIconProps) {
   // Show letter placeholder only if all images failed
   if (imgFailed) {
     return (
-      <div className="relative group">
+      <div className="relative group shrink-0">
         <div
           className="w-8 h-8 bg-gradient-to-br from-orange-100 to-red-100 rounded flex items-center justify-center border border-border hover:border-orange-300 transition-colors"
           data-testid={dataTestId}
@@ -166,11 +166,11 @@ function SourceIcon({ source, "data-testid": dataTestId }: SourceIconProps) {
   }
 
   return (
-    <div className="relative group">
+    <div className="relative group shrink-0">
       <img
         src={initialSrc}
         alt={source.name}
-        className="w-8 h-8 rounded object-contain bg-white p-0.5 border border-border hover:border-orange-300 transition-colors"
+        className="w-8 h-8 shrink-0 rounded object-contain bg-white p-0.5 border border-border hover:border-orange-300 transition-colors"
         data-testid={dataTestId}
         title={source.name}
         onError={handleImageError}
