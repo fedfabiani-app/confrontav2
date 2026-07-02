@@ -38,6 +38,7 @@ model ZodiacSign {
   weekly_horoscope_data WeeklyHoroscopeData[]
   scraper_source_statuses ScraperSourceStatus[]
   weekly_scraper_source_statuses WeeklyScraperSourceStatus[]
+  comparative_synthesis ComparativeSynthesis[]
 
   @@map("zodiac_signs")
 }
@@ -261,6 +262,29 @@ model WeeklyScraperSourceStatus {
   @@map("weekly_scraper_source_status")
 }
 
+
+model ComparativeSynthesis {
+  id               Int      @id @default(autoincrement())
+  zodiac_sign_id   Int
+  date             DateTime @db.Date
+
+  consenso         String   // 90-130 char
+  approfondimento  String   // 150-270 char
+  ha_divergenza    Boolean
+
+  relazioni_spread Float
+  lavoro_spread    Float
+  salute_spread    Float
+  fonti_divergenti String[] // nomi source outlier, se ha_divergenza = true
+
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+
+  zodiac_sign ZodiacSign @relation(fields: [zodiac_sign_id], references: [id])
+
+  @@unique([zodiac_sign_id, date])
+  @@map("comparative_synthesis")
+}
 
 model CompatibilityResult {
   id          Int      @id @default(autoincrement())

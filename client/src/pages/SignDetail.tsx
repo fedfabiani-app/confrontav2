@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, Fragment } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -70,6 +70,12 @@ interface HoroscopeAggregate {
   avgBenessere: number | null;
   overallAverage: number | null;
   majorityTone?: "positive" | "neutral" | "negative";
+}
+
+interface ComparativeSynthesis {
+  consenso: string;
+  approfondimento: string;
+  ha_divergenza: boolean;
 }
 
 const signColors = {
@@ -406,6 +412,19 @@ function SignDetail({ sign }: SignDetailProps) {
     enabled: viewType === "daily",
   });
 
+  // Fetch comparative synthesis ("Le stelle dicono") for this sign — daily only
+  const { data: comparativeSynthesis } = useQuery<ComparativeSynthesis | null>({
+    queryKey: ["/api/comparative-synthesis", today, sign],
+    queryFn: async () => {
+      const response = await fetch(
+        `/api/comparative-synthesis?date=${today}&sign=${sign}`,
+      );
+      if (!response.ok) throw new Error("Failed to fetch comparative synthesis");
+      return response.json();
+    },
+    enabled: viewType === "daily",
+  });
+
   // Fetch weekly horoscope data
   const { data: weeklyHoroscopes = [], isLoading: weeklyHoroscopesLoading, error: weeklyHoroscopesError } = useQuery<
     HoroscopeData[]
@@ -595,6 +614,111 @@ function SignDetail({ sign }: SignDetailProps) {
   const currentHoroscopes = viewType === "daily" ? horoscopes : weeklyHoroscopes;
   const currentSign = zodiacSign; // Renamed for clarity with the fetched sign data
 
+  // Box dei voti (Relazioni/Lavoro/Benessere/Media Generale) — definiti come
+  // pezzi singoli e ricombinati in due modi:
+  // - standalone (ratingsGrid): weekly, o daily senza ancora sintesi
+  //   comparativa — griglia unica sempre visibile, come prima.
+  // - dentro la card "Le stelle dicono" (daily con sintesi): Relazioni/
+  //   Lavoro/Benessere visibili SOLO ad accordion aperto, Media Generale
+  //   sempre visibile sia aperto che chiuso.
+  const currentAggregate = viewType === "daily" ? aggregate : weeklyAggregate;
+
+  const relazioniBox = currentAggregate && (
+    <Card className="border-2">
+      <CardContent className="p-2 md:p-4">
+        <div className="flex flex-col md:flex-row items-center md:justify-between">
+          <div className="text-center md:text-left">
+            <p className="text-xs md:text-sm text-muted-foreground font-bold">Relazioni</p>
+            <p className="text-lg md:text-2xl font-bold text-card-foreground">
+              {currentAggregate?.avgRelazioni !== null ? currentAggregate?.avgRelazioni?.toFixed(1) : 'N/A'}
+            </p>
+          </div>
+          <div className="w-8 h-8 md:w-12 md:h-12 bg-pink-100 rounded-full flex items-center justify-center mt-1 md:mt-0">
+            <Heart className="text-pink-700 w-4 h-4 md:w-6 md:h-6" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const lavoroBox = currentAggregate && (
+    <Card className="border-2">
+      <CardContent className="p-2 md:p-4">
+        <div className="flex flex-col md:flex-row items-center md:justify-between">
+          <div className="text-center md:text-left">
+            <p className="text-xs md:text-sm text-muted-foreground font-bold">Lavoro</p>
+            <p className="text-lg md:text-2xl font-bold text-card-foreground">
+              {currentAggregate?.avgLavoro !== null ? currentAggregate?.avgLavoro?.toFixed(1) : 'N/A'}
+            </p>
+          </div>
+          <div className="w-8 h-8 md:w-12 md:h-12 bg-blue-100 rounded-full flex items-center justify-center mt-1 md:mt-0">
+            <Briefcase className="text-blue-700 w-4 h-4 md:w-6 md:h-6" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const benessereBox = currentAggregate && (
+    <Card className="border-2">
+      <CardContent className="p-2 md:p-4">
+        <div className="flex flex-col md:flex-row items-center md:justify-between">
+          <div className="text-center md:text-left">
+            <p className="text-xs md:text-sm text-muted-foreground font-bold">Benessere</p>
+            <p className="text-lg md:text-2xl font-bold text-card-foreground">
+              {currentAggregate?.avgBenessere !== null ? currentAggregate?.avgBenessere?.toFixed(1) : 'N/A'}
+            </p>
+          </div>
+          <div className="w-8 h-8 md:w-12 md:h-12 bg-green-100 rounded-full flex items-center justify-center mt-1 md:mt-0">
+            <Leaf className="text-green-700 w-4 h-4 md:w-6 md:h-6" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const mediaGeneraleBox = currentAggregate && (
+    <Card className="border-2">
+      <CardContent className="p-2 md:p-4">
+        <div className="flex items-center justify-center gap-3 md:gap-4">
+          <span className="text-xs md:text-sm text-muted-foreground font-bold">Media Generale</span>
+          <span className="text-lg md:text-2xl font-bold text-[#E1B64E] fill-[#E1B64E]'">
+            {currentAggregate?.overallAverage?.toFixed(1) || 'N/A'}
+          </span>
+          <div className="flex">
+            {[...Array(5)].map((_, i) => (
+              <Star
+                key={i}
+                className={`w-3 h-3 md:w-4 md:h-4 ${
+                  i < Math.round(currentAggregate?.overallAverage || 0)
+                    ? 'text-[#E1B64E] fill-[#E1B64E]'
+                    : 'text-gray-300'
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const threeRatingsGrid = currentAggregate && (
+    <div className="grid grid-cols-3 gap-2 md:gap-4">
+      {relazioniBox}
+      {lavoroBox}
+      {benessereBox}
+    </div>
+  );
+
+  const ratingsGrid = currentAggregate && (
+    <div className="grid grid-cols-3 md:grid-cols-4 gap-2 md:gap-4">
+      {relazioniBox}
+      {lavoroBox}
+      {benessereBox}
+      <div className="col-span-3 md:col-span-1">{mediaGeneraleBox}</div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen text-foreground">
       {/* Header */}
@@ -755,88 +879,44 @@ function SignDetail({ sign }: SignDetailProps) {
             )}
           </div>
 
-        {/* Overview Cards */}
-        {(viewType === "daily" ? aggregate : weeklyAggregate) && (
-          <div className="grid grid-cols-3 md:grid-cols-4 gap-2 md:gap-4 mb-8">
-                    <Card className="border-2">
-                      <CardContent className="p-2 md:p-4">
-                <div className="flex flex-col md:flex-row items-center md:justify-between">
-                  <div className="text-center md:text-left">
-                    <p className="text-xs md:text-sm text-muted-foreground font-bold">Relazioni</p>
-                    <p className="text-lg md:text-2xl font-bold text-card-foreground">
-                      {(viewType === "daily" ? aggregate?.avgRelazioni : weeklyAggregate?.avgRelazioni) !== null ? (viewType === "daily" ? aggregate?.avgRelazioni : weeklyAggregate?.avgRelazioni)?.toFixed(1) : 'N/A'}
-                    </p>
+        {/* "Le stelle dicono" — solo daily. Quando esiste la sintesi
+            comparativa, i voti (Relazioni/Lavoro/Benessere/Media Generale)
+            sono nested DENTRO questa stessa card, sotto un divider. Graceful
+            degradation: senza sintesi (o per weekly), i voti restano una
+            griglia standalone come prima, nessuna card extra. */}
+        {viewType === "daily" && comparativeSynthesis ? (
+          <Card className="border-2 mb-8 relative">
+            <CardContent className="p-4">
+              <details className="group">
+                <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                  {/* Bottone apri/chiudi in alto a destra, stile coerente con le sign cards */}
+                  <div className="absolute top-3 right-3 p-1 h-8 w-8 flex items-center justify-center rounded-md hover:bg-gray-50 dark:hover:bg-gray-800">
+                    <ChevronDown className="w-4 h-4 text-[#E1B64E] transition-transform duration-200 group-open:rotate-180" />
                   </div>
-                  <div className="w-8 h-8 md:w-12 md:h-12 bg-pink-100 rounded-full flex items-center justify-center mt-1 md:mt-0">
-                    <Heart className="text-pink-700 w-4 h-4 md:w-6 md:h-6" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-                   <Card className="border-2">
-                     <CardContent className="p-2 md:p-4">
-                <div className="flex flex-col md:flex-row items-center md:justify-between">
-                  <div className="text-center md:text-left">
-                    <p className="text-xs md:text-sm text-muted-foreground font-bold">Lavoro</p>
-                    <p className="text-lg md:text-2xl font-bold text-card-foreground">
-                      {(viewType === "daily" ? aggregate?.avgLavoro : weeklyAggregate?.avgLavoro) !== null ? (viewType === "daily" ? aggregate?.avgLavoro : weeklyAggregate?.avgLavoro)?.toFixed(1) : 'N/A'}
-                    </p>
-                  </div>
-                  <div className="w-8 h-8 md:w-12 md:h-12 bg-blue-100 rounded-full flex items-center justify-center mt-1 md:mt-0">
-                    <Briefcase className="text-blue-700 w-4 h-4 md:w-6 md:h-6" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-                <Card className="border-2">
-                  <CardContent className="p-2 md:p-4">
-                <div className="flex flex-col md:flex-row items-center md:justify-between">
-                  <div className="text-center md:text-left">
-                    <p className="text-xs md:text-sm text-muted-foreground font-bold">Benessere</p>
-                    <p className="text-lg md:text-2xl font-bold text-card-foreground">
-                      {(viewType === "daily" ? aggregate?.avgBenessere : weeklyAggregate?.avgBenessere) !== null ? (viewType === "daily" ? aggregate?.avgBenessere : weeklyAggregate?.avgBenessere)?.toFixed(1) : 'N/A'}
-                    </p>
-                  </div>
-                  <div className="w-8 h-8 md:w-12 md:h-12 bg-green-100 rounded-full flex items-center justify-center mt-1 md:mt-0">
-                    <Leaf className="text-green-700 w-4 h-4 md:w-6 md:h-6" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="col-span-3 md:col-span-1 border-2">
-              <CardContent className="p-2 md:p-4">
-                <div className="flex items-center justify-center gap-3 md:gap-4">
-                  <span className="text-xs md:text-sm text-muted-foreground font-bold">Media Generale</span>
-                  <span className="text-lg md:text-2xl font-bold text-[#E1B64E] fill-[#E1B64E]'">
-                    {(viewType === "daily" ? aggregate?.overallAverage : weeklyAggregate?.overallAverage)?.toFixed(1) || 'N/A'}
+                  <h2 className="text-lg md:text-2xl font-bold text-[#E1B64E] mb-2 pr-10">Il quadro di oggi</h2>
+                  <p className="text-card-foreground leading-relaxed italic pr-10">{comparativeSynthesis.consenso}</p>
+                  <span className="block text-right text-[#E1B64E] font-semibold mt-2 hover:underline group-open:hidden">
+                    Leggi tutto ›
                   </span>
-                  <div className="flex">
-                    {[...Array(5)].map((_, i) => (
-                      <Star
-                        key={i}
-                        className={`w-3 h-3 md:w-4 md:h-4 ${
-                          i < Math.round((viewType === "daily" ? aggregate?.overallAverage : weeklyAggregate?.overallAverage) || 0)
-                            ? 'text-[#E1B64E] fill-[#E1B64E]'
-                            : 'text-gray-300'
-                        }`}
-                      />
-                    ))}
-                  </div>
+                </summary>
+                <p className="mt-2 text-card-foreground leading-relaxed italic">{comparativeSynthesis.approfondimento}</p>
+                {/* Relazioni/Lavoro/Benessere: visibili SOLO ad accordion aperto */}
+                {threeRatingsGrid && <div className="mt-4">{threeRatingsGrid}</div>}
+              </details>
+              {/* Media Generale: sempre visibile, accordion aperto o chiuso */}
+              {mediaGeneraleBox && (
+                <div className="border-t border-gray-200 dark:border-gray-700 mt-4 pt-4">
+                  {mediaGeneraleBox}
                 </div>
-              </CardContent>
-            </Card>
-          </div>
+              )}
+            </CardContent>
+          </Card>
+        ) : (
+          ratingsGrid && <div className="mb-8">{ratingsGrid}</div>
         )}
-       <div className="mb-8">
-  <CompatibilityWidget
-            currentSign={sign}
-            viewType={viewType}
-            weekStartDate={viewType === 'weekly' ? weekStartDate : undefined}
-          />
-        </div>
+       {/* Solo weekly: lato daily la card è stata spostata più in basso
+           (dopo le prime fonti, si ripete più volte) — v. render delle
+           Individual Source Cards, sia per daily sia per weekly. */}
         {/* Individual Source Cards */}
         {!((viewType === "daily" ? horoscopesLoading : weeklyHoroscopesLoading)) &&
          (viewType === "daily" ? horoscopes : weeklyHoroscopes).length > 0 && (
@@ -847,8 +927,9 @@ function SignDetail({ sign }: SignDetailProps) {
             const sortedHoroscopes = [...currentHoroscopes].sort((a, b) =>
               a.source.name.localeCompare(b.source.name)
             );
-            return reorderSources(sortedHoroscopes);
-          })().map((horoscope) => {
+            const orderedHoroscopes = reorderSources(sortedHoroscopes);
+
+            const renderHoroscopeCard = (horoscope: HoroscopeData) => {
             const isCollapsed = collapsedCards[horoscope.source.id] ?? true;
 
             return (
@@ -999,7 +1080,41 @@ className="inline-flex items-center text-sm font-semibold text-indigo-300/80 hov
                 </CardContent>
               </Card>
             );
-            })}
+            };
+
+            // La card Premium "Affinità tra segni" non è più above-the-fold:
+            // compare dopo le prime 3 fonti, si ripete dopo altre 5 (quindi
+            // dopo la 8ª), e di nuovo dopo l'ultima fonte. Vale sia per daily
+            // sia per weekly. alfemminile (prima fonte in ordine alfabetico)
+            // resta comunque visibile al primo scroll.
+            const PREMIUM_CARD_INSERT_INDEXES = [3, 8];
+            const sourceSegments: HoroscopeData[][] = [];
+            let segmentCursor = 0;
+            for (const insertIndex of PREMIUM_CARD_INSERT_INDEXES) {
+              sourceSegments.push(orderedHoroscopes.slice(segmentCursor, insertIndex));
+              segmentCursor = insertIndex;
+            }
+            sourceSegments.push(orderedHoroscopes.slice(segmentCursor));
+
+            return (
+              <>
+                {sourceSegments.map((segment, segmentIndex) => (
+                  <Fragment key={segmentIndex}>
+                    {segment.map(renderHoroscopeCard)}
+                    {segment.length > 0 && (
+                      <div className="mb-4">
+                        <CompatibilityWidget
+                          currentSign={sign}
+                          viewType={viewType}
+                          weekStartDate={viewType === 'weekly' ? weekStartDate : undefined}
+                        />
+                      </div>
+                    )}
+                  </Fragment>
+                ))}
+              </>
+            );
+          })()}
           </div>
         )}
 

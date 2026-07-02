@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { OpenAIInput, OpenAIOutput, openaiOutputSchema } from "@shared/schema";
+import prisma from './database';
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -252,6 +253,174 @@ VERIFICA FINALE
 
 Se anche una sola risposta è problematica,
 correggi prima di restituire l'output.`;
+
+// Campo 4 "Le stelle dicono" — sintesi comparativa. Usato SOLO nel path
+// batch multi-fonte (processMultiSourceHoroscope): il prompt single-source
+// (processHoroscopeWithAI) resta su SYSTEM_PROMPT, invariato.
+const CAMPO4_BLOCK = `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CAMPO 4 — LE STELLE DICONO (sintesi comparativa)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Si genera UNA SOLA VOLTA per segno, dopo aver analizzato TUTTE le fonti
+ricevute in questo batch (non ripetere per singola fonte).
+
+INPUT VINCOLANTE (già calcolato, NON reinterpretare):
+Riceverai, per Relazioni/Lavoro/Salute, la media e il livello di
+spread (ALTO/BASSO) tra le fonti, già calcolati a monte. Il tuo compito
+è raccontare questi dati, non stimarli né correggerli.
+
+CAMPO "consenso" (sempre presente, 90-130 caratteri):
+Una frase, che racconta il grado di accordo generale tra le fonti in
+linguaggio emotivo, non statistico. Mai percentuali o conteggi
+("8 fonti su 10"): traduci sempre in sensazione.
+Esempi:
+✓ "Le fonti oggi remano quasi tutte dalla tua parte, soprattutto in amore."
+✓ "Oggi le stelle si dividono parecchio su di te: dipende da chi ascolti."
+✗ "Consenso: 80%, Relazioni allineate."
+
+CAMPO "ha_divergenza" (booleano):
+true se almeno una dimensione ha spread ALTO, false se tutte BASSO.
+
+CAMPO "approfondimento" (sempre presente, 160-220 caratteri):
+Racconta i dettagli e i consigli pratici.
+
+Se ha_divergenza è FALSE (tutte le dimensioni concordi):
+  Scegli UNO fra questi ambiti: amore, lavoro, o benessere generale.
+  Racconta brevemente perché è una buona giornata su quel tema, con un
+  consiglio pratico. Una sola frase, max 150 caratteri.
+  Es: "Fiducia negli amici: loro sono il vero motore della giornata."
+  oppure: "Al lavoro sei nel posto giusto — approfitta della lucidità che hai oggi."
+
+Se ha_divergenza è TRUE (una o più dimensioni con spread ALTO):
+  IMPORTANTE: anche se più dimensioni hanno spread ALTO, racconta
+  SOLTANTO quella con lo spread più alto in assoluto. Ignora le altre
+  nell'approfondimento (il consenso ha già accennato al quadro generale).
+  Costruisci un contrasto binario tra DUE fonti soltanto: UNA che vede
+  una cosa, UNA che vede l'opposto. Una voce "pro", una voce "contro".
+  NON aggiungere una terza, quarta o quinta fonte — due nomi in tutto,
+  punto. Il lettore capisce il disaccordo da un solo esempio per lato.
+  Struttura: una frase sul contrasto (2 fonti), una frase di consiglio che aiuta la lettrice a orientarsi tra le due (non a scegliere 'chi ha ragione').
+  Es: "Su amore oggi ci sono due chiavi di lettura: La Repubblica coglie più tensione da gestire, Vogue Italia una giornata più romantica. Ascolta il tuo istinto, non forzare."
+
+BUDGET TOTALE: consenso + approfondimento = 250-350 caratteri (inclusi spazi).
+Se stai per superarlo, TAGLIA: meno fonti nominate, frasi più corte.
+
+REGOLE (ereditate dal Campo 2 — superquote):
+- Femminile di default, zero condizionali, zero anglicismi, zero jargon
+  astrologico tecnico (niente "trigono", "quadratura", "transito" ecc.)
+- Il lettore/le fonti sono sempre il soggetto concreto: mai "le energie
+  si scontrano" o astrazioni animate ("la tenerezza vuole")
+- Attacco variato rispetto alla superquote dello stesso segno/giorno
+- Quando nomini fonti nel ramo TRUE, usa SOLO i nomi da "fonti_divergenti"
+  ricevuti in input, mai inventarli
+
+LINGUAGGIO DELLA DIVERGENZA — VIETATO vs PREFERITO:
+La divergenza tra fonti non è un errore da segnalare, è una pluralità di
+prospettive da raccontare. Non usare MAI parole che implicano rottura,
+conflitto o giudizio di verità:
+  VIETATO: disaccordo, contraddizione, discrepanza, conflitto, si
+  smentiscono, sbagliano, una delle due ha ragione, contrasto, scontro,
+  pro/contro, tesi/antitesi
+  PREFERITO: letture diverse, prospettive diverse, sfumature,
+  angolazioni diverse, punti di vista, si dividono (solo se seguito da
+  un dettaglio neutro, mai da solo), chiavi di lettura, ognuna coglie
+  un aspetto diverso
+Test rapido: la frase deve suonare come "due amiche esperte che notano
+cose diverse nello stesso cielo", mai come "due controparti in causa".
+
+VERIFICA FINALE CAMPO 4:
+□ "consenso" 90-130 caratteri, linguaggio emotivo non statistico?
+□ "approfondimento" 160-220 caratteri?
+□ Se ha_divergenza=true, ho raccontato SOLO la dimensione più divergente
+  (una sola), ignorando le altre?
+□ Se ha_divergenza=true, ho nominato ESATTAMENTE 2 fonti (una pro, una contro)?
+□ Totale consenso+approfondimento tra 250-350 caratteri?
+□ Suona come qualcosa che una persona italiana direbbe, non un report?
+Se anche una sola risposta è NO → riscrivi e ACCORCIA prima di restituire.`;
+
+const SYSTEM_PROMPT_WITH_CAMPO4 = SYSTEM_PROMPT + '\n' + CAMPO4_BLOCK;
+
+// Soglia divergenza calibrata su 30gg di dati reali (v. scripts/calibrate-divergence-threshold.ts):
+// stddev >= 0.95 → ALTO. Sotto MIN_VALID_SOURCES fonti valide, spread forzato a BASSO (poco segnale).
+const DIVERGENCE_STDDEV_THRESHOLD = 0.95;
+const MIN_VALID_SOURCES_FOR_SPREAD = 3;
+const OUTLIER_DEVIATION_THRESHOLD = 1;
+
+type SynthesisDimension = 'relazioni' | 'lavoro' | 'benessere';
+const SYNTHESIS_DIMENSIONS: SynthesisDimension[] = ['relazioni', 'lavoro', 'benessere'];
+const DIMENSION_LABELS_IT: Record<SynthesisDimension, string> = {
+  relazioni: 'Relazioni',
+  lavoro: 'Lavoro',
+  benessere: 'Benessere',
+};
+
+interface DimensionSpread {
+  dimension: SynthesisDimension;
+  validSourceCount: number;
+  mean: number;
+  stddev: number;
+  isHigh: boolean;
+  outlierSourceNames: string[];
+}
+
+function mean(values: number[]): number {
+  return values.reduce((a, b) => a + b, 0) / values.length;
+}
+
+function stddev(values: number[]): number {
+  if (values.length < 2) return 0;
+  const m = mean(values);
+  const variance = values.reduce((sum, v) => sum + (v - m) ** 2, 0) / values.length;
+  return Math.sqrt(variance);
+}
+
+// Esclude rating 0 (ambito non menzionato, non comparabile — v. §7 del recap).
+function computeDimensionSpread(
+  dimension: SynthesisDimension,
+  entries: { sourceName: string; rating: number }[]
+): DimensionSpread {
+  const valid = entries.filter(e => e.rating > 0);
+  const values = valid.map(e => e.rating);
+
+  if (valid.length === 0) {
+    return { dimension, validSourceCount: 0, mean: 0, stddev: 0, isHigh: false, outlierSourceNames: [] };
+  }
+
+  const m = Number(mean(values).toFixed(2));
+  // Stddev reale sempre salvata (utile per ricalibrare la soglia, v. §6 del
+  // recap); solo la classificazione ALTO/BASSO è forzata sotto la soglia
+  // minima di fonti valide (troppo poco segnale per dichiarare divergenza).
+  const sd = Number(stddev(values).toFixed(3));
+  const isHigh = valid.length >= MIN_VALID_SOURCES_FOR_SPREAD && sd >= DIVERGENCE_STDDEV_THRESHOLD;
+
+  const outlierSourceNames = isHigh
+    ? valid.filter(e => Math.abs(e.rating - m) > OUTLIER_DEVIATION_THRESHOLD).map(e => e.sourceName)
+    : [];
+
+  return { dimension, validSourceCount: valid.length, mean: m, stddev: sd, isHigh, outlierSourceNames };
+}
+
+// Tra le dimensioni ALTO, quella con stddev massimo — è l'unica su cui il
+// prompt chiede di narrare nel ramo ha_divergenza=true (v. CAMPO4_BLOCK).
+function findPrincipalDimension(spreads: DimensionSpread[]): DimensionSpread | null {
+  const high = spreads.filter(s => s.isHigh);
+  if (high.length === 0) return null;
+  return high.reduce((max, s) => (s.stddev > max.stddev ? s : max));
+}
+
+function formatCampo4InputBlock(spreads: DimensionSpread[], principal: DimensionSpread | null): string {
+  const lines = spreads.map(s => {
+    const label = DIMENSION_LABELS_IT[s.dimension];
+    const level = s.isHigh ? 'ALTO' : 'BASSO';
+    return `- ${label}: media ${s.mean}, spread ${level}`;
+  });
+  const principalLine = principal
+    ? `\n\nDIMENSIONE PRINCIPALE DIVERGENTE (spread più alto tra le ALTO): ${DIMENSION_LABELS_IT[principal.dimension]}` +
+      (principal.outlierSourceNames.length > 0 ? ` — fonti in disaccordo: ${principal.outlierSourceNames.join(', ')}` : '')
+    : '';
+  return `DATI CALCOLATI PER IL CAMPO 4 (non modificare, usa solo per narrare):\n${lines.join('\n')}${principalLine}`;
+}
 
 export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAIOutput> {
   try {
@@ -595,7 +764,7 @@ export async function processMultiSourceHoroscope(inputs: OpenAIInput[]): Promis
     system: [
       {
         type: 'text' as const,
-        text: SYSTEM_PROMPT,
+        text: SYSTEM_PROMPT_WITH_CAMPO4,
         cache_control: { type: 'ephemeral' as const },
       },
     ],
@@ -653,7 +822,150 @@ export async function processMultiSourceHoroscope(inputs: OpenAIInput[]): Promis
     }
   }
 
+  // Campo 4 "Le stelle dicono" — solo lato giornaliero (sources/horoscope_data).
+  // Isolato in try/catch: un suo fallimento non deve mai compromettere i
+  // risultati Campo 1-3 già pronti per il salvataggio in horoscope_data.
+  try {
+    await generateAndSaveComparativeSynthesis(inputs, results, response, toolBlock, userMessage);
+  } catch (err) {
+    console.error('[Claude Batch] Comparative synthesis (Campo 4) failed:', err);
+  }
+
   return results;
+}
+
+async function generateAndSaveComparativeSynthesis(
+  inputs: OpenAIInput[],
+  results: OpenAIOutput[],
+  firstResponse: Anthropic.Messages.Message,
+  firstToolBlock: Anthropic.Messages.ToolUseBlock,
+  firstUserMessage: string
+): Promise<void> {
+  const dimensionSpreads = SYNTHESIS_DIMENSIONS.map(dimension =>
+    computeDimensionSpread(
+      dimension,
+      inputs.map((input, i) => ({ sourceName: input.sourceName, rating: results[i].ratings[dimension] }))
+    )
+  );
+
+  const hasEnoughSignal = dimensionSpreads.some(s => s.validSourceCount > 0);
+  if (!hasEnoughSignal) return;
+
+  const haDivergenzaComputed = dimensionSpreads.some(s => s.isHigh);
+  const principalDimension = findPrincipalDimension(dimensionSpreads);
+  // Solo gli outlier della dimensione principale: è l'unica su cui il
+  // prompt autorizza Haiku a nominare fonti (v. CAMPO4_BLOCK, ramo TRUE).
+  const fontiDivergenti = principalDimension?.outlierSourceNames ?? [];
+
+  const campo4UserText = `${formatCampo4InputBlock(dimensionSpreads, principalDimension)}\n\nGenera ora il Campo 4 "Le stelle dicono" per questo segno/giorno usando lo strumento extract_comparative_synthesis.`;
+
+  const secondResponse = await client.messages.create({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 1024,
+    system: [
+      {
+        type: 'text' as const,
+        text: SYSTEM_PROMPT_WITH_CAMPO4,
+        cache_control: { type: 'ephemeral' as const },
+      },
+    ],
+    messages: [
+      { role: 'user', content: firstUserMessage },
+      { role: 'assistant', content: firstResponse.content },
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'tool_result' as const,
+            tool_use_id: firstToolBlock.id,
+            content: 'Dati per-fonte ricevuti e salvati.',
+          },
+          { type: 'text' as const, text: campo4UserText },
+        ],
+      },
+    ],
+    tools: [
+      {
+        name: 'extract_comparative_synthesis',
+        description: 'Restituisci il Campo 4 "Le stelle dicono": sintesi comparativa tra tutte le fonti già analizzate in questo batch',
+        input_schema: {
+          type: 'object' as const,
+          properties: {
+            consenso: { type: 'string' as const, description: 'Frase 90-130 caratteri, grado di accordo generale tra le fonti in linguaggio emotivo, mai statistico (niente percentuali/conteggi).' },
+            ha_divergenza: { type: 'boolean' as const, description: 'true se almeno una dimensione ricevuta in input ha spread ALTO, false se tutte BASSO.' },
+            approfondimento: { type: 'string' as const, description: '150-270 caratteri. Se ha_divergenza=true: prima frase sulla dimensione con spread ALTO nominando le fonti in disaccordo ricevute in input, seconda frase di orientamento pratico. Se ha_divergenza=false: unico paragrafo che espande il consenso senza inventare contrasti.' },
+          },
+          required: ['consenso', 'ha_divergenza', 'approfondimento'],
+        },
+        cache_control: { type: 'ephemeral' as const },
+      },
+    ],
+    tool_choice: { type: 'tool', name: 'extract_comparative_synthesis' },
+  });
+
+  const synthesisToolBlock = secondResponse.content.find(b => b.type === 'tool_use');
+  if (!synthesisToolBlock || synthesisToolBlock.type !== 'tool_use') {
+    throw new Error('No tool use block in Claude comparative synthesis response');
+  }
+
+  const parsed = synthesisToolBlock.input as { consenso: string; ha_divergenza: boolean; approfondimento: string };
+
+  if (parsed.ha_divergenza !== haDivergenzaComputed) {
+    console.warn(`[Claude Batch] Campo 4: ha_divergenza restituito da Haiku (${parsed.ha_divergenza}) non coincide con lo spread calcolato (${haDivergenzaComputed}) — uso il valore calcolato.`);
+  }
+  if (parsed.consenso.length < 90 || parsed.consenso.length > 130) {
+    console.warn(`[Claude Batch] Campo 4: "consenso" fuori range (${parsed.consenso.length} char): "${parsed.consenso}"`);
+  }
+  if (parsed.approfondimento.length < 160 || parsed.approfondimento.length > 220) {
+    console.warn(`[Claude Batch] Campo 4: "approfondimento" fuori range (${parsed.approfondimento.length} char): "${parsed.approfondimento}"`);
+  }
+  const totalLength = parsed.consenso.length + parsed.approfondimento.length;
+  if (totalLength < 250 || totalLength > 350) {
+    console.warn(`[Claude Batch] Campo 4: budget totale fuori range (${totalLength} char, atteso 250-350)`);
+  }
+
+  const zodiacSign = await prisma.zodiacSign.findFirst({
+    where: { name_italian: inputs[0].signSlugIt },
+  });
+  if (!zodiacSign) {
+    console.error(`[Claude Batch] Campo 4: zodiac sign not found for "${inputs[0].signSlugIt}" — comparative_synthesis non salvata`);
+    return;
+  }
+
+  const relazioniSpread = dimensionSpreads.find(s => s.dimension === 'relazioni')!.stddev;
+  const lavoroSpread = dimensionSpreads.find(s => s.dimension === 'lavoro')!.stddev;
+  const saluteSpread = dimensionSpreads.find(s => s.dimension === 'benessere')!.stddev;
+  const date = new Date(inputs[0].dateISO);
+
+  await prisma.comparativeSynthesis.upsert({
+    where: {
+      zodiac_sign_id_date: {
+        zodiac_sign_id: zodiacSign.id,
+        date,
+      },
+    },
+    update: {
+      consenso: parsed.consenso,
+      approfondimento: parsed.approfondimento,
+      ha_divergenza: haDivergenzaComputed,
+      relazioni_spread: relazioniSpread,
+      lavoro_spread: lavoroSpread,
+      salute_spread: saluteSpread,
+      fonti_divergenti: fontiDivergenti,
+      updated_at: new Date(),
+    },
+    create: {
+      zodiac_sign_id: zodiacSign.id,
+      date,
+      consenso: parsed.consenso,
+      approfondimento: parsed.approfondimento,
+      ha_divergenza: haDivergenzaComputed,
+      relazioni_spread: relazioniSpread,
+      lavoro_spread: lavoroSpread,
+      salute_spread: saluteSpread,
+      fonti_divergenti: fontiDivergenti,
+    },
+  });
 }
 
 export async function processMultiSourceHoroscopeWithRetry(
