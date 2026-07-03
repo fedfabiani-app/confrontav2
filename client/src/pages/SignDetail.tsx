@@ -899,9 +899,19 @@ function SignDetail({ sign }: SignDetailProps) {
                     Leggi tutto ›
                   </span>
                 </summary>
-                <p className="mt-2 text-sm text-card-foreground leading-relaxed italic">{comparativeSynthesis.approfondimento}</p>
-                {/* Relazioni/Lavoro/Benessere: visibili SOLO ad accordion aperto */}
-                {threeRatingsGrid && <div className="mt-4">{threeRatingsGrid}</div>}
+                {/* Cliccando su approfondimento/griglia voti si richiude l'accordion,
+                    come cliccando sul bottone/riepilogo in alto. */}
+                <div
+                  className="cursor-pointer"
+                  onClick={(e) => {
+                    const details = e.currentTarget.closest('details');
+                    if (details) details.open = false;
+                  }}
+                >
+                  <p className="mt-2 text-sm text-card-foreground leading-relaxed italic">{comparativeSynthesis.approfondimento}</p>
+                  {/* Relazioni/Lavoro/Benessere: visibili SOLO ad accordion aperto */}
+                  {threeRatingsGrid && <div className="mt-4">{threeRatingsGrid}</div>}
+                </div>
               </details>
               {/* Media Generale: sempre visibile, accordion aperto o chiuso */}
               {mediaGeneraleBox && (
