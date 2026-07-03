@@ -282,7 +282,7 @@ Esempi:
 CAMPO "ha_divergenza" (booleano):
 true se almeno una dimensione ha spread ALTO, false se tutte BASSO.
 
-CAMPO "approfondimento" (sempre presente, 160-220 caratteri):
+CAMPO "approfondimento" (sempre presente, 160-250 caratteri):
 Racconta i dettagli e i consigli pratici.
 
 Se ha_divergenza è FALSE (tutte le dimensioni concordi):
@@ -303,7 +303,7 @@ Se ha_divergenza è TRUE (una o più dimensioni con spread ALTO):
   Struttura: una frase sul contrasto (2 fonti), una frase di consiglio che aiuta la lettrice a orientarsi tra le due (non a scegliere 'chi ha ragione').
   Es: "Su amore oggi ci sono due chiavi di lettura: La Repubblica coglie più tensione da gestire, Vogue Italia una giornata più romantica. Ascolta il tuo istinto, non forzare."
 
-BUDGET TOTALE: consenso + approfondimento = 250-350 caratteri (inclusi spazi).
+BUDGET TOTALE: consenso + approfondimento = 250-380 caratteri (inclusi spazi).
 Se stai per superarlo, TAGLIA: meno fonti nominate, frasi più corte.
 
 REGOLE (ereditate dal Campo 2 — superquote):
@@ -331,11 +331,11 @@ cose diverse nello stesso cielo", mai come "due controparti in causa".
 
 VERIFICA FINALE CAMPO 4:
 □ "consenso" 90-130 caratteri, linguaggio emotivo non statistico?
-□ "approfondimento" 160-220 caratteri?
+□ "approfondimento" 160-250 caratteri?
 □ Se ha_divergenza=true, ho raccontato SOLO la dimensione più divergente
   (una sola), ignorando le altre?
 □ Se ha_divergenza=true, ho nominato ESATTAMENTE 2 fonti (una pro, una contro)?
-□ Totale consenso+approfondimento tra 250-350 caratteri?
+□ Totale consenso+approfondimento tra 250-380 caratteri?
 □ Suona come qualcosa che una persona italiana direbbe, non un report?
 Se anche una sola risposta è NO → riscrivi e ACCORCIA prima di restituire.`;
 

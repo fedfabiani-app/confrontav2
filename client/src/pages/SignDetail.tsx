@@ -768,7 +768,7 @@ function SignDetail({ sign }: SignDetailProps) {
       </AppHeader>
 
         {/* Main Content */}
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-3 pb-8">
           {/* Daily/Weekly Toggle Selector */}
           <div className="flex flex-col items-center mb-4 space-y-4">
             <div className="inline-flex bg-gray-200 dark:bg-gray-800 rounded-full p-1 w-full max-w-md">
@@ -885,7 +885,7 @@ function SignDetail({ sign }: SignDetailProps) {
             degradation: senza sintesi (o per weekly), i voti restano una
             griglia standalone come prima, nessuna card extra. */}
         {viewType === "daily" && comparativeSynthesis ? (
-          <Card className="border-2 mb-8 relative">
+          <Card className="border-2 mb-4 relative">
             <CardContent className="p-4">
               <details className="group">
                 <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
@@ -893,13 +893,13 @@ function SignDetail({ sign }: SignDetailProps) {
                   <div className="absolute top-3 right-3 p-1 h-8 w-8 flex items-center justify-center rounded-md hover:bg-gray-50 dark:hover:bg-gray-800">
                     <ChevronDown className="w-4 h-4 text-[#E1B64E] transition-transform duration-200 group-open:rotate-180" />
                   </div>
-                  <h2 className="text-lg md:text-2xl font-bold text-[#E1B64E] mb-2 pr-10">Il quadro di oggi</h2>
-                  <p className="text-card-foreground leading-relaxed italic pr-10">{comparativeSynthesis.consenso}</p>
-                  <span className="block text-right text-[#E1B64E] font-semibold mt-2 hover:underline group-open:hidden">
+                  <h2 className="text-base md:text-xl font-bold text-[#E1B64E] mb-2 pr-10">Il quadro di oggi</h2>
+                  <p className="text-sm text-card-foreground leading-relaxed italic pr-10">{comparativeSynthesis.consenso}</p>
+                  <span className="block text-right text-sm text-[#E1B64E] font-semibold mt-2 hover:underline group-open:hidden">
                     Leggi tutto ›
                   </span>
                 </summary>
-                <p className="mt-2 text-card-foreground leading-relaxed italic">{comparativeSynthesis.approfondimento}</p>
+                <p className="mt-2 text-sm text-card-foreground leading-relaxed italic">{comparativeSynthesis.approfondimento}</p>
                 {/* Relazioni/Lavoro/Benessere: visibili SOLO ad accordion aperto */}
                 {threeRatingsGrid && <div className="mt-4">{threeRatingsGrid}</div>}
               </details>
@@ -1018,7 +1018,7 @@ function SignDetail({ sign }: SignDetailProps) {
         {horoscope.superquote}
       </p>
     </div>
-    <div className="border-t border-gray-200 dark:border-gray-700 my-3"></div>
+    <div className="border-t border-gray-200 dark:border-gray-700 mt-3 mb-1"></div>
   </>
 )}
 
