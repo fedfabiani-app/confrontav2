@@ -62,6 +62,9 @@
                    radial-gradient(1px 1px at 80% 70%, rgba(225, 182, 78, 0.8), transparent),
                    radial-gradient(1px 1px at 90% 20%, white, transparent),
                    radial-gradient(2px 2px at 60% 80%, rgba(196, 181, 224, 0.6), transparent);
+
+  /* Custom Superquote Box Variables */
+  --superquote-bg: #0f0f1f;
 }
 
 .dark {

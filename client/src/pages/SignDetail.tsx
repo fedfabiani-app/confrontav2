@@ -665,8 +665,8 @@ function SignDetail({ sign }: SignDetailProps) {
               {currentAggregate?.avgLavoro !== null ? currentAggregate?.avgLavoro?.toFixed(1) : 'N/A'}
             </p>
           </div>
-          <div className="w-8 h-8 md:w-12 md:h-12 bg-blue-100 rounded-full flex items-center justify-center mt-1 md:mt-0">
-            <Briefcase className="text-blue-700 w-4 h-4 md:w-6 md:h-6" />
+          <div className="w-8 h-8 md:w-12 md:h-12 bg-[#C4B5E0]/20 rounded-full flex items-center justify-center mt-1 md:mt-0">
+            <Briefcase className="text-[#C4B5E0] w-4 h-4 md:w-6 md:h-6" />
           </div>
         </div>
       </CardContent>
@@ -686,6 +686,58 @@ function SignDetail({ sign }: SignDetailProps) {
           <div className="w-8 h-8 md:w-12 md:h-12 bg-green-100 rounded-full flex items-center justify-center mt-1 md:mt-0">
             <Leaf className="text-green-700 w-4 h-4 md:w-6 md:h-6" />
           </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  // Varianti "flat" (senza cerchio colorato di sfondo dietro l'icona), usate
+  // SOLO dentro la card sintesi comparativa (threeRatingsGrid) — coerenti con
+  // lo stile icona nuda già usato nelle source card. La griglia standalone
+  // (ratingsGrid, weekly/no-sintesi) mantiene i box con cerchio invariati.
+  const relazioniBoxFlat = currentAggregate && (
+    <Card className="border-2">
+      <CardContent className="p-2 md:p-4">
+        <div className="flex flex-col md:flex-row items-center md:justify-between">
+          <div className="text-center md:text-left">
+            <p className="text-xs md:text-sm text-muted-foreground font-bold">Relazioni</p>
+            <p className="text-lg md:text-2xl font-bold text-card-foreground">
+              {currentAggregate?.avgRelazioni !== null ? currentAggregate?.avgRelazioni?.toFixed(1) : 'N/A'}
+            </p>
+          </div>
+          <Heart className="text-pink-700 w-4 h-4 md:w-6 md:h-6 mt-1 md:mt-0" />
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const lavoroBoxFlat = currentAggregate && (
+    <Card className="border-2">
+      <CardContent className="p-2 md:p-4">
+        <div className="flex flex-col md:flex-row items-center md:justify-between">
+          <div className="text-center md:text-left">
+            <p className="text-xs md:text-sm text-muted-foreground font-bold">Lavoro</p>
+            <p className="text-lg md:text-2xl font-bold text-card-foreground">
+              {currentAggregate?.avgLavoro !== null ? currentAggregate?.avgLavoro?.toFixed(1) : 'N/A'}
+            </p>
+          </div>
+          <Briefcase className="text-[#C4B5E0] w-4 h-4 md:w-6 md:h-6 mt-1 md:mt-0" />
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const benessereBoxFlat = currentAggregate && (
+    <Card className="border-2">
+      <CardContent className="p-2 md:p-4">
+        <div className="flex flex-col md:flex-row items-center md:justify-between">
+          <div className="text-center md:text-left">
+            <p className="text-xs md:text-sm text-muted-foreground font-bold">Benessere</p>
+            <p className="text-lg md:text-2xl font-bold text-card-foreground">
+              {currentAggregate?.avgBenessere !== null ? currentAggregate?.avgBenessere?.toFixed(1) : 'N/A'}
+            </p>
+          </div>
+          <Leaf className="text-green-700 w-4 h-4 md:w-6 md:h-6 mt-1 md:mt-0" />
         </div>
       </CardContent>
     </Card>
@@ -718,9 +770,9 @@ function SignDetail({ sign }: SignDetailProps) {
 
   const threeRatingsGrid = currentAggregate && (
     <div className="grid grid-cols-3 gap-2 md:gap-4">
-      {relazioniBox}
-      {lavoroBox}
-      {benessereBox}
+      {relazioniBoxFlat}
+      {lavoroBoxFlat}
+      {benessereBoxFlat}
     </div>
   );
 
@@ -966,7 +1018,7 @@ function SignDetail({ sign }: SignDetailProps) {
               >
                 <CardContent className="p-4">
                   {/* Source Header */}
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center space-x-3">
                       <SourceIcon
                         source={horoscope.source}
@@ -1038,9 +1090,9 @@ function SignDetail({ sign }: SignDetailProps) {
                   {/* SUPERQUOTE - Always visible */}
 {horoscope.superquote && (
   <>
-    <p className="text-xs text-amber-300/90 mb-1 px-2">La nostra sintesi:</p>
-    <div className="px-4 py-3 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-950/30 dark:to-yellow-950/30 border-l-4" style={{ borderLeftColor: '#E1B64E' }}>
-      <p className="text-sm font-italic text-gray-800 dark:text-gray-200 italic">
+    <p className="text-[13px] text-amber-300/90 mb-1 pr-2">La nostra sintesi:</p>
+    <div className="px-4 py-2 rounded-r-md border-l-4" style={{ backgroundColor: 'var(--superquote-bg)', borderLeftColor: 'var(--header-gold)' }}>
+      <p className="text-sm font-italic text-white/90 leading-relaxed italic">
         {horoscope.superquote}
       </p>
     </div>
@@ -1065,7 +1117,7 @@ function SignDetail({ sign }: SignDetailProps) {
                         href={horoscope.original_url}
                         target="_blank"
                         rel="noopener noreferrer"
-className="inline-flex items-center text-sm font-semibold text-indigo-300/80 hover:text-indigo-100 transition-colors"                        data-testid={`link-read-more-${horoscope.source.id}`}
+className="inline-flex items-center text-sm font-semibold text-[#E1B64E] hover:text-[#E1B64E]/80 transition-colors"                        data-testid={`link-read-more-${horoscope.source.id}`}
                       >
                         Leggi Tutto su {horoscope.source.name}
                         <ExternalLink className="w-3 h-3 ml-1" />
@@ -1085,7 +1137,7 @@ className="inline-flex items-center text-sm font-semibold text-indigo-300/80 hov
                       </div>
                       <div className="text-center">
                         <div className="flex items-center justify-center space-x-2 mb-1">
-                          <Briefcase className="w-4 h-4 text-blue-500" />
+                          <Briefcase className="w-4 h-4 text-[#C4B5E0]" />
                           <span className="text-sm text-muted-foreground">Lavoro</span>
                         </div>
                         <div className="text-lg font-bold text-card-foreground">
