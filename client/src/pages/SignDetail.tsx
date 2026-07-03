@@ -453,6 +453,19 @@ function SignDetail({ sign }: SignDetailProps) {
     enabled: viewType === "weekly",
   });
 
+  // Fetch weekly comparative synthesis ("Il quadro della settimana")
+  const { data: weeklyComparativeSynthesis } = useQuery<ComparativeSynthesis | null>({
+    queryKey: ["/api/weekly-comparative-synthesis", weekStartDate, sign],
+    queryFn: async () => {
+      const response = await fetch(
+        `/api/weekly-comparative-synthesis?weekStartDate=${weekStartDate}&sign=${sign}`,
+      );
+      if (!response.ok) throw new Error("Failed to fetch weekly comparative synthesis");
+      return response.json();
+    },
+    enabled: viewType === "weekly",
+  });
+
   // Refresh this sign mutation
   const refreshSignMutation = useMutation({
     mutationFn: async () => {
@@ -622,6 +635,7 @@ function SignDetail({ sign }: SignDetailProps) {
   //   Lavoro/Benessere visibili SOLO ad accordion aperto, Media Generale
   //   sempre visibile sia aperto che chiuso.
   const currentAggregate = viewType === "daily" ? aggregate : weeklyAggregate;
+  const currentComparativeSynthesis = viewType === "daily" ? comparativeSynthesis : weeklyComparativeSynthesis;
 
   const relazioniBox = currentAggregate && (
     <Card className="border-2">
@@ -879,12 +893,12 @@ function SignDetail({ sign }: SignDetailProps) {
             )}
           </div>
 
-        {/* "Le stelle dicono" — solo daily. Quando esiste la sintesi
-            comparativa, i voti (Relazioni/Lavoro/Benessere/Media Generale)
-            sono nested DENTRO questa stessa card, sotto un divider. Graceful
-            degradation: senza sintesi (o per weekly), i voti restano una
+        {/* "Il quadro di oggi"/"della settimana" — daily e weekly. Quando
+            esiste la sintesi comparativa, i voti (Relazioni/Lavoro/Benessere/
+            Media Generale) sono nested DENTRO questa stessa card, sotto un
+            divider. Graceful degradation: senza sintesi, i voti restano una
             griglia standalone come prima, nessuna card extra. */}
-        {viewType === "daily" && comparativeSynthesis ? (
+        {currentComparativeSynthesis ? (
           <Card className="border-2 mb-4 relative">
             <CardContent className="p-4">
               <details className="group">
@@ -893,8 +907,10 @@ function SignDetail({ sign }: SignDetailProps) {
                   <div className="absolute top-3 right-3 p-1 h-8 w-8 flex items-center justify-center rounded-md hover:bg-gray-50 dark:hover:bg-gray-800">
                     <ChevronDown className="w-4 h-4 text-[#E1B64E] transition-transform duration-200 group-open:rotate-180" />
                   </div>
-                  <h2 className="text-base md:text-xl font-bold text-[#E1B64E] mb-2 pr-10">Il quadro di oggi</h2>
-                  <p className="text-sm text-card-foreground leading-relaxed italic pr-10">{comparativeSynthesis.consenso}</p>
+                  <h2 className="text-base md:text-xl font-bold text-[#E1B64E] mb-2 pr-10">
+                    {viewType === "daily" ? "Il quadro di oggi" : "Il quadro della settimana"}
+                  </h2>
+                  <p className="text-sm text-card-foreground leading-relaxed italic pr-10">{currentComparativeSynthesis.consenso}</p>
                   <span className="block text-right text-sm text-[#E1B64E] font-semibold mt-2 hover:underline group-open:hidden">
                     Leggi tutto ›
                   </span>
@@ -908,7 +924,7 @@ function SignDetail({ sign }: SignDetailProps) {
                     if (details) details.open = false;
                   }}
                 >
-                  <p className="mt-2 text-sm text-card-foreground leading-relaxed italic">{comparativeSynthesis.approfondimento}</p>
+                  <p className="mt-2 text-sm text-card-foreground leading-relaxed italic">{currentComparativeSynthesis.approfondimento}</p>
                   {/* Relazioni/Lavoro/Benessere: visibili SOLO ad accordion aperto */}
                   {threeRatingsGrid && <div className="mt-4">{threeRatingsGrid}</div>}
                 </div>

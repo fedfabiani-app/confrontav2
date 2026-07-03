@@ -428,7 +428,7 @@ export async function enqueueAggregatedNlpJob(
       status.status = 'running';
       status.startedAt = new Date();
 
-      const nlpResults = await processMultiSourceHoroscopeWithRetry(pairs.map(p => p.nlpInput));
+      const nlpResults = await processMultiSourceHoroscopeWithRetry(pairs.map(p => p.nlpInput), 'daily');
 
       for (let i = 0; i < nlpResults.length; i++) {
         await enqueueUpsertJob(pairs[i].scraperOutput, nlpResults[i]);
@@ -470,7 +470,7 @@ export async function enqueueAggregatedWeeklyNlpJob(
       status.status = 'running';
       status.startedAt = new Date();
 
-      const nlpResults = await processMultiSourceHoroscopeWithRetry(pairs.map(p => p.nlpInput));
+      const nlpResults = await processMultiSourceHoroscopeWithRetry(pairs.map(p => p.nlpInput), 'weekly');
 
       for (let i = 0; i < nlpResults.length; i++) {
         await enqueueWeeklyUpsertJob(pairs[i].scraperOutput, nlpResults[i]);

@@ -288,6 +288,8 @@ Input della Chiamata 2: SOLO i dati aggregati calcolati dal backend dopo
 la Chiamata 1 (medie, spread, nomi fonti outlier) — non i testi grezzi
 delle fonti, già processati alla Chiamata 1.
 
+**Budget totale:** consenso + approfondimento = **250-400 caratteri** (inclusi spazi).
+
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 CAMPO 4 — LE STELLE DICONO (sintesi comparativa)
@@ -297,14 +299,14 @@ Si genera UNA SOLA VOLTA per segno, dopo aver analizzato TUTTE le fonti
 ricevute in questo batch (non ripetere per singola fonte).
 
 INPUT VINCOLANTE (già calcolato, NON reinterpretare):
-Riceverai, per Relazioni/Lavoro/Benessere, la media e il livello di
+Riceverai, per Relazioni/Lavoro/Salute, la media e il livello di
 spread (ALTO/BASSO) tra le fonti, già calcolati a monte. Il tuo compito
 è raccontare questi dati, non stimarli né correggerli.
 
-CAMPO "consenso" (sempre presente):
-Una frase, 90-130 caratteri, che racconta il grado di accordo generale
-tra le fonti in linguaggio emotivo, non statistico. Mai percentuali o
-conteggi ("8 fonti su 10"): traduci sempre in sensazione.
+CAMPO "consenso" (sempre presente, 90-130 caratteri):
+Una frase, che racconta il grado di accordo generale tra le fonti in
+linguaggio emotivo, non statistico. Mai percentuali o conteggi
+("8 fonti su 10"): traduci sempre in sensazione.
 Esempi:
 ✓ "Le fonti oggi remano quasi tutte dalla tua parte, soprattutto in amore."
 ✓ "Oggi le stelle si dividono parecchio su di te: dipende da chi ascolti."
@@ -313,32 +315,45 @@ Esempi:
 CAMPO "ha_divergenza" (booleano):
 true se almeno una dimensione ha spread ALTO, false se tutte BASSO.
 
-CAMPO "approfondimento" (sempre presente, 150-270 caratteri):
-- Se ha_divergenza è true: prima frase sulla dimensione con spread ALTO,
-  nominando le fonti in disaccordo (usa i nomi ricevuti in input, mai
-  inventarli); seconda frase con un orientamento pratico che TIENE CONTO
-  del disaccordo (es. "meglio non forzare la mano").
-- Se ha_divergenza è false: un unico paragrafo naturale che espande il
-  consenso con un dettaglio pratico in più, SENZA inventare un contrasto
-  che non esiste nei dati.
+CAMPO "approfondimento" (sempre presente, 160-270 caratteri):
+Racconta i dettagli e i consigli pratici.
+
+Se ha_divergenza è FALSE (tutte le dimensioni concordi):
+  Espandi il consenso con un dettaglio pratico su cosa significa per la
+  giornata. Può coprire una o più dimensioni, ma il tono deve restare
+  naturale e una idea principale per frase — non impilare tre temi in
+  una riga.
+  Es: "Fiducia negli amici: loro sono il vero motore della giornata."
+  oppure: "Relazioni, lavoro e benessere convergono verso una giornata
+  complessivamente positiva. Il consiglio è di non forzare: lascia che
+  le cose fluiscano naturalmente."
+
+Se ha_divergenza è TRUE (una o più dimensioni con spread ALTO):
+  Prima parte: identifica quale dimensione (o dimensioni) si divide,
+  nomina i nomi delle fonti in disaccordo — usa SOLO i nomi ricevuti
+  in input come "fonti_divergenti", mai inventarli.
+  Seconda parte: un consiglio pratico che tiene conto di questo
+  dissenso (es. "meglio non forzare", "ascolta il tuo istinto").
+  Es: "Su amore le voci si dividono: alfemminile e Paolo Fox vedono
+  chiarezza, mentre Gazzetta dello Sport frena. Meglio ascoltare il
+  tuo istinto, non forzare."
 
 REGOLE (ereditate dal Campo 2 — superquote):
 - Femminile di default, zero condizionali, zero anglicismi, zero jargon
-  astrologico tecnico (niente "trigono", "quadratura" ecc.)
+  astrologico tecnico (niente "trigono", "quadratura", "transito" ecc.)
 - Il lettore/le fonti sono sempre il soggetto concreto: mai "le energie
-  si scontrano" o astrazioni animate
+  si scontrano" o astrazioni animate ("la tenerezza vuole")
 - Attacco variato rispetto alla superquote dello stesso segno/giorno
   (non ripetere lo stesso incipit di frase)
 - Nominare sempre le testate per nome quando c'è divergenza — è il
   valore editoriale distintivo di questo campo, non va omesso
 
 VERIFICA FINALE CAMPO 4:
-□ "consenso" 90-130 caratteri, linguaggio emotivo non statistico?
-□ "ha_divergenza" coerente con lo spread ricevuto in input (non inventato)?
-□ Se divergenza=true, le fonti nominate sono davvero tra quelle in
-  disaccordo secondo i dati ricevuti?
-□ "approfondimento" 150-270 caratteri, un unico paragrafo naturale se
-  non c'è divergenza?
+□ "consenso" 90-130 caratteri, linguaggio emotivo non statistico, una frase?
+□ "approfondimento" 160-270 caratteri, racconta il dettaglio/consiglio pratico?
+□ "ha_divergenza" coerente con lo spread ricevuto in input?
+□ Se divergenza=true, le fonti nominate sono davvero in "fonti_divergenti"?
+□ Totale consenso+approfondimento tra 250-400 caratteri?
 □ Suona come qualcosa che una persona italiana direbbe, non un report?
 Se anche una sola risposta è NO → riscrivi prima di restituire.
 ```
@@ -364,3 +379,97 @@ Output JSON atteso (aggiunto allo schema del tool extract_horoscopes_batch):
   }
 }
 ```
+
+---
+
+## Appendice B — Fase 5: Duplicazione lato WEEKLY
+
+Feature "Il quadro d'insieme" duplicata sul lato settimanale
+(`weekly_sources` / `weekly_horoscope_data`), dopo validazione completa
+del lato daily. Titolo UI: "Il quadro della settimana" (vs "Il quadro
+di oggi" per il daily).
+
+### Bug preesistente scoperto e corretto (prerequisito, non extra)
+
+`processMultiSourceHoroscope` è condivisa da entrambi i batch (daily via
+`enqueueAggregatedNlpJob`, weekly via `enqueueAggregatedWeeklyNlpJob`).
+La logica Campo 4 scriveva incondizionatamente in `comparative_synthesis`
+usando `inputs[0].dateISO` come chiave — nel path weekly quel valore è un
+lunedì (`weekStartDate`). Conseguenza: un refresh weekly poteva
+sovrascrivere silenziosamente una riga daily dello stesso segno/lunedì
+(stessa chiave univoca `zodiac_sign_id + date`). Bug latente (0 righe
+attuali cadono di lunedì) ma armato.
+
+**Fix strutturale:** parametro `periodType: 'daily' | 'weekly'`
+obbligatorio (non opzionale, prima di parametri con default) propagato
+lungo tutta la catena: `processMultiSourceHoroscope` →
+`processMultiSourceHoroscopeWithRetry` →
+`generateAndSaveComparativeSynthesis`. Il compilatore TypeScript segnala
+ogni call site non aggiornato — impossibile dimenticare quale tabella
+target usare. La persistenza finale biforca: `daily` →
+`comparativeSynthesis.upsert` con `date`; `weekly` →
+`weeklyComparativeSynthesis.upsert` con `week_start_date`.
+
+### Assunzione date weekly/ELLE — verificata fino al sorgente
+
+`inputs[0].dateISO` nel path weekly è sempre il lunedì canonico, identico
+per ogni fonte del batch (ELLE inclusa). Catena verificata:
+`weekStart` validato come lunedì prima del loop fonti
+(`/api/refresh-weekly/sign/:sign`) → passato identico a ogni fonte →
+lo scraper ELLE/biweekly aggiunge `validFrom`/`validTo` come campi
+SEPARATI ma lascia `weekStartDate` invariato → diventa `dateISO`. La
+logica ELLE (`valid_from`/`valid_to`) entra in gioco solo dopo, in
+`enqueueWeeklyUpsertJob` (persistenza per-fonte), a valle della sintesi
+comparativa. Nessuna contaminazione.
+
+### Struttura della duplicazione
+
+- **Schema:** nuovo modello `WeeklyComparativeSynthesis`
+  (`@@map("weekly_comparative_synthesis")`), identico a
+  `ComparativeSynthesis` ma `date` → `week_start_date @db.Date`, chiave
+  `@@unique([zodiac_sign_id, week_start_date])`. Relazione inversa
+  aggiunta a `ZodiacSign`.
+- **Prompt:** `CAMPO4_BLOCK` trasformato in funzione
+  `buildCampo4Block(periodType)` — UNA sola fonte di verità per le regole
+  (budget caratteri, parole vietate, checklist), con sostituzione solo di
+  `oggi`/`questa settimana`, `giornata`/`settimana` nelle frasi di
+  esempio. NON due copie complete (eviterebbe divergenza futura ad ogni
+  ritocco del prompt). Due costanti derivate:
+  `SYSTEM_PROMPT_WITH_CAMPO4_DAILY` e `_WEEKLY`, ciascuna con la propria
+  cache lineage (corretto: sono testualmente diverse).
+- **Endpoint:** nuovo `GET /api/weekly-comparative-synthesis`
+  (`weekStartDate` + `sign`), stesso pattern del daily, `null` se assente
+  (graceful degradation).
+- **Frontend:** `SignDetail.tsx` — nuova query weekly (`enabled: viewType
+  === "weekly"`), variabile generica `currentComparativeSynthesis =
+  viewType === "daily" ? comparativeSynthesis : weeklyComparativeSynthesis`,
+  titolo condizionale. Card, accordion, griglia voti già generici e
+  riusati senza duplicazione.
+
+### Soglia divergenza weekly — riusata, NON ancora calibrata
+
+La soglia 0.95 è stata calibrata sul comportamento delle fonti
+GIORNALIERE (30 giorni di dati). Per il weekly è riusata come default
+ragionevole, ma NON validata: le fonti settimanali potrebbero divergere
+strutturalmente più o meno di quelle giornaliere (previsioni più ampie e
+vaghe → spread potenzialmente compresso o amplificato). Calibrazione
+formale rimandata: solo ~4 settimane di dati disponibili, insufficienti.
+`weekly_comparative_synthesis` salva gli spread grezzi da subito → i dati
+per una ricalibrazione weekly-aware si accumulano automaticamente.
+
+**Check di sanità da fare dopo il deploy (non bloccante):** far girare
+lo script di calibrazione puntato su `weekly_comparative_synthesis` anche
+solo sulle 4 settimane disponibili — NON per fissare la soglia, ma per
+vedere in che direzione punta lo spread settimanale rispetto allo 0.95
+ereditato. Se con 0.95 il weekly classifica ~5% o ~70% dei casi come
+ALTO (invece del 20-35% target), la soglia va rivista presto anche con
+pochi dati. Quando ci sarà più storico, la ricalibrazione dovrà mutuare
+la gestione overlap ELLE da `fetchWeeklyHoroscopes` (range intersection),
+non l'exact-match usato per le altre fonti.
+
+### Nota su prisma db push
+
+Il repo non traccia `prisma/migrations`: workflow = editare schema →
+`npx prisma generate` → `npx prisma db push` sull'ambiente reale.
+Su Windows, fermare prima il dev server se attivo (blocca la dll del
+query engine Prisma, già successo in passato).

@@ -257,7 +257,15 @@ correggi prima di restituire l'output.`;
 // Campo 4 "Le stelle dicono" — sintesi comparativa. Usato SOLO nel path
 // batch multi-fonte (processMultiSourceHoroscope): il prompt single-source
 // (processHoroscopeWithAI) resta su SYSTEM_PROMPT, invariato.
-const CAMPO4_BLOCK = `
+// Period-agnostico tranne poche frasi di esempio: parametrizzato via
+// buildCampo4Block invece di essere forkato in due copie complete, per
+// evitare divergenza futura ogni volta che si ritocca budget/regole.
+function buildCampo4Block(periodType: 'daily' | 'weekly'): string {
+  const now = periodType === 'daily' ? 'oggi' : 'questa settimana';
+  const nowCap = periodType === 'daily' ? 'Oggi' : 'Questa settimana';
+  const span = periodType === 'daily' ? 'giornata' : 'settimana';
+  const unit = periodType === 'daily' ? 'giorno' : 'settimana';
+  return `
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 CAMPO 4 — LE STELLE DICONO (sintesi comparativa)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -275,8 +283,8 @@ Una frase, che racconta il grado di accordo generale tra le fonti in
 linguaggio emotivo, non statistico. Mai percentuali o conteggi
 ("8 fonti su 10"): traduci sempre in sensazione.
 Esempi:
-✓ "Le fonti oggi remano quasi tutte dalla tua parte, soprattutto in amore."
-✓ "Oggi le stelle si dividono parecchio su di te: dipende da chi ascolti."
+✓ "Le fonti ${now} remano quasi tutte dalla tua parte, soprattutto in amore."
+✓ "${nowCap} le stelle si dividono parecchio su di te: dipende da chi ascolti."
 ✗ "Consenso: 80%, Relazioni allineate."
 
 CAMPO "ha_divergenza" (booleano):
@@ -287,10 +295,10 @@ Racconta i dettagli e i consigli pratici.
 
 Se ha_divergenza è FALSE (tutte le dimensioni concordi):
   Scegli UNO fra questi ambiti: amore, lavoro, o benessere generale.
-  Racconta brevemente perché è una buona giornata su quel tema, con un
+  Racconta brevemente perché è una buona ${span} su quel tema, con un
   consiglio pratico. Una sola frase, max 150 caratteri.
-  Es: "Fiducia negli amici: loro sono il vero motore della giornata."
-  oppure: "Al lavoro sei nel posto giusto — approfitta della lucidità che hai oggi."
+  Es: "Fiducia negli amici: loro sono il vero motore della ${span}."
+  oppure: "Al lavoro sei nel posto giusto — approfitta della lucidità che hai ${now}."
 
 Se ha_divergenza è TRUE (una o più dimensioni con spread ALTO):
   IMPORTANTE: anche se più dimensioni hanno spread ALTO, racconta
@@ -301,7 +309,7 @@ Se ha_divergenza è TRUE (una o più dimensioni con spread ALTO):
   NON aggiungere una terza, quarta o quinta fonte — due nomi in tutto,
   punto. Il lettore capisce il disaccordo da un solo esempio per lato.
   Struttura: una frase sul contrasto (2 fonti), una frase di consiglio che aiuta la lettrice a orientarsi tra le due (non a scegliere 'chi ha ragione').
-  Es: "Su amore oggi ci sono due chiavi di lettura: La Repubblica coglie più tensione da gestire, Vogue Italia una giornata più romantica. Ascolta il tuo istinto, non forzare."
+  Es: "Su amore ${now} ci sono due chiavi di lettura: La Repubblica coglie più tensione da gestire, Vogue Italia una ${span} più romantica. Ascolta il tuo istinto, non forzare."
 
 BUDGET TOTALE: consenso + approfondimento = 250-380 caratteri (inclusi spazi).
 Se stai per superarlo, TAGLIA: meno fonti nominate, frasi più corte.
@@ -311,7 +319,7 @@ REGOLE (ereditate dal Campo 2 — superquote):
   astrologico tecnico (niente "trigono", "quadratura", "transito" ecc.)
 - Il lettore/le fonti sono sempre il soggetto concreto: mai "le energie
   si scontrano" o astrazioni animate ("la tenerezza vuole")
-- Attacco variato rispetto alla superquote dello stesso segno/giorno
+- Attacco variato rispetto alla superquote dello stesso segno/${unit}
 - Quando nomini fonti nel ramo TRUE, usa SOLO i nomi da "fonti_divergenti"
   ricevuti in input, mai inventarli
 
@@ -338,11 +346,16 @@ VERIFICA FINALE CAMPO 4:
 □ Totale consenso+approfondimento tra 250-380 caratteri?
 □ Suona come qualcosa che una persona italiana direbbe, non un report?
 Se anche una sola risposta è NO → riscrivi e ACCORCIA prima di restituire.`;
+}
 
-const SYSTEM_PROMPT_WITH_CAMPO4 = SYSTEM_PROMPT + '\n' + CAMPO4_BLOCK;
+const SYSTEM_PROMPT_WITH_CAMPO4_DAILY = SYSTEM_PROMPT + '\n' + buildCampo4Block('daily');
+const SYSTEM_PROMPT_WITH_CAMPO4_WEEKLY = SYSTEM_PROMPT + '\n' + buildCampo4Block('weekly');
 
-// Soglia divergenza calibrata su 30gg di dati reali (v. scripts/calibrate-divergence-threshold.ts):
+// Soglia divergenza calibrata su 30gg di dati reali daily (v. scripts/calibrate-divergence-threshold.ts):
 // stddev >= 0.95 → ALTO. Sotto MIN_VALID_SOURCES fonti valide, spread forzato a BASSO (poco segnale).
+// Condivisa provvisoriamente anche dal lato weekly: solo 4 settimane di storico reale,
+// insufficienti per una calibrazione indipendente — da rivedere quando ce ne sarà di più
+// (v. scripts/calibrate-divergence-threshold-weekly.ts per un check di sanità non vincolante).
 const DIVERGENCE_STDDEV_THRESHOLD = 0.95;
 const MIN_VALID_SOURCES_FOR_SPREAD = 3;
 const OUTLIER_DEVIATION_THRESHOLD = 1;
@@ -739,8 +752,13 @@ function postProcessOutput(parsed: Record<string, unknown>, originalLength?: num
   });
 }
 
-export async function processMultiSourceHoroscope(inputs: OpenAIInput[]): Promise<OpenAIOutput[]> {
+export async function processMultiSourceHoroscope(
+  inputs: OpenAIInput[],
+  periodType: 'daily' | 'weekly'
+): Promise<OpenAIOutput[]> {
   if (inputs.length === 0) return [];
+
+  const systemPromptForPeriod = periodType === 'daily' ? SYSTEM_PROMPT_WITH_CAMPO4_DAILY : SYSTEM_PROMPT_WITH_CAMPO4_WEEKLY;
 
   const results: OpenAIOutput[] = inputs.map(() => ({ ...NEUTRAL_FALLBACK, superquote: getRandomFallbackSuperquote(), ratings: { ...NEUTRAL_FALLBACK.ratings } }));
 
@@ -764,7 +782,7 @@ export async function processMultiSourceHoroscope(inputs: OpenAIInput[]): Promis
     system: [
       {
         type: 'text' as const,
-        text: SYSTEM_PROMPT_WITH_CAMPO4,
+        text: systemPromptForPeriod,
         cache_control: { type: 'ephemeral' as const },
       },
     ],
@@ -822,11 +840,12 @@ export async function processMultiSourceHoroscope(inputs: OpenAIInput[]): Promis
     }
   }
 
-  // Campo 4 "Le stelle dicono" — solo lato giornaliero (sources/horoscope_data).
-  // Isolato in try/catch: un suo fallimento non deve mai compromettere i
-  // risultati Campo 1-3 già pronti per il salvataggio in horoscope_data.
+  // Campo 4 "Le stelle dicono" — daily e weekly, su tabelle distinte
+  // (comparative_synthesis / weekly_comparative_synthesis) in base a
+  // periodType. Isolato in try/catch: un suo fallimento non deve mai
+  // compromettere i risultati Campo 1-3 già pronti per il salvataggio.
   try {
-    await generateAndSaveComparativeSynthesis(inputs, results, response, toolBlock, userMessage);
+    await generateAndSaveComparativeSynthesis(inputs, results, response, toolBlock, userMessage, periodType);
   } catch (err) {
     console.error('[Claude Batch] Comparative synthesis (Campo 4) failed:', err);
   }
@@ -839,7 +858,8 @@ async function generateAndSaveComparativeSynthesis(
   results: OpenAIOutput[],
   firstResponse: Anthropic.Messages.Message,
   firstToolBlock: Anthropic.Messages.ToolUseBlock,
-  firstUserMessage: string
+  firstUserMessage: string,
+  periodType: 'daily' | 'weekly'
 ): Promise<void> {
   const dimensionSpreads = SYNTHESIS_DIMENSIONS.map(dimension =>
     computeDimensionSpread(
@@ -857,7 +877,10 @@ async function generateAndSaveComparativeSynthesis(
   // prompt autorizza Haiku a nominare fonti (v. CAMPO4_BLOCK, ramo TRUE).
   const fontiDivergenti = principalDimension?.outlierSourceNames ?? [];
 
-  const campo4UserText = `${formatCampo4InputBlock(dimensionSpreads, principalDimension)}\n\nGenera ora il Campo 4 "Le stelle dicono" per questo segno/giorno usando lo strumento extract_comparative_synthesis.`;
+  const periodNoun = periodType === 'daily' ? 'giorno' : 'settimana';
+  const campo4UserText = `${formatCampo4InputBlock(dimensionSpreads, principalDimension)}\n\nGenera ora il Campo 4 "Le stelle dicono" per questo segno/${periodNoun} usando lo strumento extract_comparative_synthesis.`;
+
+  const systemPromptForPeriod = periodType === 'daily' ? SYSTEM_PROMPT_WITH_CAMPO4_DAILY : SYSTEM_PROMPT_WITH_CAMPO4_WEEKLY;
 
   const secondResponse = await client.messages.create({
     model: 'claude-haiku-4-5-20251001',
@@ -865,7 +888,7 @@ async function generateAndSaveComparativeSynthesis(
     system: [
       {
         type: 'text' as const,
-        text: SYSTEM_PROMPT_WITH_CAMPO4,
+        text: systemPromptForPeriod,
         cache_control: { type: 'ephemeral' as const },
       },
     ],
@@ -935,13 +958,53 @@ async function generateAndSaveComparativeSynthesis(
   const relazioniSpread = dimensionSpreads.find(s => s.dimension === 'relazioni')!.stddev;
   const lavoroSpread = dimensionSpreads.find(s => s.dimension === 'lavoro')!.stddev;
   const saluteSpread = dimensionSpreads.find(s => s.dimension === 'benessere')!.stddev;
-  const date = new Date(inputs[0].dateISO);
 
-  await prisma.comparativeSynthesis.upsert({
-    where: {
-      zodiac_sign_id_date: {
+  // periodType decide tabella e campo data: daily → comparative_synthesis
+  // (date), weekly → weekly_comparative_synthesis (week_start_date). Prima
+  // di questo fix, entrambi i path scrivevano sempre su comparative_synthesis
+  // usando inputs[0].dateISO — per il weekly quel valore è il lunedì della
+  // settimana, quindi collideva silenziosamente con la riga daily reale
+  // dello stesso segno/lunedì (stessa chiave univoca zodiac_sign_id+date).
+  if (periodType === 'daily') {
+    const date = new Date(inputs[0].dateISO);
+    await prisma.comparativeSynthesis.upsert({
+      where: {
+        zodiac_sign_id_date: {
+          zodiac_sign_id: zodiacSign.id,
+          date,
+        },
+      },
+      update: {
+        consenso: parsed.consenso,
+        approfondimento: parsed.approfondimento,
+        ha_divergenza: haDivergenzaComputed,
+        relazioni_spread: relazioniSpread,
+        lavoro_spread: lavoroSpread,
+        salute_spread: saluteSpread,
+        fonti_divergenti: fontiDivergenti,
+        updated_at: new Date(),
+      },
+      create: {
         zodiac_sign_id: zodiacSign.id,
         date,
+        consenso: parsed.consenso,
+        approfondimento: parsed.approfondimento,
+        ha_divergenza: haDivergenzaComputed,
+        relazioni_spread: relazioniSpread,
+        lavoro_spread: lavoroSpread,
+        salute_spread: saluteSpread,
+        fonti_divergenti: fontiDivergenti,
+      },
+    });
+    return;
+  }
+
+  const week_start_date = new Date(inputs[0].dateISO); // sempre il lunedì canonico, anche se il batch include ELLE (v. conferma turno precedente)
+  await prisma.weeklyComparativeSynthesis.upsert({
+    where: {
+      zodiac_sign_id_week_start_date: {
+        zodiac_sign_id: zodiacSign.id,
+        week_start_date,
       },
     },
     update: {
@@ -956,7 +1019,7 @@ async function generateAndSaveComparativeSynthesis(
     },
     create: {
       zodiac_sign_id: zodiacSign.id,
-      date,
+      week_start_date,
       consenso: parsed.consenso,
       approfondimento: parsed.approfondimento,
       ha_divergenza: haDivergenzaComputed,
@@ -970,13 +1033,14 @@ async function generateAndSaveComparativeSynthesis(
 
 export async function processMultiSourceHoroscopeWithRetry(
   inputs: OpenAIInput[],
+  periodType: 'daily' | 'weekly',
   maxRetries: number = 3
 ): Promise<OpenAIOutput[]> {
   let lastError: Error;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      return await processMultiSourceHoroscope(inputs);
+      return await processMultiSourceHoroscope(inputs, periodType);
     } catch (error) {
       lastError = error instanceof Error ? error : new Error('Unknown error');
 

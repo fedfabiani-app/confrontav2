@@ -62,7 +62,7 @@ async function main() {
     extracted_text: r.original_text,
   }));
 
-  const results = await processMultiSourceHoroscope(inputs);
+  const results = await processMultiSourceHoroscope(inputs, 'daily');
 
   console.log('='.repeat(70));
   console.log('CAMPI 1-3 PER FONTE');

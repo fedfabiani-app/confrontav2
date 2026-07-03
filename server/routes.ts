@@ -530,6 +530,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // GET /api/weekly-comparative-synthesis — Campo 4 "Le stelle dicono" (lato weekly)
+  app.get("/api/weekly-comparative-synthesis", async (req, res) => {
+    try {
+      const { weekStartDate, sign } = req.query;
+
+      if (!weekStartDate || !sign) {
+        return res.status(400).json({ error: 'weekStartDate and sign parameters are required' });
+      }
+
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(weekStartDate as string)) {
+        return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
+      }
+
+      const signString = sign as string;
+      let englishSign = signString;
+
+      if (signString in ZODIAC_SIGNS_IT_EN) {
+        englishSign = ZODIAC_SIGNS_IT_EN[signString as keyof typeof ZODIAC_SIGNS_IT_EN];
+      }
+      else if (!Object.values(ZODIAC_SIGNS_IT_EN).includes(signString as any)) {
+        return res.status(400).json({ error: 'Invalid zodiac sign' });
+      }
+
+      const zodiacSign = await prisma.zodiacSign.findFirst({
+        where: { name_english: englishSign }
+      });
+
+      if (!zodiacSign) {
+        return res.status(404).json({ error: 'Zodiac sign not found' });
+      }
+
+      const synthesis = await prisma.weeklyComparativeSynthesis.findFirst({
+        where: {
+          zodiac_sign_id: zodiacSign.id,
+          week_start_date: new Date(weekStartDate as string),
+        },
+      });
+
+      // null se non esiste ancora per questo segno/settimana — il frontend
+      // gestisce questo caso con graceful degradation (niente card extra).
+      res.json(synthesis);
+    } catch (error) {
+      console.error('Error fetching weekly comparative synthesis:', error);
+      res.status(500).json({ error: 'Failed to fetch weekly comparative synthesis' });
+    }
+  });
+
   // POST /api/refresh/all
   app.post("/api/refresh/all", async (req, res) => {
     const { date } = req.query;
