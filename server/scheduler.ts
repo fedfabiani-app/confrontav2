@@ -12,6 +12,10 @@ import {
   type SourceGroup
 } from './services/weeklyScraperOrchestrator';
 import { getCurrentWeekStart } from './utils/weekUtils';
+import {
+  runDailyComparativeSynthesisCycle,
+  runWeeklyComparativeSynthesisCycle,
+} from './services/comparativeSynthesisOrchestrator';
 
 // ============================================================================
 // HELPER FUNCTIONS - DAILY SCRAPER
@@ -723,6 +727,172 @@ async function executeWeeklyFallbackRetry() {
 }
 
 // ============================================================================
+// HELPER FUNCTIONS - COMPARATIVE SYNTHESIS (Campo 4 "Le stelle dicono")
+// ============================================================================
+
+function isComparativeSynthesisEnabled(): boolean {
+  return process.env.COMPARATIVE_SYNTHESIS_ENABLED !== 'false';
+}
+
+async function hasCompletedSynthesisToday(): Promise<boolean> {
+  const targetDateObj = new Date(getItalyToday() + 'T00:00:00.000Z');
+  const completed = await prisma.scraperExecution.findFirst({
+    where: {
+      target_date: targetDateObj,
+      trigger_type: 'comparative_synthesis',
+      status: 'completed',
+    },
+  });
+  return completed !== null;
+}
+
+async function hasRunningSynthesisExecution(): Promise<boolean> {
+  const targetDateObj = new Date(getItalyToday() + 'T00:00:00.000Z');
+  const running = await prisma.scraperExecution.findFirst({
+    where: {
+      target_date: targetDateObj,
+      trigger_type: 'comparative_synthesis',
+      status: 'running',
+    },
+  });
+  return running !== null;
+}
+
+async function hasCompletedWeeklySynthesisForWeek(weekStart: Date): Promise<boolean> {
+  const completed = await prisma.weeklyScraperExecution.findFirst({
+    where: {
+      target_week: weekStart,
+      source_group: 'comparative_synthesis',
+      status: 'completed',
+    },
+  });
+  return completed !== null;
+}
+
+async function hasRunningWeeklySynthesisExecution(weekStart: Date): Promise<boolean> {
+  const running = await prisma.weeklyScraperExecution.findFirst({
+    where: {
+      target_week: weekStart,
+      source_group: 'comparative_synthesis',
+      status: 'running',
+    },
+  });
+  return running !== null;
+}
+
+// ============================================================================
+// DAILY COMPARATIVE SYNTHESIS — 8:10 AM CET
+// Gira subito dopo la finestra principale (5:30-8:00) + il job dedicato di
+// Vogue (7:30), per scelta esplicita di freschezza sulla completezza: Corriere
+// della Sera (pubblica dopo le 10:00) sarà quasi sempre escluso dalla sintesi
+// del giorno. Legge da HoroscopeData già popolato dal path individuale —
+// non ri-scrapa.
+// ============================================================================
+async function executeDailyComparativeSynthesis() {
+  if (!isComparativeSynthesisEnabled()) return;
+
+  let executionId: number | null = null;
+  try {
+    if (await hasCompletedSynthesisToday()) return;
+    if (await hasRunningSynthesisExecution()) return;
+
+    const targetDate = getItalyToday();
+    const targetDateObj = new Date(targetDate + 'T00:00:00.000Z');
+
+    const execution = await prisma.scraperExecution.create({
+      data: {
+        status: 'running',
+        target_date: targetDateObj,
+        trigger_type: 'comparative_synthesis',
+        started_at: new Date(),
+      },
+    });
+    executionId = execution.id;
+
+    const stats = await runDailyComparativeSynthesisCycle(targetDate);
+
+    await prisma.scraperExecution.update({
+      where: { id: executionId },
+      data: {
+        status: 'completed',
+        completed_at: new Date(),
+        total_jobs_enqueued: stats.processedSigns,
+        successful_jobs: stats.processedSigns,
+        failed_jobs: stats.skippedSigns,
+      },
+    });
+  } catch (error) {
+    console.error('[ComparativeSynthesis][Daily] ✗ Error:', error);
+    if (executionId) {
+      await prisma.scraperExecution.update({
+        where: { id: executionId },
+        data: {
+          status: 'failed',
+          completed_at: new Date(),
+          error_message: error instanceof Error ? error.message : 'Unknown error',
+        },
+      }).catch(() => {});
+    }
+  }
+}
+
+// ============================================================================
+// WEEKLY COMPARATIVE SYNTHESIS — Lunedì 8:10 AM CET
+// Gira subito dopo la finestra principale weekly di lunedì (5:30-8:00), per
+// scelta esplicita di freschezza sulla completezza: ELLE (giovedì) e
+// l'aggiornamento del gruppo Saturday (sabato) non saranno mai inclusi nella
+// sintesi di quella settimana. Legge da WeeklyHoroscopeData già popolato dal
+// path individuale — non ri-scrapa.
+// ============================================================================
+async function executeWeeklyComparativeSynthesis() {
+  if (!isComparativeSynthesisEnabled()) return;
+
+  let executionId: number | null = null;
+  try {
+    const weekStart = getCurrentWeekStart();
+
+    if (await hasCompletedWeeklySynthesisForWeek(weekStart)) return;
+    if (await hasRunningWeeklySynthesisExecution(weekStart)) return;
+
+    const execution = await prisma.weeklyScraperExecution.create({
+      data: {
+        status: 'running',
+        target_week: weekStart,
+        source_group: 'comparative_synthesis',
+        trigger_type: 'comparative_synthesis',
+        started_at: new Date(),
+      },
+    });
+    executionId = execution.id;
+
+    const stats = await runWeeklyComparativeSynthesisCycle(weekStart);
+
+    await prisma.weeklyScraperExecution.update({
+      where: { id: executionId },
+      data: {
+        status: 'completed',
+        completed_at: new Date(),
+        total_jobs_enqueued: stats.processedSigns,
+        successful_jobs: stats.processedSigns,
+        failed_jobs: stats.skippedSigns,
+      },
+    });
+  } catch (error) {
+    console.error('[ComparativeSynthesis][Weekly] ✗ Error:', error);
+    if (executionId) {
+      await prisma.weeklyScraperExecution.update({
+        where: { id: executionId },
+        data: {
+          status: 'failed',
+          completed_at: new Date(),
+          error_message: error instanceof Error ? error.message : 'Unknown error',
+        },
+      }).catch(() => {});
+    }
+  }
+}
+
+// ============================================================================
 // CRON INITIALIZATION
 // ============================================================================
 
@@ -817,6 +987,25 @@ export async function initializeScheduledTasks() {
   cron.schedule('0 9 * * 2',  executeWeeklyFallbackRetry, { timezone: 'Europe/Rome' }); // Mar 09:00
   cron.schedule('0 9 * * 3',  executeWeeklyFallbackRetry, { timezone: 'Europe/Rome' }); // Mer 09:00
   cron.schedule('0 16 * * 4', executeWeeklyFallbackRetry, { timezone: 'Europe/Rome' }); // Gio 16:00 (ELLE retry)
+
+  // ============================================================================
+  // DAILY COMPARATIVE SYNTHESIS (Campo 4) — 8:10 AM CET
+  // Subito dopo la finestra principale (5:30-8:00) e il job dedicato di Vogue
+  // (7:30). Corriere (10:00) non sarà quasi mai incluso — scelta esplicita.
+  // ============================================================================
+  cron.schedule('10 8 * * *', executeDailyComparativeSynthesis, {
+    timezone: 'Europe/Rome'
+  });
+
+  // ============================================================================
+  // WEEKLY COMPARATIVE SYNTHESIS — Lunedì 8:10 AM CET
+  // Subito dopo la finestra principale weekly di lunedì (5:30-8:00). ELLE
+  // (giovedì) e l'aggiornamento Saturday group (sabato) non saranno mai
+  // inclusi in quella settimana — scelta esplicita.
+  // ============================================================================
+  cron.schedule('10 8 * * 1', executeWeeklyComparativeSynthesis, {
+    timezone: 'Europe/Rome'
+  });
 
   // ============================================================================
   // CLEANUP SCHEDULER
