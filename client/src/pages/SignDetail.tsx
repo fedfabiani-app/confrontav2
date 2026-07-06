@@ -10,7 +10,6 @@ import {
   Heart,
   Briefcase,
   Leaf,
-  Star,
   ExternalLink,
   Share,
   ChevronDown,
@@ -22,6 +21,7 @@ import {
 } from "lucide-react";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { AppHeader } from "@/components/AppHeader";
+import { StarRating } from "@/components/StarRating";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useFavorites } from "@/hooks/use-favorites";
@@ -242,6 +242,12 @@ function SignDetail({ sign }: SignDetailProps) {
       month: 'long',
       day: 'numeric',
     });
+  };
+
+  // Confronto sul giorno di calendario a Roma (Europe/Rome), non sull'orario locale del device
+  const isSelectedDateToday = (date: Date): boolean => {
+    const romeDateString = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'Europe/Rome' });
+    return romeDateString(date) === romeDateString(new Date());
   };
 
   // Helper function to format week range in Italian
@@ -700,8 +706,8 @@ function SignDetail({ sign }: SignDetailProps) {
       <CardContent className="p-2 md:p-4">
         <div className="flex flex-col md:flex-row items-center md:justify-between">
           <div className="text-center md:text-left">
-            <p className="text-xs md:text-sm text-muted-foreground font-bold">Relazioni</p>
-            <p className="text-lg md:text-2xl font-bold text-card-foreground">
+            <p className="text-xs md:text-sm text-white font-bold">Relazioni</p>
+            <p className="text-base md:text-xl font-bold text-card-foreground">
               {currentAggregate?.avgRelazioni !== null ? currentAggregate?.avgRelazioni?.toFixed(1) : 'N/A'}
             </p>
           </div>
@@ -716,8 +722,8 @@ function SignDetail({ sign }: SignDetailProps) {
       <CardContent className="p-2 md:p-4">
         <div className="flex flex-col md:flex-row items-center md:justify-between">
           <div className="text-center md:text-left">
-            <p className="text-xs md:text-sm text-muted-foreground font-bold">Lavoro</p>
-            <p className="text-lg md:text-2xl font-bold text-card-foreground">
+            <p className="text-xs md:text-sm text-white font-bold">Lavoro</p>
+            <p className="text-base md:text-xl font-bold text-card-foreground">
               {currentAggregate?.avgLavoro !== null ? currentAggregate?.avgLavoro?.toFixed(1) : 'N/A'}
             </p>
           </div>
@@ -732,8 +738,8 @@ function SignDetail({ sign }: SignDetailProps) {
       <CardContent className="p-2 md:p-4">
         <div className="flex flex-col md:flex-row items-center md:justify-between">
           <div className="text-center md:text-left">
-            <p className="text-xs md:text-sm text-muted-foreground font-bold">Benessere</p>
-            <p className="text-lg md:text-2xl font-bold text-card-foreground">
+            <p className="text-xs md:text-sm text-white font-bold">Benessere</p>
+            <p className="text-base md:text-xl font-bold text-card-foreground">
               {currentAggregate?.avgBenessere !== null ? currentAggregate?.avgBenessere?.toFixed(1) : 'N/A'}
             </p>
           </div>
@@ -747,22 +753,11 @@ function SignDetail({ sign }: SignDetailProps) {
     <Card className="border-2">
       <CardContent className="p-2 md:p-4">
         <div className="flex items-center justify-center gap-3 md:gap-4">
-          <span className="text-xs md:text-sm text-muted-foreground font-bold">Media Generale</span>
-          <span className="text-lg md:text-2xl font-bold text-[#E1B64E] fill-[#E1B64E]'">
+          <span className="text-base md:text-xl font-bold text-card-foreground">Media Generale</span>
+          <span className="text-xl md:text-3xl font-bold text-[#E1B64E]">
             {currentAggregate?.overallAverage?.toFixed(1) || 'N/A'}
           </span>
-          <div className="flex">
-            {[...Array(5)].map((_, i) => (
-              <Star
-                key={i}
-                className={`w-3 h-3 md:w-4 md:h-4 ${
-                  i < Math.round(currentAggregate?.overallAverage || 0)
-                    ? 'text-[#E1B64E] fill-[#E1B64E]'
-                    : 'text-gray-300'
-                }`}
-              />
-            ))}
-          </div>
+          <StarRating rating={currentAggregate?.overallAverage || 0} size="lg" />
         </div>
       </CardContent>
     </Card>
@@ -837,13 +832,13 @@ function SignDetail({ sign }: SignDetailProps) {
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-3 pb-8">
           {/* Daily/Weekly Toggle Selector */}
           <div className="flex flex-col items-center mb-4 space-y-4">
-            <div className="inline-flex bg-gray-200 dark:bg-gray-800 rounded-full p-1 w-full max-w-md">
+            <div className="inline-flex bg-indigo-950 border border-indigo-800 rounded-full p-1 w-full max-w-md">
               <button
                 onClick={() => setViewType("daily")}
                 className={`flex-1 py-2 px-6 rounded-full font-medium transition-all ${
                   viewType === "daily"
-                    ? "bg-[#E1B64E] dark:bg-gray-700 text-gray-900 dark:text-white shadow-md"
-                    : "text-gray-600 dark:text-gray-400"
+                    ? "bg-[#E1B64E] text-gray-900 shadow-md"
+                    : "text-indigo-300"
                 }`}
                 data-testid="button-daily-view"
               >
@@ -853,8 +848,8 @@ function SignDetail({ sign }: SignDetailProps) {
                 onClick={() => setViewType("weekly")}
                 className={`flex-1 py-2 px-6 rounded-full font-medium transition-all ${
                   viewType === "weekly"
-                    ? "bg-[#E1B64E] dark:bg-gray-700 text-gray-900 dark:text-white shadow-md"
-                    : "text-gray-600 dark:text-gray-400"
+                    ? "bg-[#E1B64E] text-gray-900 shadow-md"
+                    : "text-indigo-300"
                 }`}
                 data-testid="button-weekly-view"
               >
@@ -887,7 +882,7 @@ function SignDetail({ sign }: SignDetailProps) {
         >
           <Moon className="w-5 h-5 text-[#E1B64E]" />
           <span className="text-indigo-100 font-semibold text-base">
-            {formatDate(selectedDate)}
+            {isSelectedDateToday(selectedDate) ? `Oggi · ${formatDate(selectedDate)}` : formatDate(selectedDate)}
           </span>
         </button>
       </PopoverTrigger>
@@ -946,47 +941,48 @@ function SignDetail({ sign }: SignDetailProps) {
           </div>
 
         {/* "Il quadro di oggi"/"della settimana" — daily e weekly. Quando
-            esiste la sintesi comparativa, i voti (Relazioni/Lavoro/Benessere/
-            Media Generale) sono nested DENTRO questa stessa card, sotto un
-            divider. Graceful degradation: senza sintesi, i voti restano una
-            griglia standalone come prima, nessuna card extra. */}
+            esiste la sintesi comparativa, i voti sono nested DENTRO questa
+            stessa card: Media Generale sempre visibile subito sotto il
+            consenso, Relazioni/Lavoro/Benessere come dettaglio sotto un
+            divider, visibili solo ad accordion aperto. Graceful degradation:
+            senza sintesi, i voti restano una griglia standalone come prima,
+            nessuna card extra. */}
         {currentComparativeSynthesis ? (
           <Card className="border-2 mb-4 relative">
             <CardContent className="p-4">
               <details className="group">
                 <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-                  {/* Bottone apri/chiudi in alto a destra, stile coerente con le sign cards */}
-                  <div className="absolute top-3 right-3 p-1 h-8 w-8 flex items-center justify-center rounded-md hover:bg-gray-50 dark:hover:bg-gray-800">
-                    <ChevronDown className="w-4 h-4 text-[#E1B64E] transition-transform duration-200 group-open:rotate-180" />
-                  </div>
-                  <h2 className="text-base md:text-xl font-bold text-[#E1B64E] mb-2 pr-10">
+                  <h2 className="text-base md:text-xl font-bold text-[#E1B64E] mb-2">
                     {viewType === "daily" ? "Il quadro di oggi" : "Il quadro della settimana"}
                   </h2>
-                  <p className="text-sm text-card-foreground leading-relaxed italic pr-10">{currentComparativeSynthesis.consenso}</p>
+                  <p className="text-sm text-card-foreground leading-relaxed italic">{currentComparativeSynthesis.consenso}</p>
+                  {/* Approfondimento: stesso testo di prima, ma mostrato/nascosto via
+                      group-open (invece che via posizione fuori/dentro <details>) per
+                      poter mettere la Media Generale sotto TUTTO il testo pur restando
+                      sempre visibile, aperta o chiusa. */}
+                  <p className="hidden group-open:block mt-2 text-sm text-card-foreground leading-relaxed italic">
+                    {currentComparativeSynthesis.approfondimento}
+                  </p>
+                  {/* Media Generale: blocco di sintesi principale, sotto tutto il testo, sempre visibile, accordion aperto o chiuso */}
+                  {mediaGeneraleBox && <div className="mt-4">{mediaGeneraleBox}</div>}
                   <span className="block text-right text-sm text-[#E1B64E] font-semibold mt-2 hover:underline group-open:hidden">
                     Leggi tutto ›
                   </span>
                 </summary>
-                {/* Cliccando su approfondimento/griglia voti si richiude l'accordion,
-                    come cliccando sul bottone/riepilogo in alto. */}
-                <div
-                  className="cursor-pointer"
-                  onClick={(e) => {
-                    const details = e.currentTarget.closest('details');
-                    if (details) details.open = false;
-                  }}
-                >
-                  <p className="mt-2 text-sm text-card-foreground leading-relaxed italic">{currentComparativeSynthesis.approfondimento}</p>
-                  {/* Relazioni/Lavoro/Benessere: visibili SOLO ad accordion aperto */}
-                  {threeRatingsGrid && <div className="mt-4">{threeRatingsGrid}</div>}
-                </div>
+                {/* Relazioni/Lavoro/Benessere: dettaglio sotto la Media Generale, visibili SOLO ad accordion aperto.
+                    Cliccando qui si richiude l'accordion, come cliccando sul riepilogo in alto. */}
+                {threeRatingsGrid && (
+                  <div
+                    className="cursor-pointer border-t border-gray-200 dark:border-gray-700 mt-4 pt-4"
+                    onClick={(e) => {
+                      const details = e.currentTarget.closest('details');
+                      if (details) details.open = false;
+                    }}
+                  >
+                    {threeRatingsGrid}
+                  </div>
+                )}
               </details>
-              {/* Media Generale: sempre visibile, accordion aperto o chiuso */}
-              {mediaGeneraleBox && (
-                <div className="border-t border-gray-200 dark:border-gray-700 mt-4 pt-4">
-                  {mediaGeneraleBox}
-                </div>
-              )}
             </CardContent>
           </Card>
         ) : (
@@ -1039,12 +1035,12 @@ function SignDetail({ sign }: SignDetailProps) {
                           e.stopPropagation();
                           toggleFavorite(horoscope.source.id);
                         }}
-                        className="p-1 h-8 w-8 hover:bg-pink-50 dark:hover:bg-pink-900/20"
+                        className="p-1 h-11 w-11 hover:bg-pink-50 dark:hover:bg-pink-900/20"
                         data-testid={`button-favorite-${horoscope.source.id}`}
                         title={isFavorite(horoscope.source.id) ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
                       >
                         <Heart
-                          className={`w-4 h-4 transition-colors ${
+                          className={`w-5 h-5 transition-colors ${
                             isFavorite(horoscope.source.id)
                               ? 'fill-pink-500 text-pink-500'
                               : 'text-gray-400 hover:text-pink-500'
@@ -1059,12 +1055,12 @@ function SignDetail({ sign }: SignDetailProps) {
                           e.stopPropagation();
                           handleShare();
                         }}
-                        className="p-1 h-8 w-8 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                        className="p-1 h-11 w-11 hover:bg-blue-50 dark:hover:bg-blue-900/20"
                         data-testid={`button-share-${horoscope.source.id}`}
                         title="Condividi questo oroscopo"
                         aria-label="Condividi"
                       >
-                        <Share className="w-4 h-4 text-gray-400 hover:text-blue-500 transition-colors" />
+                        <Share className="w-5 h-5 text-gray-400 hover:text-blue-500 transition-colors" />
                       </Button>
                       {/* Collapse Toggle Button */}
                       <Button
@@ -1074,12 +1070,12 @@ function SignDetail({ sign }: SignDetailProps) {
                           e.stopPropagation();
                           toggleCollapse(horoscope.source.id);
                         }}
-                        className="p-1 h-8 w-8 hover:bg-gray-50 dark:hover:bg-gray-800"
+                        className="p-1 h-11 w-11 hover:bg-gray-50 dark:hover:bg-gray-800"
                         data-testid={`button-collapse-${horoscope.source.id}`}
                         title={isCollapsed ? 'Espandi scheda' : 'Comprimi scheda'}
                       >
                         <ChevronDown
-                          className={`w-4 h-4 text-gray-400 hover:text-gray-600 transition-all duration-200 ${
+                          className={`w-5 h-5 text-gray-400 hover:text-gray-600 transition-all duration-200 ${
                             isCollapsed ? 'rotate-180' : 'rotate-0'
                           }`}
                         />
@@ -1092,7 +1088,7 @@ function SignDetail({ sign }: SignDetailProps) {
   <>
     <p className="text-[13px] text-amber-300/90 mb-1 pr-2">La nostra sintesi:</p>
     <div className="px-4 py-2 rounded-r-md border-l-4" style={{ backgroundColor: 'var(--superquote-bg)', borderLeftColor: 'var(--header-gold)' }}>
-      <p className="text-sm font-italic text-white/90 leading-relaxed italic">
+      <p className="text-sm font-normal text-white/90 leading-relaxed">
         {horoscope.superquote}
       </p>
     </div>
