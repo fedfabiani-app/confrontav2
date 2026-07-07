@@ -1,7 +1,7 @@
 import cron from 'node-cron';
 import { cleanupService } from './services/cleanup';
 import { cleanupTracker } from './services/cleanupTracker';
-import { getDailyScraperConfig, getWeeklyScraperConfig, isWithinTimeWindow, getItalyToday } from './config/scraperConfig';
+import { getDailyScraperConfig, getWeeklyScraperConfig, getComparativeSynthesisConfig, getWeeklyComparativeSynthesisConfig, isWithinTimeWindow, getItalyToday } from './config/scraperConfig';
 import { prisma } from './services/database';
 import { runDailyScraperCycle } from './services/dailyScraperOrchestrator';
 import { 
@@ -730,8 +730,14 @@ async function executeWeeklyFallbackRetry() {
 // HELPER FUNCTIONS - COMPARATIVE SYNTHESIS (Campo 4 "Le stelle dicono")
 // ============================================================================
 
-function isComparativeSynthesisEnabled(): boolean {
-  return process.env.COMPARATIVE_SYNTHESIS_ENABLED !== 'false';
+async function isDailyComparativeSynthesisEnabled(): Promise<boolean> {
+  const config = await getComparativeSynthesisConfig();
+  return config.enabled;
+}
+
+async function isWeeklyComparativeSynthesisEnabled(): Promise<boolean> {
+  const config = await getWeeklyComparativeSynthesisConfig();
+  return config.enabled;
 }
 
 async function hasCompletedSynthesisToday(): Promise<boolean> {
@@ -789,7 +795,7 @@ async function hasRunningWeeklySynthesisExecution(weekStart: Date): Promise<bool
 // non ri-scrapa.
 // ============================================================================
 async function executeDailyComparativeSynthesis() {
-  if (!isComparativeSynthesisEnabled()) return;
+  if (!(await isDailyComparativeSynthesisEnabled())) return;
 
   let executionId: number | null = null;
   try {
@@ -845,7 +851,7 @@ async function executeDailyComparativeSynthesis() {
 // path individuale — non ri-scrapa.
 // ============================================================================
 async function executeWeeklyComparativeSynthesis() {
-  if (!isComparativeSynthesisEnabled()) return;
+  if (!(await isWeeklyComparativeSynthesisEnabled())) return;
 
   let executionId: number | null = null;
   try {
