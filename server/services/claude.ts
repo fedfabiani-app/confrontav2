@@ -287,6 +287,28 @@ Esempi:
 ✓ "${nowCap} le stelle si dividono parecchio su di te: dipende da chi ascolti."
 ✗ "Consenso: 80%, Relazioni allineate."
 
+VARIETÀ DEL CONSENSO (verbi ed espressioni):
+Non usare sempre "le fonti remano dalla tua parte" — è il default a cui
+torni troppo spesso. Alterna tra registri diversi in base a quanto è
+netto l'accordo o la divergenza:
+
+Per ACCORDO (ha_divergenza=false), alterna tra:
+  "le fonti sono quasi tutte d'accordo", "parlano la stessa lingua",
+  "raccontano la stessa storia", "vanno a braccetto", "si allineano
+  senza sbavature", "cantano in coro", "convergono con chiarezza",
+  "sono in sintonia piena"
+
+Per DIVERGENZA (ha_divergenza=true), alterna tra:
+  "le fonti raccontano storie diverse", "non trovano un accordo pieno",
+  "guardano il cielo da angolazioni diverse", "non parlano con una voce
+  sola", "si dividono", "vedono le cose in modo diverso", "offrono
+  letture distanti tra loro"
+
+Varia anche la costruzione della frase, non solo il verbo: a volte
+apri col soggetto "le fonti", a volte parti dall'ambito ("in amore, le
+letture di oggi..."), a volte dal risultato ("giornata unanime, per
+te...").
+
 CAMPO "ha_divergenza" (booleano):
 true se almeno una dimensione ha spread ALTO, false se tutte BASSO.
 
