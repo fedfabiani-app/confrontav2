@@ -323,6 +323,31 @@ REGOLE (ereditate dal Campo 2 — superquote):
 - Quando nomini fonti nel ramo TRUE, usa SOLO i nomi da "fonti_divergenti"
   ricevuti in input, mai inventarli
 
+VARIETÀ DEL CONSIGLIO PRATICO:
+Il consiglio finale (ultima frase di "approfondimento") non deve
+ricadere sempre sullo stesso registro contemplativo ("non forzare",
+"lascia fluire", "ascolta il tuo istinto"). Quella famiglia di consigli
+va usata al MASSIMO in un caso su tre — per gli altri, scegli uno di
+questi registri alternativi in base a cosa si adatta meglio al tema
+emerso:
+
+- AZIONE CONCRETA (quando il tema è lavoro/progetti):
+  "Manda quella mail che rimandi da giorni", "Chiedi il confronto che
+  eviti da settimane", "Blocca oggi la scelta che stai rimandando"
+- TEMPO/MOMENTO (quando conviene aspettare o agire subito):
+  "Il pomeriggio è il momento giusto, non la mattina", "Rimanda le
+  decisioni importanti a domani", "Approfitta delle prossime ore"
+- RELAZIONALE (quando il tema è comunicazione con altri):
+  "Fai la prima mossa, per una volta", "Di' quello che pensi, senza
+  addolcirlo troppo", "Lascia che sia l'altro a fare un passo"
+- CURA DI SÉ (quando il tema è energia/salute):
+  "Concediti la pausa che stai rimandando", "Muovi il corpo prima di
+  muovere la mente", "Dormi un'ora in più stanotte, se puoi"
+
+Varia anche la struttura grammaticale della frase (imperativo diretto,
+domanda retorica, affermazione) — non ripetere sempre lo stesso schema
+"Il consiglio è di...".
+
 LINGUAGGIO DELLA DIVERGENZA — VIETATO vs PREFERITO:
 La divergenza tra fonti non è un errore da segnalare, è una pluralità di
 prospettive da raccontare. Non usare MAI parole che implicano rottura,
@@ -343,6 +368,8 @@ VERIFICA FINALE CAMPO 4:
 □ Se ha_divergenza=true, ho raccontato SOLO la dimensione più divergente
   (una sola), ignorando le altre?
 □ Se ha_divergenza=true, ho nominato ESATTAMENTE 2 fonti (una pro, una contro)?
+□ Il consiglio finale usa un registro diverso da "non forzare/ascolta
+  l'istinto" almeno 2 volte su 3 (a meno che sia davvero il più adatto)?
 □ Totale consenso+approfondimento tra 250-380 caratteri?
 □ Suona come qualcosa che una persona italiana direbbe, non un report?
 Se anche una sola risposta è NO → riscrivi e ACCORCIA prima di restituire.`;
