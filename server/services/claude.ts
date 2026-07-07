@@ -471,7 +471,11 @@ function findPrincipalDimension(spreads: DimensionSpread[]): DimensionSpread | n
   return high.reduce((max, s) => (s.stddev > max.stddev ? s : max));
 }
 
-function formatCampo4InputBlock(spreads: DimensionSpread[], principal: DimensionSpread | null): string {
+function formatCampo4InputBlock(
+  spreads: DimensionSpread[],
+  principal: DimensionSpread | null,
+  realSuperquotes: string[]
+): string {
   const lines = spreads.map(s => {
     const label = DIMENSION_LABELS_IT[s.dimension];
     const level = s.isHigh ? 'ALTO' : 'BASSO';
@@ -481,7 +485,12 @@ function formatCampo4InputBlock(spreads: DimensionSpread[], principal: Dimension
     ? `\n\nDIMENSIONE PRINCIPALE DIVERGENTE (spread più alto tra le ALTO): ${DIMENSION_LABELS_IT[principal.dimension]}` +
       (principal.outlierSourceNames.length > 0 ? ` — fonti in disaccordo: ${principal.outlierSourceNames.join(', ')}` : '')
     : '';
-  return `DATI CALCOLATI PER IL CAMPO 4 (non modificare, usa solo per narrare):\n${lines.join('\n')}${principalLine}`;
+  // Sostituisce la cronologia della prima chiamata (rimossa per costo): le superquote
+  // reali bastano a far rispettare "varia l'attacco" senza rimandare i testi originali.
+  const superquoteBlock = realSuperquotes.length > 0
+    ? `\n\nSuperquote già generate per questo segno (varia l'attacco, non ripetere lo stesso incipit):\n${realSuperquotes.map(s => `- ${s}`).join('\n')}`
+    : '';
+  return `DATI CALCOLATI PER IL CAMPO 4 (non modificare, usa solo per narrare):\n${lines.join('\n')}${principalLine}${superquoteBlock}`;
 }
 
 export async function processHoroscopeWithAI(input: OpenAIInput): Promise<OpenAIOutput> {
@@ -894,7 +903,7 @@ export async function processMultiSourceHoroscope(
   // periodType. Isolato in try/catch: un suo fallimento non deve mai
   // compromettere i risultati Campo 1-3 già pronti per il salvataggio.
   try {
-    await generateAndSaveComparativeSynthesis(inputs, results, response, toolBlock, userMessage, periodType);
+    await generateAndSaveComparativeSynthesis(inputs, results, periodType);
   } catch (err) {
     console.error('[Claude Batch] Comparative synthesis (Campo 4) failed:', err);
   }
@@ -905,9 +914,6 @@ export async function processMultiSourceHoroscope(
 async function generateAndSaveComparativeSynthesis(
   inputs: OpenAIInput[],
   results: OpenAIOutput[],
-  firstResponse: Anthropic.Messages.Message,
-  firstToolBlock: Anthropic.Messages.ToolUseBlock,
-  firstUserMessage: string,
   periodType: 'daily' | 'weekly'
 ): Promise<void> {
   const dimensionSpreads = SYNTHESIS_DIMENSIONS.map(dimension =>
@@ -926,8 +932,15 @@ async function generateAndSaveComparativeSynthesis(
   // prompt autorizza Haiku a nominare fonti (v. CAMPO4_BLOCK, ramo TRUE).
   const fontiDivergenti = principalDimension?.outlierSourceNames ?? [];
 
+  // Superquote reali (esclusi i fallback, che pescano tutti da FALLBACK_SUPERQUOTES) —
+  // usate per far rispettare "varia l'attacco" senza dover rimandare la cronologia
+  // della prima chiamata (costosa: testi originali + intero output JSON per-fonte).
+  const realSuperquotes = results
+    .map(r => r.superquote)
+    .filter(sq => !FALLBACK_SUPERQUOTES.includes(sq));
+
   const periodNoun = periodType === 'daily' ? 'giorno' : 'settimana';
-  const campo4UserText = `${formatCampo4InputBlock(dimensionSpreads, principalDimension)}\n\nGenera ora il Campo 4 "Le stelle dicono" per questo segno/${periodNoun} usando lo strumento extract_comparative_synthesis.`;
+  const campo4UserText = `${formatCampo4InputBlock(dimensionSpreads, principalDimension, realSuperquotes)}\n\nGenera ora il Campo 4 "Le stelle dicono" per questo segno/${periodNoun} usando lo strumento extract_comparative_synthesis.`;
 
   const systemPromptForPeriod = periodType === 'daily' ? SYSTEM_PROMPT_WITH_CAMPO4_DAILY : SYSTEM_PROMPT_WITH_CAMPO4_WEEKLY;
 
@@ -941,21 +954,7 @@ async function generateAndSaveComparativeSynthesis(
         cache_control: { type: 'ephemeral' as const },
       },
     ],
-    messages: [
-      { role: 'user', content: firstUserMessage },
-      { role: 'assistant', content: firstResponse.content },
-      {
-        role: 'user',
-        content: [
-          {
-            type: 'tool_result' as const,
-            tool_use_id: firstToolBlock.id,
-            content: 'Dati per-fonte ricevuti e salvati.',
-          },
-          { type: 'text' as const, text: campo4UserText },
-        ],
-      },
-    ],
+    messages: [{ role: 'user', content: campo4UserText }],
     tools: [
       {
         name: 'extract_comparative_synthesis',
