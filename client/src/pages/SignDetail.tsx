@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, Fragment } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,7 +10,6 @@ import {
   Heart,
   Briefcase,
   Leaf,
-  Star,
   ExternalLink,
   Share,
   ChevronDown,
@@ -22,6 +21,7 @@ import {
 } from "lucide-react";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { AppHeader } from "@/components/AppHeader";
+import { StarRating } from "@/components/StarRating";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useFavorites } from "@/hooks/use-favorites";
@@ -70,6 +70,12 @@ interface HoroscopeAggregate {
   avgBenessere: number | null;
   overallAverage: number | null;
   majorityTone?: "positive" | "neutral" | "negative";
+}
+
+interface ComparativeSynthesis {
+  consenso: string;
+  approfondimento: string;
+  ha_divergenza: boolean;
 }
 
 const signColors = {
@@ -236,6 +242,12 @@ function SignDetail({ sign }: SignDetailProps) {
       month: 'long',
       day: 'numeric',
     });
+  };
+
+  // Confronto sul giorno di calendario a Roma (Europe/Rome), non sull'orario locale del device
+  const isSelectedDateToday = (date: Date): boolean => {
+    const romeDateString = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'Europe/Rome' });
+    return romeDateString(date) === romeDateString(new Date());
   };
 
   // Helper function to format week range in Italian
@@ -406,6 +418,19 @@ function SignDetail({ sign }: SignDetailProps) {
     enabled: viewType === "daily",
   });
 
+  // Fetch comparative synthesis ("Le stelle dicono") for this sign — daily only
+  const { data: comparativeSynthesis } = useQuery<ComparativeSynthesis | null>({
+    queryKey: ["/api/comparative-synthesis", today, sign],
+    queryFn: async () => {
+      const response = await fetch(
+        `/api/comparative-synthesis?date=${today}&sign=${sign}`,
+      );
+      if (!response.ok) throw new Error("Failed to fetch comparative synthesis");
+      return response.json();
+    },
+    enabled: viewType === "daily",
+  });
+
   // Fetch weekly horoscope data
   const { data: weeklyHoroscopes = [], isLoading: weeklyHoroscopesLoading, error: weeklyHoroscopesError } = useQuery<
     HoroscopeData[]
@@ -429,6 +454,19 @@ function SignDetail({ sign }: SignDetailProps) {
         `/api/weekly-horoscopes/aggregate?weekStartDate=${weekStartDate}&sign=${sign}`,
       );
       if (!response.ok) throw new Error("Failed to fetch weekly aggregate");
+      return response.json();
+    },
+    enabled: viewType === "weekly",
+  });
+
+  // Fetch weekly comparative synthesis ("Il quadro della settimana")
+  const { data: weeklyComparativeSynthesis } = useQuery<ComparativeSynthesis | null>({
+    queryKey: ["/api/weekly-comparative-synthesis", weekStartDate, sign],
+    queryFn: async () => {
+      const response = await fetch(
+        `/api/weekly-comparative-synthesis?weekStartDate=${weekStartDate}&sign=${sign}`,
+      );
+      if (!response.ok) throw new Error("Failed to fetch weekly comparative synthesis");
       return response.json();
     },
     enabled: viewType === "weekly",
@@ -595,6 +633,153 @@ function SignDetail({ sign }: SignDetailProps) {
   const currentHoroscopes = viewType === "daily" ? horoscopes : weeklyHoroscopes;
   const currentSign = zodiacSign; // Renamed for clarity with the fetched sign data
 
+  // Box dei voti (Relazioni/Lavoro/Benessere/Media Generale) — definiti come
+  // pezzi singoli e ricombinati in due modi:
+  // - standalone (ratingsGrid): weekly, o daily senza ancora sintesi
+  //   comparativa — griglia unica sempre visibile, come prima.
+  // - dentro la card "Le stelle dicono" (daily con sintesi): Relazioni/
+  //   Lavoro/Benessere visibili SOLO ad accordion aperto, Media Generale
+  //   sempre visibile sia aperto che chiuso.
+  const currentAggregate = viewType === "daily" ? aggregate : weeklyAggregate;
+  const currentComparativeSynthesis = viewType === "daily" ? comparativeSynthesis : weeklyComparativeSynthesis;
+
+  const relazioniBox = currentAggregate && (
+    <Card className="border-2">
+      <CardContent className="p-2 md:p-4">
+        <div className="flex flex-col md:flex-row items-center md:justify-between">
+          <div className="text-center md:text-left">
+            <p className="text-xs md:text-sm text-muted-foreground font-bold">Relazioni</p>
+            <p className="text-lg md:text-2xl font-bold text-card-foreground">
+              {currentAggregate?.avgRelazioni !== null ? currentAggregate?.avgRelazioni?.toFixed(1) : 'N/A'}
+            </p>
+          </div>
+          <div className="w-8 h-8 md:w-12 md:h-12 bg-pink-100 rounded-full flex items-center justify-center mt-1 md:mt-0">
+            <Heart className="text-pink-700 w-4 h-4 md:w-6 md:h-6" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const lavoroBox = currentAggregate && (
+    <Card className="border-2">
+      <CardContent className="p-2 md:p-4">
+        <div className="flex flex-col md:flex-row items-center md:justify-between">
+          <div className="text-center md:text-left">
+            <p className="text-xs md:text-sm text-muted-foreground font-bold">Lavoro</p>
+            <p className="text-lg md:text-2xl font-bold text-card-foreground">
+              {currentAggregate?.avgLavoro !== null ? currentAggregate?.avgLavoro?.toFixed(1) : 'N/A'}
+            </p>
+          </div>
+          <div className="w-8 h-8 md:w-12 md:h-12 bg-[#C4B5E0]/20 rounded-full flex items-center justify-center mt-1 md:mt-0">
+            <Briefcase className="text-[#C4B5E0] w-4 h-4 md:w-6 md:h-6" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const benessereBox = currentAggregate && (
+    <Card className="border-2">
+      <CardContent className="p-2 md:p-4">
+        <div className="flex flex-col md:flex-row items-center md:justify-between">
+          <div className="text-center md:text-left">
+            <p className="text-xs md:text-sm text-muted-foreground font-bold">Benessere</p>
+            <p className="text-lg md:text-2xl font-bold text-card-foreground">
+              {currentAggregate?.avgBenessere !== null ? currentAggregate?.avgBenessere?.toFixed(1) : 'N/A'}
+            </p>
+          </div>
+          <div className="w-8 h-8 md:w-12 md:h-12 bg-green-100 rounded-full flex items-center justify-center mt-1 md:mt-0">
+            <Leaf className="text-green-700 w-4 h-4 md:w-6 md:h-6" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  // Varianti "flat" (senza cerchio colorato di sfondo dietro l'icona), usate
+  // SOLO dentro la card sintesi comparativa (threeRatingsGrid) — coerenti con
+  // lo stile icona nuda già usato nelle source card. La griglia standalone
+  // (ratingsGrid, weekly/no-sintesi) mantiene i box con cerchio invariati.
+  const relazioniBoxFlat = currentAggregate && (
+    <Card className="border-2">
+      <CardContent className="p-2 md:p-4">
+        <div className="flex flex-col md:flex-row items-center md:justify-between">
+          <div className="text-center md:text-left">
+            <p className="text-xs md:text-sm text-white font-bold">Relazioni</p>
+            <p className="text-base md:text-xl font-bold text-card-foreground">
+              {currentAggregate?.avgRelazioni !== null ? currentAggregate?.avgRelazioni?.toFixed(1) : 'N/A'}
+            </p>
+          </div>
+          <Heart className="text-pink-700 w-4 h-4 md:w-6 md:h-6 mt-1 md:mt-0" />
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const lavoroBoxFlat = currentAggregate && (
+    <Card className="border-2">
+      <CardContent className="p-2 md:p-4">
+        <div className="flex flex-col md:flex-row items-center md:justify-between">
+          <div className="text-center md:text-left">
+            <p className="text-xs md:text-sm text-white font-bold">Lavoro</p>
+            <p className="text-base md:text-xl font-bold text-card-foreground">
+              {currentAggregate?.avgLavoro !== null ? currentAggregate?.avgLavoro?.toFixed(1) : 'N/A'}
+            </p>
+          </div>
+          <Briefcase className="text-[#C4B5E0] w-4 h-4 md:w-6 md:h-6 mt-1 md:mt-0" />
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const benessereBoxFlat = currentAggregate && (
+    <Card className="border-2">
+      <CardContent className="p-2 md:p-4">
+        <div className="flex flex-col md:flex-row items-center md:justify-between">
+          <div className="text-center md:text-left">
+            <p className="text-xs md:text-sm text-white font-bold">Benessere</p>
+            <p className="text-base md:text-xl font-bold text-card-foreground">
+              {currentAggregate?.avgBenessere !== null ? currentAggregate?.avgBenessere?.toFixed(1) : 'N/A'}
+            </p>
+          </div>
+          <Leaf className="text-green-700 w-4 h-4 md:w-6 md:h-6 mt-1 md:mt-0" />
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const mediaGeneraleBox = currentAggregate && (
+    <Card className="border-2">
+      <CardContent className="p-2 md:p-4">
+        <div className="flex items-center justify-center gap-3 md:gap-4">
+          <span className="text-base md:text-xl font-bold text-card-foreground">Media Generale</span>
+          <span className="text-xl md:text-3xl font-bold text-[#E1B64E]">
+            {currentAggregate?.overallAverage?.toFixed(1) || 'N/A'}
+          </span>
+          <StarRating rating={currentAggregate?.overallAverage || 0} size="lg" />
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const threeRatingsGrid = currentAggregate && (
+    <div className="grid grid-cols-3 gap-2 md:gap-4">
+      {relazioniBoxFlat}
+      {lavoroBoxFlat}
+      {benessereBoxFlat}
+    </div>
+  );
+
+  const ratingsGrid = currentAggregate && (
+    <div className="grid grid-cols-3 md:grid-cols-4 gap-2 md:gap-4">
+      {relazioniBox}
+      {lavoroBox}
+      {benessereBox}
+      <div className="col-span-3 md:col-span-1">{mediaGeneraleBox}</div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen text-foreground">
       {/* Header */}
@@ -644,16 +829,16 @@ function SignDetail({ sign }: SignDetailProps) {
       </AppHeader>
 
         {/* Main Content */}
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-3 pb-8">
           {/* Daily/Weekly Toggle Selector */}
           <div className="flex flex-col items-center mb-4 space-y-4">
-            <div className="inline-flex bg-gray-200 dark:bg-gray-800 rounded-full p-1 w-full max-w-md">
+            <div className="inline-flex bg-indigo-950 border border-indigo-800 rounded-full p-1 w-full max-w-md">
               <button
                 onClick={() => setViewType("daily")}
                 className={`flex-1 py-2 px-6 rounded-full font-medium transition-all ${
                   viewType === "daily"
-                    ? "bg-[#E1B64E] dark:bg-gray-700 text-gray-900 dark:text-white shadow-md"
-                    : "text-gray-600 dark:text-gray-400"
+                    ? "bg-[#E1B64E] text-gray-900 shadow-md"
+                    : "text-indigo-300"
                 }`}
                 data-testid="button-daily-view"
               >
@@ -663,8 +848,8 @@ function SignDetail({ sign }: SignDetailProps) {
                 onClick={() => setViewType("weekly")}
                 className={`flex-1 py-2 px-6 rounded-full font-medium transition-all ${
                   viewType === "weekly"
-                    ? "bg-[#E1B64E] dark:bg-gray-700 text-gray-900 dark:text-white shadow-md"
-                    : "text-gray-600 dark:text-gray-400"
+                    ? "bg-[#E1B64E] text-gray-900 shadow-md"
+                    : "text-indigo-300"
                 }`}
                 data-testid="button-weekly-view"
               >
@@ -697,7 +882,7 @@ function SignDetail({ sign }: SignDetailProps) {
         >
           <Moon className="w-5 h-5 text-[#E1B64E]" />
           <span className="text-indigo-100 font-semibold text-base">
-            {formatDate(selectedDate)}
+            {isSelectedDateToday(selectedDate) ? `Oggi · ${formatDate(selectedDate)}` : formatDate(selectedDate)}
           </span>
         </button>
       </PopoverTrigger>
@@ -755,88 +940,57 @@ function SignDetail({ sign }: SignDetailProps) {
             )}
           </div>
 
-        {/* Overview Cards */}
-        {(viewType === "daily" ? aggregate : weeklyAggregate) && (
-          <div className="grid grid-cols-3 md:grid-cols-4 gap-2 md:gap-4 mb-8">
-                    <Card className="border-2">
-                      <CardContent className="p-2 md:p-4">
-                <div className="flex flex-col md:flex-row items-center md:justify-between">
-                  <div className="text-center md:text-left">
-                    <p className="text-xs md:text-sm text-muted-foreground font-bold">Relazioni</p>
-                    <p className="text-lg md:text-2xl font-bold text-card-foreground">
-                      {(viewType === "daily" ? aggregate?.avgRelazioni : weeklyAggregate?.avgRelazioni) !== null ? (viewType === "daily" ? aggregate?.avgRelazioni : weeklyAggregate?.avgRelazioni)?.toFixed(1) : 'N/A'}
-                    </p>
-                  </div>
-                  <div className="w-8 h-8 md:w-12 md:h-12 bg-pink-100 rounded-full flex items-center justify-center mt-1 md:mt-0">
-                    <Heart className="text-pink-700 w-4 h-4 md:w-6 md:h-6" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-                   <Card className="border-2">
-                     <CardContent className="p-2 md:p-4">
-                <div className="flex flex-col md:flex-row items-center md:justify-between">
-                  <div className="text-center md:text-left">
-                    <p className="text-xs md:text-sm text-muted-foreground font-bold">Lavoro</p>
-                    <p className="text-lg md:text-2xl font-bold text-card-foreground">
-                      {(viewType === "daily" ? aggregate?.avgLavoro : weeklyAggregate?.avgLavoro) !== null ? (viewType === "daily" ? aggregate?.avgLavoro : weeklyAggregate?.avgLavoro)?.toFixed(1) : 'N/A'}
-                    </p>
-                  </div>
-                  <div className="w-8 h-8 md:w-12 md:h-12 bg-blue-100 rounded-full flex items-center justify-center mt-1 md:mt-0">
-                    <Briefcase className="text-blue-700 w-4 h-4 md:w-6 md:h-6" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-                <Card className="border-2">
-                  <CardContent className="p-2 md:p-4">
-                <div className="flex flex-col md:flex-row items-center md:justify-between">
-                  <div className="text-center md:text-left">
-                    <p className="text-xs md:text-sm text-muted-foreground font-bold">Benessere</p>
-                    <p className="text-lg md:text-2xl font-bold text-card-foreground">
-                      {(viewType === "daily" ? aggregate?.avgBenessere : weeklyAggregate?.avgBenessere) !== null ? (viewType === "daily" ? aggregate?.avgBenessere : weeklyAggregate?.avgBenessere)?.toFixed(1) : 'N/A'}
-                    </p>
-                  </div>
-                  <div className="w-8 h-8 md:w-12 md:h-12 bg-green-100 rounded-full flex items-center justify-center mt-1 md:mt-0">
-                    <Leaf className="text-green-700 w-4 h-4 md:w-6 md:h-6" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="col-span-3 md:col-span-1 border-2">
-              <CardContent className="p-2 md:p-4">
-                <div className="flex items-center justify-center gap-3 md:gap-4">
-                  <span className="text-xs md:text-sm text-muted-foreground font-bold">Media Generale</span>
-                  <span className="text-lg md:text-2xl font-bold text-[#E1B64E] fill-[#E1B64E]'">
-                    {(viewType === "daily" ? aggregate?.overallAverage : weeklyAggregate?.overallAverage)?.toFixed(1) || 'N/A'}
+        {/* "Il quadro di oggi"/"della settimana" — daily e weekly. Quando
+            esiste la sintesi comparativa, i voti sono nested DENTRO questa
+            stessa card: Media Generale sempre visibile subito sotto il
+            consenso, Relazioni/Lavoro/Benessere come dettaglio sotto un
+            divider, visibili solo ad accordion aperto. Graceful degradation:
+            senza sintesi, i voti restano una griglia standalone come prima,
+            nessuna card extra. */}
+        {currentComparativeSynthesis ? (
+          <Card className="border-2 mb-4 relative">
+            <CardContent className="p-4">
+              <details className="group">
+                <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                  <h2 className="text-base md:text-xl font-bold text-[#E1B64E] mb-2">
+                    {viewType === "daily" ? "Il quadro di oggi" : "Il quadro della settimana"}
+                  </h2>
+                  <p className="text-sm text-card-foreground leading-relaxed italic">{currentComparativeSynthesis.consenso}</p>
+                  {/* Approfondimento: stesso testo di prima, ma mostrato/nascosto via
+                      group-open (invece che via posizione fuori/dentro <details>) per
+                      poter mettere la Media Generale sotto TUTTO il testo pur restando
+                      sempre visibile, aperta o chiusa. */}
+                  <p className="hidden group-open:block mt-2 text-sm text-card-foreground leading-relaxed italic">
+                    {currentComparativeSynthesis.approfondimento}
+                  </p>
+                  {/* Media Generale: blocco di sintesi principale, sotto tutto il testo, sempre visibile, accordion aperto o chiuso */}
+                  {mediaGeneraleBox && <div className="mt-4">{mediaGeneraleBox}</div>}
+                  <span className="block text-right text-sm text-[#E1B64E] font-semibold mt-2 hover:underline group-open:hidden">
+                    Leggi tutto ›
                   </span>
-                  <div className="flex">
-                    {[...Array(5)].map((_, i) => (
-                      <Star
-                        key={i}
-                        className={`w-3 h-3 md:w-4 md:h-4 ${
-                          i < Math.round((viewType === "daily" ? aggregate?.overallAverage : weeklyAggregate?.overallAverage) || 0)
-                            ? 'text-[#E1B64E] fill-[#E1B64E]'
-                            : 'text-gray-300'
-                        }`}
-                      />
-                    ))}
+                </summary>
+                {/* Relazioni/Lavoro/Benessere: dettaglio sotto la Media Generale, visibili SOLO ad accordion aperto.
+                    Cliccando qui si richiude l'accordion, come cliccando sul riepilogo in alto. */}
+                {threeRatingsGrid && (
+                  <div
+                    className="cursor-pointer border-t border-gray-200 dark:border-gray-700 mt-4 pt-4"
+                    onClick={(e) => {
+                      const details = e.currentTarget.closest('details');
+                      if (details) details.open = false;
+                    }}
+                  >
+                    {threeRatingsGrid}
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                )}
+              </details>
+            </CardContent>
+          </Card>
+        ) : (
+          ratingsGrid && <div className="mb-8">{ratingsGrid}</div>
         )}
-       <div className="mb-8">
-  <CompatibilityWidget
-            currentSign={sign}
-            viewType={viewType}
-            weekStartDate={viewType === 'weekly' ? weekStartDate : undefined}
-          />
-        </div>
+       {/* Solo weekly: lato daily la card è stata spostata più in basso
+           (dopo le prime fonti, si ripete più volte) — v. render delle
+           Individual Source Cards, sia per daily sia per weekly. */}
         {/* Individual Source Cards */}
         {!((viewType === "daily" ? horoscopesLoading : weeklyHoroscopesLoading)) &&
          (viewType === "daily" ? horoscopes : weeklyHoroscopes).length > 0 && (
@@ -847,8 +1001,9 @@ function SignDetail({ sign }: SignDetailProps) {
             const sortedHoroscopes = [...currentHoroscopes].sort((a, b) =>
               a.source.name.localeCompare(b.source.name)
             );
-            return reorderSources(sortedHoroscopes);
-          })().map((horoscope) => {
+            const orderedHoroscopes = reorderSources(sortedHoroscopes);
+
+            const renderHoroscopeCard = (horoscope: HoroscopeData) => {
             const isCollapsed = collapsedCards[horoscope.source.id] ?? true;
 
             return (
@@ -859,7 +1014,7 @@ function SignDetail({ sign }: SignDetailProps) {
               >
                 <CardContent className="p-4">
                   {/* Source Header */}
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center space-x-3">
                       <SourceIcon
                         source={horoscope.source}
@@ -880,12 +1035,12 @@ function SignDetail({ sign }: SignDetailProps) {
                           e.stopPropagation();
                           toggleFavorite(horoscope.source.id);
                         }}
-                        className="p-1 h-8 w-8 hover:bg-pink-50 dark:hover:bg-pink-900/20"
+                        className="p-1 h-11 w-11 hover:bg-pink-50 dark:hover:bg-pink-900/20"
                         data-testid={`button-favorite-${horoscope.source.id}`}
                         title={isFavorite(horoscope.source.id) ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
                       >
                         <Heart
-                          className={`w-4 h-4 transition-colors ${
+                          className={`w-5 h-5 transition-colors ${
                             isFavorite(horoscope.source.id)
                               ? 'fill-pink-500 text-pink-500'
                               : 'text-gray-400 hover:text-pink-500'
@@ -900,12 +1055,12 @@ function SignDetail({ sign }: SignDetailProps) {
                           e.stopPropagation();
                           handleShare();
                         }}
-                        className="p-1 h-8 w-8 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                        className="p-1 h-11 w-11 hover:bg-blue-50 dark:hover:bg-blue-900/20"
                         data-testid={`button-share-${horoscope.source.id}`}
                         title="Condividi questo oroscopo"
                         aria-label="Condividi"
                       >
-                        <Share className="w-4 h-4 text-gray-400 hover:text-blue-500 transition-colors" />
+                        <Share className="w-5 h-5 text-gray-400 hover:text-blue-500 transition-colors" />
                       </Button>
                       {/* Collapse Toggle Button */}
                       <Button
@@ -915,12 +1070,12 @@ function SignDetail({ sign }: SignDetailProps) {
                           e.stopPropagation();
                           toggleCollapse(horoscope.source.id);
                         }}
-                        className="p-1 h-8 w-8 hover:bg-gray-50 dark:hover:bg-gray-800"
+                        className="p-1 h-11 w-11 hover:bg-gray-50 dark:hover:bg-gray-800"
                         data-testid={`button-collapse-${horoscope.source.id}`}
                         title={isCollapsed ? 'Espandi scheda' : 'Comprimi scheda'}
                       >
                         <ChevronDown
-                          className={`w-4 h-4 text-gray-400 hover:text-gray-600 transition-all duration-200 ${
+                          className={`w-5 h-5 text-gray-400 hover:text-gray-600 transition-all duration-200 ${
                             isCollapsed ? 'rotate-180' : 'rotate-0'
                           }`}
                         />
@@ -931,13 +1086,13 @@ function SignDetail({ sign }: SignDetailProps) {
                   {/* SUPERQUOTE - Always visible */}
 {horoscope.superquote && (
   <>
-    <p className="text-xs text-amber-300/90 mb-1 px-2">La nostra sintesi:</p>
-    <div className="px-4 py-3 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-950/30 dark:to-yellow-950/30 border-l-4" style={{ borderLeftColor: '#E1B64E' }}>
-      <p className="text-sm font-italic text-gray-800 dark:text-gray-200 italic">
+    <p className="text-[13px] text-amber-300/90 mb-1 pr-2">La nostra sintesi:</p>
+    <div className="px-4 py-2 rounded-r-md border-l-4" style={{ backgroundColor: 'var(--superquote-bg)', borderLeftColor: 'var(--header-gold)' }}>
+      <p className="text-sm font-normal text-white/90 leading-relaxed">
         {horoscope.superquote}
       </p>
     </div>
-    <div className="border-t border-gray-200 dark:border-gray-700 my-3"></div>
+    <div className="border-t border-gray-200 dark:border-gray-700 mt-3 mb-1"></div>
   </>
 )}
 
@@ -958,7 +1113,7 @@ function SignDetail({ sign }: SignDetailProps) {
                         href={horoscope.original_url}
                         target="_blank"
                         rel="noopener noreferrer"
-className="inline-flex items-center text-sm font-semibold text-indigo-300/80 hover:text-indigo-100 transition-colors"                        data-testid={`link-read-more-${horoscope.source.id}`}
+className="inline-flex items-center text-sm font-semibold text-[#E1B64E] hover:text-[#E1B64E]/80 transition-colors"                        data-testid={`link-read-more-${horoscope.source.id}`}
                       >
                         Leggi Tutto su {horoscope.source.name}
                         <ExternalLink className="w-3 h-3 ml-1" />
@@ -978,7 +1133,7 @@ className="inline-flex items-center text-sm font-semibold text-indigo-300/80 hov
                       </div>
                       <div className="text-center">
                         <div className="flex items-center justify-center space-x-2 mb-1">
-                          <Briefcase className="w-4 h-4 text-blue-500" />
+                          <Briefcase className="w-4 h-4 text-[#C4B5E0]" />
                           <span className="text-sm text-muted-foreground">Lavoro</span>
                         </div>
                         <div className="text-lg font-bold text-card-foreground">
@@ -999,7 +1154,41 @@ className="inline-flex items-center text-sm font-semibold text-indigo-300/80 hov
                 </CardContent>
               </Card>
             );
-            })}
+            };
+
+            // La card Premium "Affinità tra segni" non è più above-the-fold:
+            // compare dopo le prime 3 fonti, si ripete dopo altre 5 (quindi
+            // dopo la 8ª), e di nuovo dopo l'ultima fonte. Vale sia per daily
+            // sia per weekly. alfemminile (prima fonte in ordine alfabetico)
+            // resta comunque visibile al primo scroll.
+            const PREMIUM_CARD_INSERT_INDEXES = [3, 8];
+            const sourceSegments: HoroscopeData[][] = [];
+            let segmentCursor = 0;
+            for (const insertIndex of PREMIUM_CARD_INSERT_INDEXES) {
+              sourceSegments.push(orderedHoroscopes.slice(segmentCursor, insertIndex));
+              segmentCursor = insertIndex;
+            }
+            sourceSegments.push(orderedHoroscopes.slice(segmentCursor));
+
+            return (
+              <>
+                {sourceSegments.map((segment, segmentIndex) => (
+                  <Fragment key={segmentIndex}>
+                    {segment.map(renderHoroscopeCard)}
+                    {segment.length > 0 && (
+                      <div className="mb-4">
+                        <CompatibilityWidget
+                          currentSign={sign}
+                          viewType={viewType}
+                          weekStartDate={viewType === 'weekly' ? weekStartDate : undefined}
+                        />
+                      </div>
+                    )}
+                  </Fragment>
+                ))}
+              </>
+            );
+          })()}
           </div>
         )}
 

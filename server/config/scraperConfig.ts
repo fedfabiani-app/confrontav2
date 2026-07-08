@@ -5,7 +5,7 @@ export interface EnvConfig {
   timezone: string;
 }
 
-export type ScraperType = 'daily' | 'weekly';
+export type ScraperType = 'daily' | 'weekly' | 'comparative_synthesis' | 'weekly_comparative_synthesis';
 
 export interface DatabaseConfig {
   id: number;
@@ -50,6 +50,37 @@ const DEFAULT_WEEKLY_CONFIG: DatabaseConfig = {
   skipAlreadyProcessed: true,
 };
 
+const DEFAULT_COMPARATIVE_SYNTHESIS_CONFIG: DatabaseConfig = {
+  id: 3,
+  scraperType: 'comparative_synthesis',
+  enabled: true,
+  startTime: '05:30:00',
+  endTime: '08:00:00',
+  intervalMinutes: 20,
+  maxRetriesPerSource: 3,
+  autoRetryDelayMinutes: 10,
+  skipAlreadyProcessed: true,
+};
+
+const DEFAULT_WEEKLY_COMPARATIVE_SYNTHESIS_CONFIG: DatabaseConfig = {
+  id: 4,
+  scraperType: 'weekly_comparative_synthesis',
+  enabled: true,
+  startTime: '05:30:00',
+  endTime: '08:00:00',
+  intervalMinutes: 20,
+  maxRetriesPerSource: 3,
+  autoRetryDelayMinutes: 10,
+  skipAlreadyProcessed: true,
+};
+
+const DEFAULT_CONFIGS: Record<ScraperType, DatabaseConfig> = {
+  daily: DEFAULT_DAILY_CONFIG,
+  weekly: DEFAULT_WEEKLY_CONFIG,
+  comparative_synthesis: DEFAULT_COMPARATIVE_SYNTHESIS_CONFIG,
+  weekly_comparative_synthesis: DEFAULT_WEEKLY_COMPARATIVE_SYNTHESIS_CONFIG,
+};
+
 export function getEnvConfig(): EnvConfig {
   return {
     adminSecret: process.env.ADMIN_SECRET || DEFAULT_ENV_CONFIG.adminSecret,
@@ -64,7 +95,7 @@ export async function ensureScraperConfigExists(scraperType: ScraperType): Promi
     });
 
     if (!existing) {
-      const defaults = scraperType === 'daily' ? DEFAULT_DAILY_CONFIG : DEFAULT_WEEKLY_CONFIG;
+      const defaults = DEFAULT_CONFIGS[scraperType];
       await prisma.scraperConfig.create({
         data: {
           scraper_type: scraperType,
@@ -122,7 +153,7 @@ export async function getScraperConfig(scraperType: ScraperType): Promise<Scrape
   if (dbConfigFromDb) {
     dbConfig = dbConfigFromDb;
   } else {
-    dbConfig = scraperType === 'daily' ? DEFAULT_DAILY_CONFIG : DEFAULT_WEEKLY_CONFIG;
+    dbConfig = DEFAULT_CONFIGS[scraperType];
   }
 
   return {
@@ -138,6 +169,14 @@ export async function getDailyScraperConfig(): Promise<ScraperConfig> {
 
 export async function getWeeklyScraperConfig(): Promise<ScraperConfig> {
   return getScraperConfig('weekly');
+}
+
+export async function getComparativeSynthesisConfig(): Promise<ScraperConfig> {
+  return getScraperConfig('comparative_synthesis');
+}
+
+export async function getWeeklyComparativeSynthesisConfig(): Promise<ScraperConfig> {
+  return getScraperConfig('weekly_comparative_synthesis');
 }
 
 export async function updateDatabaseConfig(

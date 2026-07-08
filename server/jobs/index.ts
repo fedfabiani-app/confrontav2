@@ -2,7 +2,7 @@ import PQueue from 'p-queue';
 import { scraperWorker } from '../workers/scraper';
 import { weeklyScraperWorker } from '../workers/weeklyScraper';
 import { openaiWorker } from '../workers/claude';
-import { processMultiSourceHoroscopeWithRetry } from '../services/claude';
+import { processMultiSourceHoroscopeWithRetry, generateAndSaveComparativeSynthesis } from '../services/claude';
 import { ScraperInput, OpenAIInput, ScraperOutput, OpenAIOutput, WeeklyScraperInput, WeeklyScraperOutput } from '@shared/schema';
 import prisma from '../services/database';
 
@@ -22,7 +22,7 @@ export const nlpQueue = new PQueue({
 // Job status tracking
 interface JobStatus {
   id: string;
-  type: 'scrape' | 'nlp' | 'upsert' | 'weekly-scrape' | 'weekly-nlp' | 'weekly-upsert' | 'aggregated-nlp' | 'aggregated-weekly-nlp';
+  type: 'scrape' | 'nlp' | 'upsert' | 'weekly-scrape' | 'weekly-nlp' | 'weekly-upsert' | 'aggregated-nlp' | 'aggregated-weekly-nlp' | 'comparative-synthesis' | 'weekly-comparative-synthesis';
   status: 'pending' | 'running' | 'completed' | 'failed';
   sourceId: number;
   signSlugIt: string;
@@ -428,7 +428,7 @@ export async function enqueueAggregatedNlpJob(
       status.status = 'running';
       status.startedAt = new Date();
 
-      const nlpResults = await processMultiSourceHoroscopeWithRetry(pairs.map(p => p.nlpInput));
+      const nlpResults = await processMultiSourceHoroscopeWithRetry(pairs.map(p => p.nlpInput), 'daily');
 
       for (let i = 0; i < nlpResults.length; i++) {
         await enqueueUpsertJob(pairs[i].scraperOutput, nlpResults[i]);
@@ -470,7 +470,7 @@ export async function enqueueAggregatedWeeklyNlpJob(
       status.status = 'running';
       status.startedAt = new Date();
 
-      const nlpResults = await processMultiSourceHoroscopeWithRetry(pairs.map(p => p.nlpInput));
+      const nlpResults = await processMultiSourceHoroscopeWithRetry(pairs.map(p => p.nlpInput), 'weekly');
 
       for (let i = 0; i < nlpResults.length; i++) {
         await enqueueWeeklyUpsertJob(pairs[i].scraperOutput, nlpResults[i]);
@@ -484,6 +484,48 @@ export async function enqueueAggregatedWeeklyNlpJob(
       status.completedAt = new Date();
       status.error = error instanceof Error ? error.message : 'Unknown error';
       console.error(`[JobQueue] Aggregated weekly NLP job ${jobId} failed:`, error);
+    }
+  });
+
+  return jobId;
+}
+
+// Sintesi comparativa (Campo 4): i dati Campo 1-3 sono già salvati (letti da DB
+// dall'orchestrator), quindi qui NON si richiama processMultiSourceHoroscope/Retry
+// (niente ri-estrazione, niente enqueueUpsertJob) — solo la generazione del
+// Campo 4, sulla stessa nlpQueue per rispettare il rate limit verso Anthropic.
+export async function enqueueComparativeSynthesisJob(
+  inputs: OpenAIInput[],
+  results: OpenAIOutput[],
+  periodType: 'daily' | 'weekly'
+): Promise<string> {
+  const jobId = generateJobId();
+
+  const status: JobStatus = {
+    id: jobId,
+    type: periodType === 'daily' ? 'comparative-synthesis' : 'weekly-comparative-synthesis',
+    status: 'pending',
+    sourceId: inputs[0].sourceId,
+    signSlugIt: inputs[0].signSlugIt,
+    dateISO: inputs[0].dateISO,
+  };
+
+  jobStatusMap.set(jobId, status);
+
+  nlpQueue.add(async () => {
+    try {
+      status.status = 'running';
+      status.startedAt = new Date();
+
+      await generateAndSaveComparativeSynthesis(inputs, results, periodType);
+
+      status.status = 'completed';
+      status.completedAt = new Date();
+    } catch (error) {
+      status.status = 'failed';
+      status.completedAt = new Date();
+      status.error = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`[JobQueue] Comparative synthesis job ${jobId} failed:`, error);
     }
   });
 
