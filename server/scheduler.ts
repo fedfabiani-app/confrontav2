@@ -995,11 +995,14 @@ export async function initializeScheduledTasks() {
   cron.schedule('0 16 * * 4', executeWeeklyFallbackRetry, { timezone: 'Europe/Rome' }); // Gio 16:00 (ELLE retry)
 
   // ============================================================================
-  // DAILY COMPARATIVE SYNTHESIS (Campo 4) — 8:10 AM CET
-  // Subito dopo la finestra principale (5:30-8:00) e il job dedicato di Vogue
-  // (7:30). Corriere (10:00) non sarà quasi mai incluso — scelta esplicita.
+  // DAILY COMPARATIVE SYNTHESIS (Campo 4) — 6:25 AM ora locale Italia
+  // ATTENZIONE: 6:25 cade DENTRO la finestra principale di scraping (5:30-8:00,
+  // vedi dailyConfig sopra), non dopo. Molte fonti potrebbero non essere ancora
+  // scrapate a quest'ora — segni con <2 fonti pronte vengono skippati
+  // (MIN_SOURCES_FOR_SYNTHESIS in comparativeSynthesisOrchestrator.ts) e il job
+  // non viene ri-eseguito più tardi lo stesso giorno (hasCompletedSynthesisToday).
   // ============================================================================
-  cron.schedule('10 8 * * *', executeDailyComparativeSynthesis, {
+  cron.schedule('25 6 * * *', executeDailyComparativeSynthesis, {
     timezone: 'Europe/Rome'
   });
 

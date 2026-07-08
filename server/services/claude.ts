@@ -911,7 +911,7 @@ export async function processMultiSourceHoroscope(
   return results;
 }
 
-async function generateAndSaveComparativeSynthesis(
+export async function generateAndSaveComparativeSynthesis(
   inputs: OpenAIInput[],
   results: OpenAIOutput[],
   periodType: 'daily' | 'weekly'

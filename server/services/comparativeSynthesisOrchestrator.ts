@@ -1,6 +1,6 @@
 import { prisma } from './database';
-import { enqueueAggregatedNlpJob, enqueueAggregatedWeeklyNlpJob } from '../jobs';
-import { OpenAIInput, ScraperOutput, WeeklyScraperOutput } from '@shared/schema';
+import { enqueueComparativeSynthesisJob } from '../jobs';
+import { OpenAIInput, OpenAIOutput, openaiOutputSchema } from '@shared/schema';
 
 // Soglia minima di fonti per generare una sintesi comparativa sensata.
 // Con 0-1 fonte non c'è nulla da confrontare; con 2 il consenso/approfondimento
@@ -48,27 +48,35 @@ export async function runDailyComparativeSynthesisCycle(
       continue;
     }
 
-    const pairs: Array<{ nlpInput: OpenAIInput; scraperOutput: ScraperOutput }> = signRows.map(row => ({
-      nlpInput: {
-        sourceId: row.source_id,
-        sourceName: row.source.name,
-        signSlugIt: row.zodiac_sign.name_italian,
-        dateISO: targetDate,
-        extracted_text: row.original_text,
-      },
-      scraperOutput: {
-        sourceId: row.source_id,
-        signSlugIt: row.zodiac_sign.name_italian,
-        dateISO: targetDate,
-        original_url: row.original_url,
-        scraped_at: row.scraped_at,
-        extracted_text: row.original_text,
-      },
+    // Campo 1-3 sono già stati calcolati stamattina dal path di scraping
+    // individuale e sono già in DB (righe filtrate da summary != ''): li
+    // riusiamo direttamente, nessuna chiamata Claude di ri-estrazione.
+    const inputs: OpenAIInput[] = signRows.map(row => ({
+      sourceId: row.source_id,
+      sourceName: row.source.name,
+      signSlugIt: row.zodiac_sign.name_italian,
+      dateISO: targetDate,
+      extracted_text: row.original_text, // non usato da generateAndSaveComparativeSynthesis, mantenuto per compatibilità di tipo
     }));
 
-    await enqueueAggregatedNlpJob(pairs);
+    const results: OpenAIOutput[] = signRows.map(row =>
+      openaiOutputSchema.parse({
+        superquote: row.superquote ?? '',
+        summary: row.summary,
+        ratings: {
+          relazioni: Math.max(0, Math.min(5, row.relazioni_rating)),
+          lavoro: Math.max(0, Math.min(5, row.lavoro_rating)),
+          benessere: Math.max(0, Math.min(5, row.salute_rating)),
+        },
+        tone: (['positive', 'neutral', 'negative'] as const).includes(row.tone_analysis as any)
+          ? row.tone_analysis
+          : 'neutral',
+      })
+    );
+
+    await enqueueComparativeSynthesisJob(inputs, results, 'daily');
     processedSigns++;
-    totalPairs += pairs.length;
+    totalPairs += signRows.length;
   }
 
   return { totalSigns: allSigns.length, processedSigns, skippedSigns, totalPairs };
@@ -128,32 +136,33 @@ export async function runWeeklyComparativeSynthesisCycle(
       continue;
     }
 
-    const pairs: Array<{ nlpInput: OpenAIInput; scraperOutput: WeeklyScraperOutput }> = signRows.map(row => ({
-      nlpInput: {
-        sourceId: row.source_id,
-        sourceName: row.weekly_source.name,
-        signSlugIt: row.zodiac_sign.name_italian,
-        dateISO: weekStartISO, // sempre il lunedì canonico: processMultiSourceHoroscopeWithRetry
-                                // usa inputs[0].dateISO come week_start_date canonico del batch
-        extracted_text: row.original_text,
-      },
-      scraperOutput: {
-        sourceId: row.source_id,
-        signSlugIt: row.zodiac_sign.name_italian,
-        weekStartDate: weekStartISO,
-        original_url: row.original_url,
-        scraped_at: row.scraped_at,
-        extracted_text: row.original_text,
-        // Propagati dalla riga DB: enqueueWeeklyUpsertJob li usa per calcolare
-        // la vera chiave di upsert delle fonti biweekly (valid_from, non il lunedì).
-        validFrom: row.valid_from ? row.valid_from.toISOString().split('T')[0] : undefined,
-        validTo: row.valid_to ? row.valid_to.toISOString().split('T')[0] : undefined,
-      },
+    const inputs: OpenAIInput[] = signRows.map(row => ({
+      sourceId: row.source_id,
+      sourceName: row.weekly_source.name,
+      signSlugIt: row.zodiac_sign.name_italian,
+      dateISO: weekStartISO, // sempre il lunedì canonico: generateAndSaveComparativeSynthesis
+                              // usa inputs[0].dateISO come week_start_date canonico del batch
+      extracted_text: row.original_text, // non usato in questo path
     }));
 
-    await enqueueAggregatedWeeklyNlpJob(pairs);
+    const results: OpenAIOutput[] = signRows.map(row =>
+      openaiOutputSchema.parse({
+        superquote: row.superquote ?? '',
+        summary: row.summary,
+        ratings: {
+          relazioni: Math.max(0, Math.min(5, row.relazioni_rating)),
+          lavoro: Math.max(0, Math.min(5, row.lavoro_rating)),
+          benessere: Math.max(0, Math.min(5, row.salute_rating)),
+        },
+        tone: (['positive', 'neutral', 'negative'] as const).includes(row.tone_analysis as any)
+          ? row.tone_analysis
+          : 'neutral',
+      })
+    );
+
+    await enqueueComparativeSynthesisJob(inputs, results, 'weekly');
     processedSigns++;
-    totalPairs += pairs.length;
+    totalPairs += signRows.length;
   }
 
   return { totalSigns: allSigns.length, processedSigns, skippedSigns, totalPairs };
