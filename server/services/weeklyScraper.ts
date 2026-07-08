@@ -824,6 +824,80 @@ function buildGazzettaWeeklyUrl(input: WeeklyScraperInput): string {
 
 // ==================== END GAZZETTA.IT SPECIFIC FUNCTIONS ====================
 
+// ==================== WEBBOH.IT SPECIFIC FUNCTIONS ====================
+
+// Webboh publishes one article per sign, linked from a stable hub page.
+// URL slugs use "aquario" (no "c") for Acquario.
+const WEBBOH_SIGN_SLUGS: Record<string, string> = {
+  'Ariete': 'ariete', 'Toro': 'toro', 'Gemelli': 'gemelli', 'Cancro': 'cancro',
+  'Leone': 'leone', 'Vergine': 'vergine', 'Bilancia': 'bilancia', 'Scorpione': 'scorpione',
+  'Sagittario': 'sagittario', 'Capricorno': 'capricorno', 'Acquario': 'aquario', 'Pesci': 'pesci',
+};
+
+async function resolveWebbohUrlFromArchive(input: WeeklyScraperInput): Promise<string> {
+  const hubUrl = 'https://www.webboh.it/oroscopo-settimana/';
+
+  await respectDomainRateLimit(input.domain);
+
+  const html = await fetchHtml(hubUrl, input.userAgent);
+  const $ = cheerio.load(html);
+
+  const signSlug = WEBBOH_SIGN_SLUGS[input.signSlugIt] || input.signSlugIt.toLowerCase();
+  const targetDate = new Date(input.weekStartDate);
+
+  const sameMonthPattern = new RegExp(
+    `oroscopo-${signSlug}-settimana-(\\d{1,2})-(\\d{1,2})-(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)-(\\d{4})`,
+    'i'
+  );
+  const crossMonthPattern = new RegExp(
+    `oroscopo-${signSlug}-settimana-(\\d{1,2})-(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)-(\\d{1,2})-(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)-(\\d{4})`,
+    'i'
+  );
+
+  const candidates: Array<{ url: string; startDate: Date; score: number }> = [];
+
+  $('a').each((_, elem) => {
+    const href = $(elem).attr('href');
+    if (!href || !href.includes(`oroscopo-${signSlug}-settimana-`)) return;
+
+    let startDate: Date | null = null;
+
+    const crossMonthMatch = href.match(crossMonthPattern);
+    if (crossMonthMatch) {
+      const m = ITALIAN_MONTHS[crossMonthMatch[2].toLowerCase()];
+      if (m) startDate = new Date(parseInt(crossMonthMatch[5]), m - 1, parseInt(crossMonthMatch[1]));
+    } else {
+      const sameMonthMatch = href.match(sameMonthPattern);
+      if (sameMonthMatch) {
+        const m = ITALIAN_MONTHS[sameMonthMatch[3].toLowerCase()];
+        if (m) startDate = new Date(parseInt(sameMonthMatch[4]), m - 1, parseInt(sameMonthMatch[1]));
+      }
+    }
+
+    if (!startDate) return;
+
+    const absoluteUrl = href.startsWith('http')
+      ? href
+      : 'https://www.webboh.it' + (href.startsWith('/') ? href : '/' + href);
+
+    const daysDiff = Math.abs(Math.floor((startDate.getTime() - targetDate.getTime()) / (1000 * 60 * 60 * 24)));
+    const score = daysDiff === 0 ? 100 : daysDiff <= 7 ? 50 - daysDiff : 0;
+
+    if (score > 0) {
+      candidates.push({ url: absoluteUrl, startDate, score });
+    }
+  });
+
+  if (candidates.length === 0) {
+    throw new Error(`No Webboh weekly horoscope URL found for ${input.signSlugIt}, week ${input.weekStartDate}`);
+  }
+
+  candidates.sort((a, b) => b.score - a.score);
+  return candidates[0].url;
+}
+
+// ==================== END WEBBOH.IT SPECIFIC FUNCTIONS ====================
+
       async function buildWeeklyHoroscopeUrl(input: WeeklyScraperInput): Promise<string | { url: string; validFrom: string; validTo: string }> {
         // SIMON AND THE STARS SPECIFIC: URL has no dal/al, built directly from dates
         if (input.domain.includes('simonandthestars.it')) {
@@ -1260,9 +1334,9 @@ function buildGazzettaWeeklyUrl(input: WeeklyScraperInput): string {
         return await resolveWeeklyUrlFromArchive(input);
       }
 
-      // WEBBOH: Use archive strategy (URLs include editorial text, not constructable)
+      // WEBBOH: Dedicated resolver - one article per sign, found via the stable hub page
       if (input.domain.includes('webboh.it') || input.baseUrl.includes('webboh.it')) {
-        return await resolveWeeklyUrlFromArchive(input);
+        return await resolveWebbohUrlFromArchive(input);
       }
 
       // Archive strategy - resolve from archive page
@@ -1756,43 +1830,44 @@ async function scrapeWeeklyHoroscopeText(url: string, input: WeeklyScraperInput)
       return { success: false, error: `Could not extract content for ${input.signSlugIt} from alFemminile page` };
     }
 
-    // Special handling for Webboh - single page with all signs
-    // Structure: <p><strong>SignName:</strong>☀️☀️<br>horoscope text...<strong><em>Consiglio:</em></strong>...</p>
+    // Special handling for Webboh - one page per sign, organized into h2 sections
+    // Structure: <div class="wb-the-content"> ... <h2>AMORE & CRUSH</h2><p>...</p>
+    //            <h2>SCUOLA, LAVORO & MONEY</h2><p>...</p>
+    //            <h2>FORTUNA & VIBES</h2><p>...</p>
+    //            <h2>UN CONSIGLIO AL GIORNO</h2><p>...</p> </div>
     if (url.includes('webboh.it')) {
-      let extractedText = '';
+      // Order matters: 'article'/'wb-foglia' match outer ancestors that appear
+      // earlier in document order, so a combined selector's .first() would grab
+      // the wrong (too-outer) container. Try the most specific selector first.
+      const $content = $('.wb-the-content').first();
+      const $root = $content.length > 0 ? $content : $('.wb-foglia, article').first();
 
-      const $content = $('.wb-the-content, .wb-foglia, article').first();
-      const $root = $content.length > 0 ? $content : $('body');
+      const sections: string[] = [];
+      let currentHeading = '';
+      let currentParts: string[] = [];
 
-      $root.find('p').each((_, el) => {
-        if (extractedText) return;
+      const flushSection = () => {
+        if (currentHeading && currentParts.length > 0) {
+          sections.push(`${currentHeading}: ${currentParts.join(' ')}`);
+        }
+        currentParts = [];
+      };
 
-        const $p = $(el);
-        const firstStrong = $p.find('strong').first();
-        if (firstStrong.length === 0) return;
+      $root.children().each((_, el) => {
+        const $el = $(el);
+        const tag = el.tagName?.toLowerCase();
 
-        // Match "Capricorno:" (case-insensitive).
-        // Also accept common misspellings from the source (e.g. "Aquario" for "Acquario").
-        const strongText = firstStrong.text().trim().toLowerCase();
-        const signLower = input.signSlugIt.toLowerCase();
-        const signAliases = signLower === 'acquario' ? ['acquario', 'aquario'] : [signLower];
-        if (!signAliases.some(alias => strongText.startsWith(alias + ':'))) return;
-
-        // Text comes after the <br> inside this <p>
-        const fullHtml = $p.html() || '';
-        const brMatch = fullHtml.search(/<br\s*\/?>/i);
-
-        if (brMatch !== -1) {
-          const afterBrHtml = fullHtml.slice(fullHtml.indexOf('>', brMatch) + 1);
-          extractedText = cheerio.load(afterBrHtml).text().trim();
-        } else {
-          // Fallback: full text minus the "SignName: stars" prefix
-          extractedText = $p.text()
-            .replace(firstStrong.text(), '')
-            .replace(/^[\s☀️]+/, '')
-            .trim();
+        if (tag === 'h2') {
+          flushSection();
+          currentHeading = $el.text().trim();
+        } else if (tag === 'p' && currentHeading && !$el.hasClass('podcast')) {
+          const text = $el.text().trim();
+          if (text) currentParts.push(text);
         }
       });
+      flushSection();
+
+      const extractedText = sections.join('\n\n');
 
       if (extractedText.length > 30) {
         return { success: true, text: extractedText.substring(0, 3500), url };
