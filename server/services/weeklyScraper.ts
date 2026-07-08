@@ -1044,6 +1044,27 @@ function buildGazzettaWeeklyUrl(input: WeeklyScraperInput): string {
             }
           }
 
+          // Format E: settimana with author name and same-month day range
+          // e.g. oroscopo-ariete-settimana-simon-and-the-stars-2-15-luglio-2026
+          if (!startDate) {
+            const settimanaAuthorSameMonthMatch = href.match(
+              /oroscopo-\w+-settimana-simon-and-the-stars-(\d{1,2})-(\d{1,2})-(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)-(\d{4})/i
+            );
+            if (settimanaAuthorSameMonthMatch) {
+              const m  = monthMap[settimanaAuthorSameMonthMatch[3].toLowerCase()];
+              const yr = parseInt(settimanaAuthorSameMonthMatch[4]);
+              if (m) {
+                const startDay = parseInt(settimanaAuthorSameMonthMatch[1]);
+                const endDay   = parseInt(settimanaAuthorSameMonthMatch[2]);
+                startDate = new Date(yr, m - 1, startDay);
+                // endDay can roll into the next month if the period wraps around
+                endDate = endDay >= startDay
+                  ? new Date(yr, m - 1, endDay)
+                  : new Date(yr, m, endDay);
+              }
+            }
+          }
+
           if (!startDate || !endDate) return;
 
           // Build absolute URL (new format omits /it/ in the path prefix)
