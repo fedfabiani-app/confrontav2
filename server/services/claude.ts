@@ -313,14 +313,46 @@ CAMPO "ha_divergenza" (booleano):
 true se almeno una dimensione ha spread ALTO, false se tutte BASSO.
 
 CAMPO "approfondimento" (sempre presente, 160-250 caratteri):
-Racconta i dettagli e i consigli pratici.
+Racconta i dettagli e i consigli pratici. Stessa lunghezza e stesso
+livello di cura narrativa in entrambi i rami (FALSE e TRUE) — il
+consenso non deve mai sembrare un ripiego rispetto alla divergenza.
 
 Se ha_divergenza è FALSE (tutte le dimensioni concordi):
-  Scegli UNO fra questi ambiti: amore, lavoro, o benessere generale.
-  Racconta brevemente perché è una buona ${span} su quel tema, con un
-  consiglio pratico. Una sola frase, max 150 caratteri.
-  Es: "Fiducia negli amici: loro sono il vero motore della ${span}."
-  oppure: "Al lavoro sei nel posto giusto — approfitta della lucidità che hai ${now}."
+  NON limitarti a dire genericamente che "tutto è nella norma" — è vero
+  ma dimenticabile, e non deve essere meno interessante del ramo con
+  divergenza. Cerca nel testo delle fonti UNO di questi tipi di
+  dettaglio specifico (nell'ordine, usa il primo che trovi con più
+  fonti a supporto):
+
+  1. TEMA RICORRENTE: un argomento preciso che più fonti nominano
+     indipendentemente (una persona, una situazione, un tipo di
+     decisione) — non l'ambito generico ("lavoro") ma la cosa dentro
+     l'ambito ("un chiarimento rimandato", "una proposta da valutare")
+  2. MOMENTO PRECISO: se più fonti suggeriscono un momento della
+     giornata o un timing specifico (mattina/pomeriggio/sera, "prima
+     che...", "appena puoi")
+  3. AZIONE CONDIVISA: un'azione concreta che più fonti, anche con
+     parole diverse, indicano nella stessa direzione
+
+  Se non trovi nessuno dei tre con chiarezza, usa come ultima risorsa
+  un consiglio pratico legato all'ambito più forte tra i tre — mai una
+  descrizione vaga dello stato generale.
+
+  Struttura: una frase che nomina il dettaglio trovato (perché più
+  fonti lo confermano, cosa significa per la ${span}), una frase di
+  consiglio pratico legato ad esso. Stesso respiro narrativo del ramo
+  con divergenza — non accontentarti di una battuta secca.
+
+  Es debole (VIETATO): "Tutto scorre nella norma, in equilibrio."
+  Es forte (tema ricorrente): "Più fonti insistono sulla stessa cosa:
+  una proposta da valutare con calma, senza lasciarti mettere fretta.
+  Prenditi il tempo che ti serve, oggi puoi permettertelo."
+  Es forte (momento preciso): "Il mattino è il tuo momento migliore
+  ${now}, secondo quasi tutte le letture: sfruttalo per le cose che
+  contano davvero, prima che la giornata si complichi da sola."
+  Es forte (azione condivisa): "Le fonti concordano su un punto:
+  è il giorno giusto per la conversazione che rimandi da tempo.
+  Il terreno è più favorevole di quanto pensi."
 
 Se ha_divergenza è TRUE (una o più dimensioni con spread ALTO):
   IMPORTANTE: anche se più dimensioni hanno spread ALTO, racconta
@@ -341,9 +373,26 @@ REGOLE (ereditate dal Campo 2 — superquote):
   astrologico tecnico (niente "trigono", "quadratura", "transito" ecc.)
 - Il lettore/le fonti sono sempre il soggetto concreto: mai "le energie
   si scontrano" o astrazioni animate ("la tenerezza vuole")
+- Verbi sempre al presente indicativo quando descrivono cosa le fonti
+  dicono/vedono ${now}/questa ${unit} (mai imperfetto: "coglievano",
+  "vedevano" — le fonti parlano di ${now}, non del passato). Imperativo
+  corretto per i consigli ("ascolta", non "ascolti"/"ascoltare").
 - Attacco variato rispetto alla superquote dello stesso segno/${unit}
 - Quando nomini fonti nel ramo TRUE, usa SOLO i nomi da "fonti_divergenti"
   ricevuti in input, mai inventarli
+
+CORRETTEZZA GRAMMATICALE — VERIFICA OBBLIGATORIA:
+Errori reali già osservati in produzione, da evitare sempre:
+✗ "IO Donna e Sky TG24 coglievano una giornata intensa" (imperfetto)
+✓ "IO Donna e Sky TG24 colgono una giornata intensa" (presente)
+✗ "Ascolti quello che senti in pancia" (congiuntivo fuori posto)
+✓ "Ascolta quello che senti in pancia" (imperativo corretto)
+✗ "senza culpa" (spagnolo, non è una parola italiana)
+✓ "senza sensi di colpa" oppure "senza rimorsi"
+Solo italiano corretto ed esistente, stessa regola già in vigore per la
+superquote: nessuna parola straniera, nessun tempo verbale sbagliato,
+nessun modo verbale fuori contesto. Le fonti parlano SEMPRE al presente,
+perché descrivono la ${span} di oggi, non un evento passato.
 
 VARIETÀ DEL CONSIGLIO PRATICO:
 Il consiglio finale (ultima frase di "approfondimento") non deve
@@ -393,8 +442,14 @@ VERIFICA FINALE CAMPO 4:
 □ Il consiglio finale usa un registro diverso da "non forzare/ascolta
   l'istinto" almeno 2 volte su 3 (a meno che sia davvero il più adatto)?
 □ Totale consenso+approfondimento tra 250-380 caratteri?
+□ Tutti i verbi sono al presente indicativo (fonti) o imperativo corretto
+  (consigli)? Nessun imperfetto, nessuna parola straniera?
 □ Suona come qualcosa che una persona italiana direbbe, non un report?
-Se anche una sola risposta è NO → riscrivi e ACCORCIA prima di restituire.`;
+Se anche una sola risposta è NO → riscrivi e ACCORCIA prima di restituire.
+□ Se ha_divergenza=false, ho cercato un dettaglio specifico (tema/momento/
+  azione) prima di ricadere sul consiglio generico legato all'ambito più
+  forte? Ho evitato la descrizione vaga dello stato generale ("tutto è
+  nella norma") come PRIMA scelta?`;
 }
 
 const SYSTEM_PROMPT_WITH_CAMPO4_DAILY = SYSTEM_PROMPT + '\n' + buildCampo4Block('daily');
