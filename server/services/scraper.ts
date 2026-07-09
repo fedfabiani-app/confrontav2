@@ -5,6 +5,7 @@ import { ITALIAN_WEEKDAYS, ITALIAN_MONTHS } from '@shared/constants';
 
 // Rate limiting and domain backoff
 const domainLastRequest = new Map<string, number>();
+const domainQueues = new Map<string, Promise<void>>();
 const DOMAIN_DELAY_MS = 2000; // 2 seconds between requests to same domain
 
 interface ScrapeResult {
@@ -543,8 +544,9 @@ async function retryFanpageWithEnhancedRetries(url: string): Promise<string> {
             return response.data;
           }
 
-          // if not 403 but some other 4xx, surface that
-          if (response.status !== 403 && response.status >= 400) {
+          // 403/404 are the anti-bot block signatures we're working around; keep
+          // trying other UA/header combos. Any other 4xx is a real error, surface it.
+          if (response.status !== 403 && response.status !== 404 && response.status >= 400) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
           }
         } catch (err) {
@@ -561,21 +563,36 @@ async function retryFanpageWithEnhancedRetries(url: string): Promise<string> {
     }
   }
 
-  throw new Error('Fanpage.it - All enhanced retries exhausted (403)');
+  throw new Error('Fanpage.it - All enhanced retries exhausted (403/404)');
 }
 
 async function respectDomainRateLimit(domain: string): Promise<void> {
-  const lastRequest = domainLastRequest.get(domain) || 0;
-  const now = Date.now();
-  const timeSinceLastRequest = now - lastRequest;
+  // Serialize concurrent callers per domain: the previous queued call must fully
+  // finish (including its delay + timestamp update) before this one checks the clock.
+  // Without this, parallel workers can race past the check-then-act below and hit
+  // the domain in a burst, which is exactly what trips anti-bot protection.
+  const previous = domainQueues.get(domain) || Promise.resolve();
+  let releaseNext: () => void;
+  const current = new Promise<void>((resolve) => { releaseNext = resolve; });
+  domainQueues.set(domain, current);
 
-  if (timeSinceLastRequest < DOMAIN_DELAY_MS) {
-    const delay = DOMAIN_DELAY_MS - timeSinceLastRequest;
-    console.log(`Rate limiting ${domain}, waiting ${delay}ms`);
-    await new Promise(resolve => setTimeout(resolve, delay));
+  await previous;
+
+  try {
+    const lastRequest = domainLastRequest.get(domain) || 0;
+    const now = Date.now();
+    const timeSinceLastRequest = now - lastRequest;
+
+    if (timeSinceLastRequest < DOMAIN_DELAY_MS) {
+      const delay = DOMAIN_DELAY_MS - timeSinceLastRequest;
+      console.log(`Rate limiting ${domain}, waiting ${delay}ms`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+
+    domainLastRequest.set(domain, Date.now());
+  } finally {
+    releaseNext!();
   }
-
-  domainLastRequest.set(domain, Date.now());
 }
 
 /**
@@ -595,8 +612,10 @@ async function fetchHtml(url: string, userAgent: string): Promise<string> {
       validateStatus: (status) => status < 500, // Accept 4xx to handle them gracefully
     });
 
-    // Special handling for 403 on Fanpage.it — enhanced multi-UA/headers retry
-    if (response.status === 403 && url.includes('fanpage.it')) {
+    // Special handling for 403/404 on Fanpage.it — enhanced multi-UA/headers retry.
+    // Fanpage's WAF can return a fake 404 (not just 403) to requests it flags as bot
+    // traffic, even when the article genuinely exists, so treat both as a soft-block.
+    if ((response.status === 403 || response.status === 404) && url.includes('fanpage.it')) {
       return await retryFanpageWithEnhancedRetries(url);
     }
 
