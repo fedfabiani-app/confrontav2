@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, Fragment } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -1156,36 +1156,21 @@ className="inline-flex items-center text-sm font-semibold text-[#E1B64E] hover:t
             );
             };
 
-            // La card Premium "Affinità tra segni" non è più above-the-fold:
-            // compare dopo le prime 3 fonti, si ripete dopo altre 5 (quindi
-            // dopo la 8ª), e di nuovo dopo l'ultima fonte. Vale sia per daily
-            // sia per weekly. alfemminile (prima fonte in ordine alfabetico)
-            // resta comunque visibile al primo scroll.
-            const PREMIUM_CARD_INSERT_INDEXES = [3, 8];
-            const sourceSegments: HoroscopeData[][] = [];
-            let segmentCursor = 0;
-            for (const insertIndex of PREMIUM_CARD_INSERT_INDEXES) {
-              sourceSegments.push(orderedHoroscopes.slice(segmentCursor, insertIndex));
-              segmentCursor = insertIndex;
-            }
-            sourceSegments.push(orderedHoroscopes.slice(segmentCursor));
-
+            // La card Premium "Affinità tra segni" appare una sola volta, in
+            // fondo alla pagina dopo l'ultima fonte. Vale sia per daily sia
+            // per weekly.
             return (
               <>
-                {sourceSegments.map((segment, segmentIndex) => (
-                  <Fragment key={segmentIndex}>
-                    {segment.map(renderHoroscopeCard)}
-                    {segment.length > 0 && (
-                      <div className="mb-4">
-                        <CompatibilityWidget
-                          currentSign={sign}
-                          viewType={viewType}
-                          weekStartDate={viewType === 'weekly' ? weekStartDate : undefined}
-                        />
-                      </div>
-                    )}
-                  </Fragment>
-                ))}
+                {orderedHoroscopes.map(renderHoroscopeCard)}
+                {orderedHoroscopes.length > 0 && (
+                  <div className="mb-4">
+                    <CompatibilityWidget
+                      currentSign={sign}
+                      viewType={viewType}
+                      weekStartDate={viewType === 'weekly' ? weekStartDate : undefined}
+                    />
+                  </div>
+                )}
               </>
             );
           })()}
