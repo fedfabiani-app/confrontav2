@@ -12,6 +12,7 @@ import { ScraperInput, WeeklyScraperInput, ScraperOutput, WeeklyScraperOutput, O
 import { ZODIAC_SIGNS_IT_EN, ITALIAN_WEEKDAYS, ITALIAN_MONTHS } from "@shared/constants";
 import { format } from 'date-fns';
 import { getMondayOfWeek, formatWeekUrlParams, getCurrentWeekStart } from "./utils/weekUtils";
+import { polarizeRating, toneFromRawAverage } from "./utils/rating";
 import { runWeeklyScraperCycle, type SourceGroup } from "./services/weeklyScraperOrchestrator";
 import {
   getWeeklyCoverage,
@@ -460,20 +461,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         : null;
       // Calculate overall average only from categories with valid ratings
       const validAverages = [avgRelazioni, avgLavoro, avgBenessere].filter(avg => avg !== null) as number[];
-      const overallAverage = validAverages.length > 0 
-        ? validAverages.reduce((sum, avg) => sum + avg, 0) / validAverages.length 
+      const overallAverage = validAverages.length > 0
+        ? validAverages.reduce((sum, avg) => sum + avg, 0) / validAverages.length
         : null;
 
-      // Calculate tone based on overall average rating
-      const majorityTone = overallAverage === null ? 'neutral' :
-                           overallAverage < 3 ? 'negative' : 
-                           overallAverage > 3 ? 'positive' : 'neutral';
+      // Calculate tone based on the raw (pre-polarization) overall average
+      const majorityTone = toneFromRawAverage(overallAverage);
 
       res.json({
-        avgRelazioni: avgRelazioni !== null ? Math.round(avgRelazioni * 10) / 10 : null,
-        avgLavoro: avgLavoro !== null ? Math.round(avgLavoro * 10) / 10 : null,
-        avgBenessere: avgBenessere !== null ? Math.round(avgBenessere * 10) / 10 : null,
-        overallAverage: overallAverage !== null ? Math.round(overallAverage * 10) / 10 : null,
+        avgRelazioni: avgRelazioni !== null ? Math.round(polarizeRating(avgRelazioni) * 10) / 10 : null,
+        avgLavoro: avgLavoro !== null ? Math.round(polarizeRating(avgLavoro) * 10) / 10 : null,
+        avgBenessere: avgBenessere !== null ? Math.round(polarizeRating(avgBenessere) * 10) / 10 : null,
+        overallAverage: overallAverage !== null ? Math.round(polarizeRating(overallAverage) * 10) / 10 : null,
         majorityTone: majorityTone as 'positive' | 'neutral' | 'negative',
       });
     } catch (error) {
@@ -786,19 +785,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         : null;
 
       const validAverages = [avgRelazioni, avgLavoro, avgBenessere].filter(avg => avg !== null) as number[];
-      const overallAverage = validAverages.length > 0 
-        ? validAverages.reduce((sum, avg) => sum + avg, 0) / validAverages.length 
+      const overallAverage = validAverages.length > 0
+        ? validAverages.reduce((sum, avg) => sum + avg, 0) / validAverages.length
         : null;
 
-      const majorityTone = overallAverage === null ? 'neutral' :
-                           overallAverage < 3 ? 'negative' : 
-                           overallAverage > 3 ? 'positive' : 'neutral';
+      const majorityTone = toneFromRawAverage(overallAverage);
 
       res.json({
-        avgRelazioni: avgRelazioni !== null ? Math.round(avgRelazioni * 10) / 10 : null,
-        avgLavoro: avgLavoro !== null ? Math.round(avgLavoro * 10) / 10 : null,
-        avgBenessere: avgBenessere !== null ? Math.round(avgBenessere * 10) / 10 : null,
-        overallAverage: overallAverage !== null ? Math.round(overallAverage * 10) / 10 : null,
+        avgRelazioni: avgRelazioni !== null ? Math.round(polarizeRating(avgRelazioni) * 10) / 10 : null,
+        avgLavoro: avgLavoro !== null ? Math.round(polarizeRating(avgLavoro) * 10) / 10 : null,
+        avgBenessere: avgBenessere !== null ? Math.round(polarizeRating(avgBenessere) * 10) / 10 : null,
+        overallAverage: overallAverage !== null ? Math.round(polarizeRating(overallAverage) * 10) / 10 : null,
         majorityTone: majorityTone as 'positive' | 'neutral' | 'negative',
       });
     } catch (error) {
