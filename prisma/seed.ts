@@ -135,6 +135,16 @@ const WEEKLY_SOURCES = [
     is_active: true,
     is_biweekly: true,
   },
+  {
+    name: 'Fanpage',
+    domain: 'fanpage.it',
+    logo_url: 'https://www.fanpage.it/favicon.ico',
+    base_url: 'https://www.fanpage.it/attualita',
+    url_pattern: '/loroscopo-della-settimana-dal-{start_day}-al-{end_day}-{month}-{year}/',
+    scrape_strategy: 'archive',
+    slug: null,
+    is_active: true,
+  },
 ];
 
 async function main() {
