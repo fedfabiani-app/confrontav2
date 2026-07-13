@@ -873,10 +873,13 @@ async function executeWeeklyComparativeSynthesis() {
 
     const stats = await runWeeklyComparativeSynthesisCycle(weekStart);
 
+    // 'partial' se restano segni senza abbastanza fonti: hasCompletedWeeklySynthesisForWeek
+    // continuerà a restituire false, così i retry successivi nella settimana possono
+    // ancora girare e completare i segni mancanti.
     await prisma.weeklyScraperExecution.update({
       where: { id: executionId },
       data: {
-        status: 'completed',
+        status: stats.skippedSigns > 0 ? 'partial' : 'completed',
         completed_at: new Date(),
         total_jobs_enqueued: stats.processedSigns,
         successful_jobs: stats.processedSigns,
@@ -1015,6 +1018,18 @@ export async function initializeScheduledTasks() {
   cron.schedule('10 8 * * 1', executeWeeklyComparativeSynthesis, {
     timezone: 'Europe/Rome'
   });
+
+  // ============================================================================
+  // WEEKLY COMPARATIVE SYNTHESIS — RETRY
+  // Rigira poco dopo ogni fallback dello scraper weekly (righe sopra), per
+  // recuperare i segni rimasti "partial" per fonti insufficienti alle 8:10.
+  // Nessun trigger dopo il fallback ELLE di giovedì (0 16 * * 4): scelta
+  // esplicita già documentata sopra, ELLE non entra mai nella sintesi weekly.
+  // ============================================================================
+  cron.schedule('20 9 * * 1',  executeWeeklyComparativeSynthesis, { timezone: 'Europe/Rome' }); // Lun 09:20
+  cron.schedule('20 14 * * 1', executeWeeklyComparativeSynthesis, { timezone: 'Europe/Rome' }); // Lun 14:20
+  cron.schedule('20 9 * * 2',  executeWeeklyComparativeSynthesis, { timezone: 'Europe/Rome' }); // Mar 09:20
+  cron.schedule('20 9 * * 3',  executeWeeklyComparativeSynthesis, { timezone: 'Europe/Rome' }); // Mer 09:20
 
   // ============================================================================
   // CLEANUP SCHEDULER

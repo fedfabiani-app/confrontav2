@@ -125,11 +125,22 @@ export async function runWeeklyComparativeSynthesisCycle(
 
   const allSigns = await prisma.zodiacSign.findMany({ select: { id: true } });
 
+  // Segni già sintetizzati con successo in un run precedente della stessa settimana
+  // (retry): li saltiamo per non richiamare Claude inutilmente su dati invariati.
+  const alreadySynthesized = new Set(
+    (await prisma.weeklyComparativeSynthesis.findMany({
+      where: { week_start_date: weekStart },
+      select: { zodiac_sign_id: true },
+    })).map(row => row.zodiac_sign_id)
+  );
+
   let processedSigns = 0;
   let skippedSigns = 0;
   let totalPairs = 0;
 
   for (const sign of allSigns) {
+    if (alreadySynthesized.has(sign.id)) continue;
+
     const signRows = byZodiacSign.get(sign.id) ?? [];
     if (signRows.length < MIN_SOURCES_FOR_SYNTHESIS) {
       skippedSigns++;
