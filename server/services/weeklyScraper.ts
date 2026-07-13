@@ -705,14 +705,19 @@ async function discoverFanpageWeeklyUrl(
   const base = 'https://www.fanpage.it/attualita';
 
   // Build candidate URLs directly from the known format
+  // Fanpage uses multiple URL patterns, so we need to try all variants
   const directCandidates = crossMonth
     ? [
         `${base}/loroscopo-della-settimana-dal-${startDay}-${startMonth}-al-${endDay}-${endMonth}-${year}/`,
         `${base}/oroscopo-della-settimana-dal-${startDay}-${startMonth}-al-${endDay}-${endMonth}-${year}/`,
+        `${base}/loroscopo-della-settimana-dall${startDay}-${startMonth}-al-${endDay}-${endMonth}-${year}/`,
+        `${base}/oroscopo-della-settimana-dall${startDay}-${startMonth}-al-${endDay}-${endMonth}-${year}/`,
       ]
     : [
         `${base}/loroscopo-della-settimana-dal-${startDay}-al-${endDay}-${startMonth}-${year}/`,
         `${base}/oroscopo-della-settimana-dal-${startDay}-al-${endDay}-${startMonth}-${year}/`,
+        `${base}/loroscopo-della-settimana-dall${startDay}-al-${endDay}-${startMonth}-${year}/`,
+        `${base}/oroscopo-della-settimana-dall${startDay}-al-${endDay}-${startMonth}-${year}/`,
       ];
 
   // Verify which direct URL actually exists (HEAD request)
@@ -735,16 +740,42 @@ async function discoverFanpageWeeklyUrl(
   // Fallback: scrape the /attualita/ category page to find the article
   try {
     const html = await fetchHtml(`${base}/`, userAgent);
-    const regex = new RegExp(
-      `href="(https://www\\.fanpage\\.it/attualita/[^"]*settimana[^"]*dall?-?0?${startDay}[^"]*)"`,
-      'i'
-    );
-    const match = html.match(regex);
-    if (match?.[1]) {
-      console.log(`Fanpage weekly - Archive URL found: ${match[1]}`);
-      fanpageWeeklyUrlCache.set(weekStart, match[1]);
-      return match[1];
+
+    // Find all URLs containing "settimana" and "oroscopo"/"loroscopo"
+    const urlRegex = /href="(https:\/\/www\.fanpage\.it\/attualita\/[^"]*(?:loroscopo|oroscopo)-della-settimana[^"]*)"/gi;
+    let match;
+    const foundUrls = [];
+
+    while ((match = urlRegex.exec(html)) !== null) {
+      const url = match[1];
+      foundUrls.push(url);
+
+      // Extract dates from URL to validate week match
+      // Pattern: dal-6-al-12, dall1-al-7, dal-29-giugno-al-5-luglio, etc.
+      const dateMatch = url.match(/dall?(\d+)(?:-[a-z]+)?-?al-?(\d+)/i);
+
+      if (dateMatch) {
+        const urlStartDay = parseInt(dateMatch[1], 10);
+        const urlEndDay = parseInt(dateMatch[2], 10);
+
+        // Check if dates match expected week (allow off-by-one for edge cases)
+        if (Math.abs(urlStartDay - startDay) <= 1 && Math.abs(urlEndDay - endDay) <= 1) {
+          console.log(`Fanpage weekly - Archive URL found: ${url}`);
+          fanpageWeeklyUrlCache.set(weekStart, url);
+          return url;
+        }
+      }
     }
+
+    // Tertiary fallback: if we found URLs but none matched dates exactly,
+    // use the most recent one as a fallback (it might be the current week)
+    if (foundUrls.length > 0) {
+      const fallbackUrl = foundUrls[0];
+      console.log(`Fanpage weekly - Using tertiary fallback (recent article): ${fallbackUrl}`);
+      fanpageWeeklyUrlCache.set(weekStart, fallbackUrl);
+      return fallbackUrl;
+    }
+
     console.log(`Fanpage weekly - Not found in /attualita/ for week starting ${weekStart}`);
   } catch (err) {
     console.log(`Fanpage weekly - Discovery error: ${err}`);
