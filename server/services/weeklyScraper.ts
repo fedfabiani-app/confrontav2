@@ -720,20 +720,13 @@ async function discoverFanpageWeeklyUrl(
         `${base}/oroscopo-della-settimana-dall${startDay}-al-${endDay}-${startMonth}-${year}/`,
       ];
 
-  // Verify which direct URL actually exists (HEAD request)
+  // Verify which direct URL actually exists (reuses fetchHtml's anti-bot headers/retry for fanpage.it)
   for (const url of directCandidates) {
     try {
-      const res = await axios.head(url, {
-        headers: { 'User-Agent': userAgent },
-        timeout: 8000,
-        maxRedirects: 5,
-        validateStatus: (s) => s < 500,
-      });
-      if (res.status === 200) {
-        console.log(`Fanpage weekly - Direct URL confirmed: ${url}`);
-        fanpageWeeklyUrlCache.set(weekStart, url);
-        return url;
-      }
+      await fetchHtml(url, userAgent);
+      console.log(`Fanpage weekly - Direct URL confirmed: ${url}`);
+      fanpageWeeklyUrlCache.set(weekStart, url);
+      return url;
     } catch { /* try next */ }
   }
 
