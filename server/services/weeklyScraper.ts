@@ -162,6 +162,12 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
 
   const candidates: { url: string; dateRange: WeekDateRange; score: number }[] = [];
 
+  // Harper's Bazaar pubblica talvolta l'articolo della settimana corrente con uno slug
+  // "evergreen" senza data (es. /oroscopo-della-settimana/, invece di /oroscopo-dal-X-al-Y-mese-YYYY/),
+  // quindi senza data estraibile finisce fuori da `candidates`. Lo teniamo come ultima risorsa,
+  // scegliendo l'ID articolo più alto (= pubblicazione più recente) tra quelli senza data.
+  let harperBazaarFallbackCandidate: { url: string; articleId: number } | null = null;
+
   // Special handling for Repubblica
   if (input.domain.includes('repubblica.it')) {
 
@@ -559,19 +565,26 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
 
     // Special handling for Harper's Bazaar
     else if (input.domain.includes('harpersbazaar.com')) {
-      const urlPattern = /\/cultura\/oroscopo\/a\d+\/oroscopo-/i;
+      const urlPattern = /\/cultura\/oroscopo\/a(\d+)\/oroscopo-/i;
 
       $('a').each((_, elem) => {
         const href = $(elem).attr('href');
         const linkText = $(elem).text().trim();
-        if (!href || !urlPattern.test(href)) return;
-
-        const fullText = href + ' ' + linkText;
-        const dateRange = parseItalianWeekRange(fullText, currentYear);
-        if (!dateRange) return;
+        const idMatch = href?.match(urlPattern);
+        if (!href || !idMatch) return;
 
         const absoluteUrl = href.startsWith('http') ? href : 'https://www.harpersbazaar.com' + href;
-        candidates.push({ url: absoluteUrl, dateRange, score: 20 });
+        const fullText = href + ' ' + linkText;
+        const dateRange = parseItalianWeekRange(fullText, currentYear);
+
+        if (dateRange) {
+          candidates.push({ url: absoluteUrl, dateRange, score: 20 });
+        } else {
+          const articleId = parseInt(idMatch[1], 10);
+          if (!harperBazaarFallbackCandidate || articleId > harperBazaarFallbackCandidate.articleId) {
+            harperBazaarFallbackCandidate = { url: absoluteUrl, articleId };
+          }
+        }
       });
 
       candidates.sort((a, b) => b.score - a.score);
@@ -631,6 +644,14 @@ async function resolveWeeklyUrlFromArchive(input: WeeklyScraperInput): Promise<s
   if (closestCandidate) {
     archiveUrlCache.set(cacheKey, closestCandidate.url);
     return closestCandidate.url;
+  }
+
+  // Ultima risorsa: articolo Harper's Bazaar della settimana corrente pubblicato con
+  // slug evergreen senza data (v. harperBazaarFallbackCandidate sopra).
+  const fallbackCandidate = harperBazaarFallbackCandidate as { url: string; articleId: number } | null;
+  if (input.domain.includes('harpersbazaar.com') && fallbackCandidate) {
+    archiveUrlCache.set(cacheKey, fallbackCandidate.url);
+    return fallbackCandidate.url;
   }
 
   throw new Error(`No matching weekly horoscope found in archive for week starting ${input.weekStartDate}. Found ${candidates.length} candidates but none matched ${targetDateStr}`);
