@@ -35,31 +35,45 @@ function getNowInRome(): Date {
 }
 
 /**
+ * Rome's calendar date for a given instant, expressed as a UTC midnight Date.
+ * Built via an explicit timeZone (not the process's local TZ), so it stays
+ * correct even if TZ isn't set to Europe/Rome. Storing this in a Prisma
+ * `@db.Date` column (which truncates using UTC parts) preserves the intended
+ * calendar day — unlike a "local Rome midnight" Date, which during CEST
+ * (UTC+2) truncates one day early (00:00 Rome = 22:00 UTC the previous day).
+ */
+function getRomeCalendarDate(date: Date = new Date()): Date {
+  const [year, month, day] = date
+    .toLocaleDateString('en-CA', { timeZone: TIMEZONE })
+    .split('-')
+    .map(Number);
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+/**
  * Get the Monday (start of week) for any given date
  * Uses ISO week definition where Monday is the first day
- * 
+ *
  * @param date - Any date to find the Monday for
- * @returns Date object representing the Monday of that week
+ * @returns Date object representing the Monday of that week, as UTC midnight
+ *          of Rome's calendar date
  */
 export function getMondayOfWeek(date: Date): Date {
-  // Get Monday (weekStartsOn: 1 = Monday per ISO 8601)
-  const monday = startOfWeek(date, { weekStartsOn: 1 });
-  
-  // Set to start of day (00:00:00)
-  monday.setHours(0, 0, 0, 0);
-  
-  return monday;
+  const calendarDate = getRomeCalendarDate(date);
+  const dayOfWeek = calendarDate.getUTCDay(); // 0 = Sunday ... 6 = Saturday
+  const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  calendarDate.setUTCDate(calendarDate.getUTCDate() + diffToMonday);
+  return calendarDate;
 }
 
 /**
  * Get the current week's Monday in CET/CEST
  * This is the primary function for determining "week_start" database key
- * 
- * @returns Date object for this week's Monday at 00:00:00 Rome time
+ *
+ * @returns Date object for this week's Monday (UTC midnight of Rome's calendar date)
  */
 export function getCurrentWeekStart(): Date {
-  const now = getNowInRome();
-  return getMondayOfWeek(now);
+  return getMondayOfWeek(new Date());
 }
 
 /**
