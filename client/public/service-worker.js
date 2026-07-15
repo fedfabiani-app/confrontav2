@@ -1,4 +1,4 @@
-const CACHE_NAME = 'oroscopo-italiano-v4';
+const CACHE_NAME = 'oroscopo-italiano-v5';
 const CACHE_URLS = [
   '/',
   '/manifest.json',
@@ -36,6 +36,26 @@ self.addEventListener('fetch', (event) => {
   // Never cache refresh endpoints
   if (NEVER_CACHE_ROUTES.some(route => url.pathname.includes(route))) {
     return; // Let the request go to network
+  }
+
+  // Network-first for navigation requests, so a reload (including
+  // pull-to-refresh) actually fetches fresh content instead of the
+  // precached shell. Falls back to the cached shell only when offline.
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(request, responseClone);
+            });
+          }
+          return response;
+        })
+        .catch(() => caches.match('/'))
+    );
+    return;
   }
 
   // Handle API requests
