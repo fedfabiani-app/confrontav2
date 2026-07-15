@@ -2025,6 +2025,22 @@ async function findFanpageArticleUrl(archiveUrl: string, targetDate: string): Pr
       candidates.add(foundUrl);
     }
 
+    // Fallback ignoring the month name: Fanpage occasionally publishes the daily
+    // article with the wrong month in its own slug/title (e.g. carried over from
+    // the previous month's template) while the content and publish date are
+    // correct, so a strict month match never finds it even though it's live.
+    if (candidates.size === 0) {
+      const monthAgnosticPattern = new RegExp(`href=["']([^"']*oroscopo-di-${esc(weekday)}-${esc(String(day))}-[a-z]+-${esc(String(year))}[^"']*)["']`, 'gi');
+      while ((m = monthAgnosticPattern.exec(html)) !== null) {
+        let foundUrl = m[1];
+        if (foundUrl.startsWith('/')) foundUrl = 'https://www.fanpage.it' + foundUrl;
+        candidates.add(foundUrl);
+      }
+      if (candidates.size > 0) {
+        console.log(`Fanpage.it - Daily pattern with exact month not found, matched month-agnostic fallback instead`);
+      }
+    }
+
     // Prioritize article URLs containing 'attualita' or obvious oroscopo slugs
     for (const candidate of Array.from(candidates)) {
       if (/\/attualita\/|\/story\/|oroscopo/i.test(candidate)) {
