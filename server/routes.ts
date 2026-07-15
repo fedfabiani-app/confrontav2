@@ -391,7 +391,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
 
-      res.json(horoscopes);
+      // Always include every active source, even without data for today,
+      // so the frontend can render a placeholder card for it.
+      const activeSources = await prisma.source.findMany({ where: { is_active: true } });
+      const bySourceId = new Map(horoscopes.map(h => [h.source_id, h]));
+      const merged = activeSources.map(source => {
+        const h = bySourceId.get(source.id);
+        if (h) {
+          return {
+            ...h,
+            source: { ...h.source, reliability_score: Number(h.source.reliability_score) },
+            hasData: true,
+          };
+        }
+        return {
+          id: -source.id,
+          superquote: null,
+          summary: "",
+          relazioni_rating: 0,
+          lavoro_rating: 0,
+          salute_rating: 0,
+          tone_analysis: "neutral",
+          original_url: "",
+          scraped_at: null,
+          source: { ...source, reliability_score: Number(source.reliability_score) },
+          hasData: false,
+        };
+      });
+
+      res.json(merged);
     } catch (error) {
       console.error('Error fetching horoscopes:', error);
       res.status(500).json({ error: 'Failed to fetch horoscopes' });
@@ -721,11 +749,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Transform weekly_source to source for frontend compatibility
       const transformedHoroscopes = horoscopes.map((h: any) => ({
         ...h,
-        source: h.weekly_source,
-        weekly_source: undefined
+        source: { ...h.weekly_source, reliability_score: Number(h.weekly_source.reliability_score) },
+        weekly_source: undefined,
+        hasData: true,
       }));
 
-      res.json(transformedHoroscopes);
+      // Always include every active weekly source, even without data for
+      // this week, so the frontend can render a placeholder card for it.
+      const activeSources = await prisma.weeklySource.findMany({ where: { is_active: true } });
+      const bySourceId = new Map(transformedHoroscopes.map((h: any) => [h.source_id, h]));
+      const merged = activeSources.map(source => {
+        const h = bySourceId.get(source.id);
+        if (h) return h;
+        return {
+          id: -source.id,
+          superquote: null,
+          summary: "",
+          relazioni_rating: 0,
+          lavoro_rating: 0,
+          salute_rating: 0,
+          tone_analysis: "neutral",
+          original_url: "",
+          scraped_at: null,
+          source: { ...source, reliability_score: Number(source.reliability_score) },
+          hasData: false,
+        };
+      });
+
+      res.json(merged);
     } catch (error) {
       console.error('Error fetching weekly horoscopes:', error);
       res.status(500).json({ error: 'Failed to fetch weekly horoscopes' });
