@@ -62,6 +62,7 @@ interface HoroscopeData {
     logo_url: string | null;
     reliability_score: number;
   };
+  hasData: boolean;
 }
 
 interface HoroscopeAggregate {
@@ -1003,7 +1004,47 @@ function SignDetail({ sign }: SignDetailProps) {
             );
             const orderedHoroscopes = reorderSources(sortedHoroscopes);
 
+            const renderPlaceholderCard = (source: HoroscopeData["source"]) => (
+              <Card
+                key={`placeholder-${source.id}`}
+                className="relative border border-dashed border-[#C4B5E0]/40 bg-card/50 shadow-none"
+              >
+                <CardContent className="p-3 flex items-center justify-between gap-3">
+                  <div className="flex items-center space-x-3">
+                    <SourceIcon
+                      source={source}
+                      data-testid={`individual-source-icon-${source.id}`}
+                    />
+                    <div>
+                      <h3 className="font-semibold text-card-foreground">{source.name}</h3>
+                      <p className="text-xs text-muted-foreground/80">In attesa dell'oroscopo di questa fonte</p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleFavorite(source.id);
+                    }}
+                    className="p-1 h-11 w-11 hover:bg-pink-50 dark:hover:bg-pink-900/20"
+                    data-testid={`button-favorite-${source.id}`}
+                    title={isFavorite(source.id) ? 'Rimuovi dai preferiti' : 'Aggiungi ai preferiti'}
+                  >
+                    <Heart
+                      className={`w-5 h-5 transition-colors ${
+                        isFavorite(source.id)
+                          ? 'fill-pink-500 text-pink-500'
+                          : 'text-gray-400 hover:text-pink-500'
+                      }`}
+                    />
+                  </Button>
+                </CardContent>
+              </Card>
+            );
+
             const renderHoroscopeCard = (horoscope: HoroscopeData) => {
+            if (!horoscope.hasData) return renderPlaceholderCard(horoscope.source);
             const isCollapsed = collapsedCards[horoscope.source.id] ?? true;
 
             return (
