@@ -1017,7 +1017,7 @@ function SignDetail({ sign }: SignDetailProps) {
                     />
                     <div>
                       <h3 className="font-semibold text-card-foreground">{source.name}</h3>
-                      <p className="text-xs text-muted-foreground/80">In attesa dell'oroscopo di questa fonte</p>
+                      <p className="text-xs text-muted-foreground/80">In attesa dell'oroscopo da questa fonte</p>
                     </div>
                   </div>
                   <Button
