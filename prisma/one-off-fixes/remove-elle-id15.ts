@@ -1,7 +1,13 @@
 /**
  * One-off cleanup: remove duplicate ELLE weekly source (ID 15).
- * Run once with: npx tsx prisma/remove-elle-id15.ts
+ * Presumed creation date: 2026-06-03.
+ * ID 27 (domain elle.com) is the canonical record; ID 15 was created when
+ * the domain was previously different and was never cleaned up.
+ *
+ * Run manually once against the target environment: npx tsx prisma/one-off-fixes/remove-elle-id15.ts
  * Safe to re-run: exits early if ID 15 no longer exists.
+ *
+ * Eseguire manualmente una tantum, non richiamare da seed.ts né dallo start command.
  */
 
 import { PrismaClient } from '@prisma/client';

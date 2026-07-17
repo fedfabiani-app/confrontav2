@@ -140,51 +140,6 @@ const WEEKLY_SOURCES = [
 async function main() {
   console.log('Seeding database...');
 
-  // One-off cleanup: remove SuperGuida TV / Branko weekly source.
-  const superguidaSource = await prisma.weeklySource.findFirst({ where: { domain: 'superguidatv.it' } });
-  if (superguidaSource) {
-    await prisma.weeklyHoroscopeData.deleteMany({ where: { source_id: superguidaSource.id } });
-    await prisma.weeklyScraperSourceStatus.deleteMany({ where: { source_id: superguidaSource.id } });
-    await prisma.weeklySource.delete({ where: { id: superguidaSource.id } });
-    console.log(`Removed SuperGuida TV weekly source (ID ${superguidaSource.id})`);
-  }
-
-  // One-off cleanup: remove duplicate ELLE weekly source (ID 15).
-  // ID 27 (domain elle.com) is the canonical record; ID 15 was created when
-  // the domain was previously different and was never cleaned up.
-  const elleOld = await prisma.weeklySource.findUnique({ where: { id: 15 } });
-  if (elleOld) {
-    await prisma.weeklyHoroscopeData.deleteMany({ where: { source_id: 15 } });
-    await prisma.weeklyScraperSourceStatus.deleteMany({ where: { source_id: 15 } });
-    await prisma.weeklySource.delete({ where: { id: 15 } });
-    console.log(`Removed duplicate ELLE weekly source (ID 15, domain="${elleOld.domain}")`);
-  }
-
-  // One-off cleanup: remove duplicate ELLE horoscope rows created when
-  // is_biweekly was false — the same article was stored with different
-  // week_start_date values for consecutive Mondays.
-  const elleSource = await prisma.weeklySource.findFirst({ where: { domain: 'elle.com' } });
-  if (elleSource) {
-    const elleRows = await prisma.weeklyHoroscopeData.findMany({
-      where: { source_id: elleSource.id, valid_from: { not: null } },
-      orderBy: [{ zodiac_sign_id: 'asc' }, { valid_from: 'asc' }, { id: 'asc' }],
-    });
-    const seen = new Set<string>();
-    const idsToDelete: number[] = [];
-    for (const row of elleRows) {
-      const key = `${row.zodiac_sign_id}-${row.valid_from?.toISOString()}`;
-      if (seen.has(key)) {
-        idsToDelete.push(row.id);
-      } else {
-        seen.add(key);
-      }
-    }
-    if (idsToDelete.length > 0) {
-      await prisma.weeklyHoroscopeData.deleteMany({ where: { id: { in: idsToDelete } } });
-      console.log(`Removed ${idsToDelete.length} duplicate ELLE horoscope rows`);
-    }
-  }
-
   // Seed zodiac signs
   const zodiacSigns = [
     { name_italian: 'Ariete', name_english: 'aries', date_range: '21 Mar - 19 Apr', symbol: '♈' },
