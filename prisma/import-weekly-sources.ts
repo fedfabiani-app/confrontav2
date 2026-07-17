@@ -22,7 +22,7 @@ async function importWeeklySources() {
   console.log('Starting import of weekly sources...');
   
   // Read CSV file
-  const csvPath = path.join(__dirname, '..', 'attached_assets', 'weekly_sources_1760349400243.csv');
+  const csvPath = path.join(__dirname, '..', 'attached_assets', 'weekly_sources_1760349499558.csv');
   const csvContent = fs.readFileSync(csvPath, 'utf-8');
   
   // Parse CSV (skip header)
