@@ -1,7 +1,6 @@
 import { prisma } from '../services/database';
 
 export interface EnvConfig {
-  adminSecret: string;
   timezone: string;
 }
 
@@ -22,7 +21,6 @@ export interface DatabaseConfig {
 export interface ScraperConfig extends EnvConfig, DatabaseConfig {}
 
 const DEFAULT_ENV_CONFIG: EnvConfig = {
-  adminSecret: 'default-admin-secret-change-me',
   timezone: 'Europe/Rome',
 };
 
@@ -83,7 +81,6 @@ const DEFAULT_CONFIGS: Record<ScraperType, DatabaseConfig> = {
 
 export function getEnvConfig(): EnvConfig {
   return {
-    adminSecret: process.env.ADMIN_SECRET || DEFAULT_ENV_CONFIG.adminSecret,
     timezone: process.env.SCRAPER_TIMEZONE || process.env.TZ || DEFAULT_ENV_CONFIG.timezone,
   };
 }

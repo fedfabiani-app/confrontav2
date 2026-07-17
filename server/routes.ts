@@ -12,6 +12,7 @@ import { ScraperInput, WeeklyScraperInput, ScraperOutput, WeeklyScraperOutput, O
 import { ZODIAC_SIGNS_IT_EN, ITALIAN_WEEKDAYS, ITALIAN_MONTHS } from "@shared/constants";
 import { format } from 'date-fns';
 import { getMondayOfWeek, formatWeekUrlParams, getCurrentWeekStart } from "./utils/weekUtils";
+import { requireAdminSecret } from "./middleware/adminAuth";
 import { polarizeRating, toneFromRawAverage } from "./utils/rating";
 import { runWeeklyScraperCycle, type SourceGroup } from "./services/weeklyScraperOrchestrator";
 import {
@@ -861,14 +862,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
    * Requires X-Admin-Secret header.
    * Query params: ?weekStartDate=YYYY-MM-DD  ?forceRescrape=true
    */
-  app.post("/api/refresh-weekly/all", async (req, res) => {
-    const adminSecret = req.headers['x-admin-secret'];
-    const expectedSecret = process.env.ADMIN_SECRET || 'default-admin-secret-change-me';
-    if (adminSecret !== expectedSecret) {
-      console.warn('[Weekly Refresh All] Unauthorized attempt blocked');
-      return res.status(401).json({ error: 'Unauthorized - X-Admin-Secret header required' });
-    }
-
+  app.post("/api/refresh-weekly/all", requireAdminSecret, async (req, res) => {
     const forceRescrape = req.query.forceRescrape === 'true' || req.body?.forceRescrape === true;
     const weekStartParam = (req.query.weekStartDate as string) || req.body?.targetWeek;
 
@@ -1164,17 +1158,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
    * POST /api/refresh-weekly/source/:sourceId
    * Manual trigger for weekly scraper - single source, all signs
    */
-  app.post("/api/refresh-weekly/source/:sourceId", async (req, res) => {
+  app.post("/api/refresh-weekly/source/:sourceId", requireAdminSecret, async (req, res) => {
     try {
-      // Admin auth check
-      const adminSecret = req.headers['x-admin-secret'];
-      const expectedSecret = process.env.ADMIN_SECRET || 'default-admin-secret-change-me';
-      
-      if (adminSecret !== expectedSecret) {
-        console.warn('[API Weekly Refresh Source] Unauthorized attempt blocked');
-        return res.status(401).json({ error: 'Unauthorized - X-Admin-Secret header required' });
-      }
-      
       const { sourceId } = req.params;
       const { targetWeek, forceRescrape, dryRun } = req.body;
       
@@ -1672,19 +1657,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // POST /api/cleanup - Manual cleanup endpoint (ADMIN ONLY - requires admin_secret header)
-  app.post("/api/cleanup", async (req, res) => {
-    // Security: Require admin secret for destructive operations
-    const adminSecret = req.headers['x-admin-secret'];
-    const expectedSecret = process.env.ADMIN_SECRET || 'default-admin-secret-change-me';
-    
-    if (adminSecret !== expectedSecret) {
-      console.warn('[API] Unauthorized cleanup attempt blocked');
-      return res.status(401).json({
-        error: 'Unauthorized',
-        message: 'Valid admin credentials required for cleanup operations'
-      });
-    }
-
+  app.post("/api/cleanup", requireAdminSecret, async (req, res) => {
     try {
       const { cleanupService } = await import('./services/cleanup');
       const { cleanupTracker } = await import('./services/cleanupTracker');
@@ -2503,17 +2476,17 @@ Scrivi 1 sola frase breve sulla compatibilità amorosa tra questi due segni.
   });
 
   // POST /api/notifications/test — send a test push notification (dev only)
-  app.post('/api/notifications/test', async (req, res) => {
-    if (process.env.NODE_ENV === 'production') {
-      return res.status(404).json({ error: 'Not found' });
-    }
-
-    try {
-      const adminSecret = req.headers['x-admin-secret'] as string | undefined;
-      if (adminSecret !== process.env.ADMIN_SECRET) {
-        return res.status(401).json({ error: 'Unauthorized - X-Admin-Secret header required' });
+  app.post(
+    '/api/notifications/test',
+    (req, res, next) => {
+      if (process.env.NODE_ENV === 'production') {
+        return res.status(404).json({ error: 'Not found' });
       }
-
+      next();
+    },
+    requireAdminSecret,
+    async (req, res) => {
+    try {
       const { token, title, body, data } = req.body as {
         token?: string;
         title?: string;

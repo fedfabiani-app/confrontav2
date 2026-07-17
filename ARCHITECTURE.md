@@ -38,7 +38,7 @@ Preferred communication style: Simple, everyday language.
   - **Tracker Table**: `cleanup_tracker` table persists last cleanup timestamp for accurate interval calculation
   - **Cleanup Actions**: Deletes all horoscope_data and weekly_horoscope_data entries, then resets ID sequences to maintain data freshness
   - **Manual Endpoint**: POST `/api/cleanup` secured with `X-Admin-Secret` header matching `ADMIN_SECRET` environment variable
-  - **Security**: Unauthorized requests return 401 and are logged; default secret is "default-admin-secret-change-me" (MUST be changed in production)
+  - **Security**: Fail-closed via `requireAdminSecret` middleware (`server/middleware/adminAuth.ts`) - returns 503 if `ADMIN_SECRET` is not configured (no insecure default), 401 on mismatch (constant-time comparison), all unauthorized attempts logged
   - **Stats Endpoint**: GET `/api/cleanup/stats` returns current horoscope and weekly horoscope counts for monitoring
 - **Configuration Management System**:
   - **Multi-Row Configuration**: `scraper_config` table with separate rows for 'daily' and 'weekly' scraper types

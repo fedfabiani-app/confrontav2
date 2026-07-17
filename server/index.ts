@@ -39,6 +39,12 @@ async function runStartupPatches(): Promise<void> {
   }
 }
 
+if (!process.env.ADMIN_SECRET) {
+  console.error(
+    '[startup] WARNING: ADMIN_SECRET is not set. Admin/cleanup endpoints will reject all requests (503) until it is configured.'
+  );
+}
+
 const app = express();
 
 // CORS — must come before all other middleware so OPTIONS preflight is handled first.
