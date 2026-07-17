@@ -20,7 +20,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Backend Architecture
 - **Runtime**: Node.js with Express.js framework for RESTful API
-- **Database**: Drizzle ORM configured for PostgreSQL (though currently uses Prisma client)
+- **Database**: PostgreSQL via Prisma ORM
 - **Job Processing**: Custom job queue system using p-queue for orchestrating scraping and AI processing tasks
   - **Scrape Queue**: Concurrency 3, interval 2000ms, processes up to 3 scraping jobs per 2 seconds
   - **NLP Queue**: Concurrency 1, interval 3000ms, processes one OpenAI call at a time to avoid rate limits
@@ -101,7 +101,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Third-Party Services
 - **OpenAI API**: GPT-5 model for content summarization, rating extraction, and tone analysis
-- **PostgreSQL Database**: Primary data storage (configured via Drizzle, though Prisma client is currently used)
+- **PostgreSQL Database**: Primary data storage, accessed via Prisma client
 
 ### External APIs and Scraping Sources
 - **Repubblica.it**: Italian news and horoscope source with pattern `/oroscopo/`

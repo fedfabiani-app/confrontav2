@@ -5,7 +5,7 @@ Una Progressive Web App che confronta previsioni astrologiche italiane da fonti 
 ## ✨ Caratteristiche
 
 - **📱 Progressive Web App**: Installabile, supporto offline, notifiche push
-- **🤖 Analisi AI**: OpenAI GPT-5 per estrazione ratings e analisi del tono
+- **🤖 Analisi AI**: Claude Haiku 4.5 per estrazione ratings e analisi del tono
 - **📊 Confronto Multi-Source**: Aggregazione da 14 siti italiani autorevoli
 - **⭐ Sistema di Rating**: Valutazioni 1-5 stelle per Relazioni, Lavoro, Benessere
 - **🎯 Copyright-Safe**: Contenuti rielaborati per garantire originalità
@@ -23,14 +23,14 @@ Una Progressive Web App che confronta previsioni astrologiche italiane da fonti 
 
 ### Backend
 - **Node.js** + **Express.js**
-- **Prisma ORM** con **MySQL**
+- **Prisma ORM** con **Postgres**
 - **p-queue** per orchestrazione job
 - **Cheerio** per HTML parsing
 - **Axios** per richieste HTTP
 - **OpenAI API** per analisi NLP
 
 ### Database
-- **MySQL** con Prisma
+- **Postgres** con Prisma
 - Indici ottimizzati per performance
 - Vincoli di unicità per evitare duplicati
 
