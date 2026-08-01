@@ -2,6 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+@media (max-width: 768px) {
+  html {
+    font-size: 93.75%; /* 15px base instead of 16px, scales down all rem-based text/spacing */
+  }
+}
+
 :root {
   --background: hsl(250 40% 8%);
   --foreground: hsl(0, 0%, 8.24%);
