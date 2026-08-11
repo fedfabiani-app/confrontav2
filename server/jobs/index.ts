@@ -6,6 +6,43 @@ import { processMultiSourceHoroscopeWithRetry, generateAndSaveComparativeSynthes
 import { ScraperInput, OpenAIInput, ScraperOutput, OpenAIOutput, WeeklyScraperInput, WeeklyScraperOutput } from '@shared/schema';
 import prisma from '../services/database';
 
+// Writes the real outcome of an async weekly-scraper job step back to
+// weekly_scraper_source_status, whose row is created as 'pending' at enqueue
+// time (weeklyScraperOrchestrator.ts) but was never updated once the async
+// work actually resolved/rejected - leaving every row stuck at 'pending'
+// regardless of outcome, and making getFailedWeeklySources() unable to see
+// real scrape/NLP/upsert failures. Uses updateMany (not upsert) so it's a
+// safe no-op when no matching 'pending' row exists (e.g. call sites that
+// enqueue jobs directly without going through runWeeklyScraperCycle).
+async function markWeeklySourceStatus(
+  sourceId: number,
+  signSlugIt: string,
+  weekStartDate: string, // 'yyyy-MM-dd', same value used to create the 'pending' row
+  status: 'failed' | 'success',
+  errorMessage?: string
+): Promise<void> {
+  try {
+    const zodiacSign = await prisma.zodiacSign.findFirst({ where: { name_italian: signSlugIt } });
+    if (!zodiacSign) return;
+
+    await prisma.weeklyScraperSourceStatus.updateMany({
+      where: {
+        source_id: sourceId,
+        zodiac_sign_id: zodiacSign.id,
+        target_week: new Date(weekStartDate),
+      },
+      data: {
+        status,
+        error_message: errorMessage ?? null,
+        completed_at: new Date(),
+        last_attempted_at: new Date(),
+      },
+    });
+  } catch (error) {
+    console.error(`[WeeklyStatus] Failed to update status for source ${sourceId} / ${signSlugIt}:`, error);
+  }
+}
+
 // Job queues with different concurrency and rate limits
 export const scrapeQueue = new PQueue({
   concurrency: 3, // Max 3 concurrent scraping jobs
@@ -268,6 +305,7 @@ export async function enqueueWeeklyScrapeJob(
       status.completedAt = new Date();
       status.error = error instanceof Error ? error.message : 'Unknown error';
       console.error(`[JobQueue] Weekly scrape job ${jobId} failed:`, error);
+      await markWeeklySourceStatus(input.sourceId, input.signSlugIt, input.weekStartDate, 'failed', status.error);
       onComplete?.(null);
     }
   });
@@ -306,9 +344,10 @@ export async function enqueueWeeklyNlpJob(input: OpenAIInput, scraperOutput: Wee
       status.completedAt = new Date();
       status.error = error instanceof Error ? error.message : 'Unknown error';
       console.error(`[JobQueue] Weekly NLP job ${jobId} failed:`, error);
+      await markWeeklySourceStatus(scraperOutput.sourceId, scraperOutput.signSlugIt, scraperOutput.weekStartDate, 'failed', status.error);
     }
   });
-  
+
   return jobId;
 }
 
@@ -390,19 +429,21 @@ export async function enqueueWeeklyUpsertJob(scraperOutput: WeeklyScraperOutput,
           valid_to: validTo,
         },
       });
-      
-      
+
+
       status.status = 'completed';
       status.completedAt = new Date();
-      
+      await markWeeklySourceStatus(scraperOutput.sourceId, scraperOutput.signSlugIt, scraperOutput.weekStartDate, 'success');
+
     } catch (error) {
       status.status = 'failed';
       status.completedAt = new Date();
       status.error = error instanceof Error ? error.message : 'Unknown error';
       console.error(`[JobQueue] Weekly upsert job ${jobId} failed:`, error);
+      await markWeeklySourceStatus(scraperOutput.sourceId, scraperOutput.signSlugIt, scraperOutput.weekStartDate, 'failed', status.error);
     }
   }, 100);
-  
+
   return jobId;
 }
 
