@@ -1,12 +1,11 @@
-import { useState, useRef, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   ArrowLeft,
-  RefreshCw,
   Heart,
   Briefcase,
   Leaf,
@@ -19,14 +18,11 @@ import {
   CalendarDays,
   Moon,
 } from "lucide-react";
-import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { AppHeader } from "@/components/AppHeader";
 import { StarRating } from "@/components/StarRating";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { useFavorites } from "@/hooks/use-favorites";
-import { apiRequest } from "@/lib/queryClient";
-import { ZODIAC_SIGNS_EN_IT } from "@shared/constants";
 import { useAccess } from '../hooks/use-access';
 import { PremiumGateOverlay } from '@/components/PremiumGateOverlay';
 import { WeekNavigator } from '@/components/WeekNavigator';
@@ -199,12 +195,6 @@ function SignDetail({ sign }: SignDetailProps) {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [refreshProgress, setRefreshProgress] = useState({
-    current: 0,
-    total: 0,
-  });
-  const [refreshDismissed, setRefreshDismissed] = useState(false);
-  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Daily/Weekly view state
   const [viewType, setViewType] = useState<"daily" | "weekly">("daily");
@@ -370,8 +360,6 @@ function SignDetail({ sign }: SignDetailProps) {
     }
   };
 
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-
   // Fetch zodiac sign details
   const { data: zodiacSign } = useQuery<ZodiacSign>({
     queryKey: ["/api/zodiac-signs", sign],
@@ -473,104 +461,6 @@ function SignDetail({ sign }: SignDetailProps) {
     enabled: viewType === "weekly",
   });
 
-  // Refresh this sign mutation
-  const refreshSignMutation = useMutation({
-    mutationFn: async () => {
-      const italianSign = ZODIAC_SIGNS_EN_IT[sign] || sign;
-
-      if (viewType === "daily") {
-        const response = await apiRequest(
-          "POST",
-          `/api/refresh/sign/${italianSign}?date=${today}`,
-        );
-        return response.json();
-      } else {
-        const response = await apiRequest(
-          "POST",
-          `/api/refresh-weekly/sign/${italianSign}?weekStartDate=${weekStartDate}`,
-        );
-        return response.json();
-      }
-    },
-    onSuccess: (data) => {
-      toast({
-        title: "Aggiornamento avviato",
-        description: `${data.jobsEnqueued} lavori in coda per ${zodiacSign?.name_italian}`,
-      });
-
-      setRefreshProgress({ current: 0, total: data.jobsEnqueued });
-      setRefreshDismissed(false);
-
-      pollIntervalRef.current = setInterval(async () => {
-        // Don't update progress if user dismissed the overlay
-        if (refreshDismissed) return;
-
-        try {
-          const statusResponse = await fetch("/api/refresh/status");
-          if (statusResponse.ok) {
-            const status = await statusResponse.json();
-            const completed = status.summary.completed + status.summary.failed;
-            setRefreshProgress({
-              current: completed,
-              total: data.jobsEnqueued,
-            });
-
-            if (completed >= data.jobsEnqueued) {
-              if (pollIntervalRef.current)
-                clearInterval(pollIntervalRef.current);
-              if (timeoutRef.current) clearTimeout(timeoutRef.current);
-              setRefreshProgress({ current: 0, total: 0 });
-              setRefreshDismissed(false);
-
-              // Invalidate cache to refresh data based on viewType
-              if (viewType === "daily") {
-                queryClient.invalidateQueries({
-                  queryKey: ["/api/horoscopes", today, sign],
-                });
-                queryClient.invalidateQueries({
-                  queryKey: ["/api/horoscopes/aggregate", today, sign],
-                });
-              } else {
-                queryClient.invalidateQueries({
-                  queryKey: ["/api/weekly-horoscopes", weekStartDate, sign],
-                });
-                queryClient.invalidateQueries({
-                  queryKey: ["/api/weekly-horoscopes/aggregate", weekStartDate, sign],
-                });
-              }
-
-              toast({
-                title: "Aggiornamento completato",
-                description: `${status.summary.completed} successi, ${status.summary.failed} errori`,
-              });
-            }
-          }
-        } catch (error) {
-          console.error("Error polling status:", error);
-          if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-          setRefreshProgress({ current: 0, total: 0 });
-          setRefreshDismissed(false);
-        }
-      }, 3000);
-
-      timeoutRef.current = setTimeout(
-        () => {
-          if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-          setRefreshProgress({ current: 0, total: 0 });
-          setRefreshDismissed(false);
-        },
-        5 * 60 * 1000,
-      );
-    },
-    onError: (error) => {
-      toast({
-        title: "Errore",
-        description: "Impossibile avviare l'aggiornamento",
-        variant: "destructive",
-      });
-    },
-  });
-
   if (!zodiacSign) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -591,15 +481,6 @@ function SignDetail({ sign }: SignDetailProps) {
 
   const colorClass =
     signColors[sign as keyof typeof signColors] || "from-gray-500 to-gray-700";
-  const isRefreshing =
-    !refreshDismissed &&
-    (refreshSignMutation.isPending || refreshProgress.total > 0);
-
-  const handleDismissRefresh = () => {
-    setRefreshDismissed(true);
-    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-  };
 
   // Check if we're in a loading state
   const isLoading = viewType === "daily"
@@ -1226,48 +1107,15 @@ className="inline-flex items-center text-sm font-semibold text-[#E1B64E] hover:t
             <h3 className="text-lg font-semibold mb-2">
               Nessun dato disponibile
             </h3>
-            <p className="text-muted-foreground mb-4">
+            <p className="text-muted-foreground">
               {viewType === "daily"
-                ? "Non ci sono previsioni disponibili per oggi. Prova ad aggiornare i dati."
-                : "Non ci sono previsioni disponibili per questa settimana. Prova ad aggiornare i dati."}
+                ? "Non ci sono previsioni disponibili per oggi."
+                : "Non ci sono previsioni disponibili per questa settimana."}
             </p>
-            <Button
-              onClick={() => refreshSignMutation.mutate()}
-              className="bg-gradient-to-r from-orange-500 to-red-500 text-white"
-              data-testid="button-refresh-empty"
-            >
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Aggiorna Dati
-            </Button>
           </CardContent>
         </Card>
       )}
-
-      {/* Refresh Button */}
-      <div className="flex justify-center mt-8">
-        <Button
-          onClick={() => refreshSignMutation.mutate()}
-          disabled={isRefreshing}
-          className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-lg hover:shadow-xl transition-all"
-          data-testid="button-refresh-sign"
-        >
-          <RefreshCw
-            className={`w-4 h-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
-          />
-          Aggiorna Previsioni
-        </Button>
-      </div>
     </main>
-
-    {/* Loading Overlay */}
-    <LoadingOverlay
-      isVisible={isRefreshing}
-      title={`Aggiornando ${currentSign.name_italian}...`}
-      message="Aggiornamento previsioni in corso"
-      progress={refreshProgress.current}
-      total={refreshProgress.total}
-      onDismiss={handleDismissRefresh}
-    />
 
     {/* Bottom spacing for mobile navigation */}
     <div className="h-5 md:h-0"></div>

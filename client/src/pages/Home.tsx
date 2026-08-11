@@ -1,23 +1,19 @@
-import { useState, useRef, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { RefreshCw, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { ZodiacCard } from "@/components/ZodiacCard";
-import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { AppHeader } from "@/components/AppHeader";
-import { useToast } from "@/hooks/use-toast";
 import { useHomeFavorites } from "@/hooks/use-favorites";
 import { useAccess } from "@/hooks/use-access";
 import { UpgradeBanner } from "@/components/UpgradeBanner";
 import { PremiumGateOverlay } from "@/components/PremiumGateOverlay";
 import { useLocation } from "wouter";
-import { apiRequest } from "@/lib/queryClient";
 import iconImage from "@assets/icon.webp";
 
 interface ZodiacSign {
@@ -38,14 +34,8 @@ interface HoroscopeAggregate {
 
 export default function Home() {
   const [location, navigate] = useLocation();
-  const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [refreshProgress, setRefreshProgress] = useState({
-    current: 0,
-    total: 0,
-  });
-  const [refreshDismissed, setRefreshDismissed] = useState(false);
-  
+
   // Initialize date from URL parameter or use today
   const getInitialDate = (): Date => {
     const params = new URLSearchParams(window.location.search);
@@ -61,8 +51,6 @@ export default function Home() {
   
   const [selectedDate, setSelectedDate] = useState<Date>(getInitialDate());
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Initialize hook for favorites only
   const { homeFavorites, isHomeFavorite, toggleHomeFavorite, hasFavorites } =
@@ -123,84 +111,6 @@ export default function Home() {
     enabled: zodiacSigns.length > 0,
   });
 
-  // Refresh all data mutation
-  const refreshAllMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest(
-        "POST",
-        `/api/refresh/all?date=${selectedDateString}`,
-      );
-      return response.json();
-    },
-    onSuccess: (data) => {
-      toast({
-        title: "Aggiornamento avviato",
-        description: `${data.jobsEnqueued} aggiornamenti in corso`,
-      });
-
-      // Poll for updates (simplified - in production you might use WebSocket)
-      setRefreshProgress({ current: 0, total: data.jobsEnqueued });
-      setRefreshDismissed(false);
-
-      pollIntervalRef.current = setInterval(async () => {
-        // Don't update progress if user dismissed the overlay
-        if (refreshDismissed) return;
-
-        try {
-          const statusResponse = await fetch("/api/refresh/status");
-          if (statusResponse.ok) {
-            const status = await statusResponse.json();
-            const completed = status.summary.completed + status.summary.failed;
-            setRefreshProgress({
-              current: completed,
-              total: data.jobsEnqueued,
-            });
-
-            if (completed >= data.jobsEnqueued) {
-              if (pollIntervalRef.current)
-                clearInterval(pollIntervalRef.current);
-              if (timeoutRef.current) clearTimeout(timeoutRef.current);
-              setRefreshProgress({ current: 0, total: 0 });
-              setRefreshDismissed(false);
-
-              // Invalidate cache to refresh data
-              queryClient.invalidateQueries({
-                queryKey: ["/api/horoscopes/aggregates"],
-              });
-
-              toast({
-                title: "Aggiornamento completato",
-                description: `${status.summary.completed} successi, ${status.summary.failed} errori`,
-              });
-            }
-          }
-        } catch (error) {
-          console.error("Error polling status:", error);
-          if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-          setRefreshProgress({ current: 0, total: 0 });
-          setRefreshDismissed(false);
-        }
-      }, 3000);
-
-      // Stop polling after 5 minutes
-      timeoutRef.current = setTimeout(
-        () => {
-          if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-          setRefreshProgress({ current: 0, total: 0 });
-          setRefreshDismissed(false);
-        },
-        5 * 60 * 1000,
-      );
-    },
-    onError: (error) => {
-      toast({
-        title: "Errore",
-        description: "Impossibile avviare l'aggiornamento",
-        variant: "destructive",
-      });
-    },
-  });
-
   const handleSignClick = (signName: string) => {
     const dateParam = selectedDate.toLocaleDateString('en-CA');
     navigate(`/sign/${signName}?date=${dateParam}`);
@@ -233,28 +143,7 @@ export default function Home() {
     }
   };
 
-  // Cleanup intervals/timeouts on unmount to prevent memory leaks
-  useEffect(() => {
-    return () => {
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-      }
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, []);
-
   const isLoading = signsLoading || aggregatesLoading;
-  const isRefreshing =
-    !refreshDismissed &&
-    (refreshAllMutation.isPending || refreshProgress.total > 0);
-
-  const handleDismissRefresh = () => {
-    setRefreshDismissed(true);
-    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-  };
 
   return (
     <div className="min-h-screen text-foreground">
@@ -432,32 +321,7 @@ export default function Home() {
               ))}
           </div>
         )}
-
-        {/* Refresh Button */}
-        <div className="mt-8 mb-8 flex justify-center">
-          <Button
-            onClick={() => refreshAllMutation.mutate()}
-            disabled={isRefreshing}
-            className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white shadow-lg hover:shadow-xl transition-all"
-            data-testid="button-refresh-all"
-          >
-            <RefreshCw
-              className={`w-4 h-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
-            />
-            Aggiorna Tutti i Dati
-          </Button>
-        </div>
       </main>
-
-      {/* Loading Overlay */}
-      <LoadingOverlay
-        isVisible={isRefreshing}
-        title="Aggiornamento in corso..."
-        message="Aggiornamento previsioni in corso"
-        progress={refreshProgress.current}
-        total={refreshProgress.total}
-        onDismiss={handleDismissRefresh}
-      />
 
       {/* Bottom spacing for mobile navigation */}
       <div className="h-2 md:h-0"></div>
