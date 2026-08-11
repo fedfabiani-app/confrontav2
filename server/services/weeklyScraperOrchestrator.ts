@@ -315,7 +315,19 @@ export async function runWeeklyScraperCycle(
       },
       orderBy: { id: 'asc' },
     });
-    
+
+    // Requested source IDs that came back empty were either not found or
+    // (most likely) have is_active=false - this filter drops them silently
+    // from the query above, so log it explicitly to avoid a source looking
+    // "not retried" with no trace of why.
+    if (options.specificSources && options.specificSources.length > 0) {
+      const foundIds = new Set(sources.map(s => s.id));
+      const missingIds = options.specificSources.filter(id => !foundIds.has(id));
+      if (missingIds.length > 0) {
+        console.warn(`[Weekly Orchestrator] Requested source IDs not found or inactive, skipped: ${missingIds.join(', ')}`);
+      }
+    }
+
     // Filter sources by group if not 'all'
     if (sourceGroup !== 'all') {
       sources = sources.filter(source => {

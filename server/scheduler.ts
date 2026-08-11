@@ -165,7 +165,9 @@ async function hasRunningWeeklyExecution(weekStart: Date): Promise<boolean> {
   });
   
   if (staleExecutions.length > 0) {
-    
+    console.log(`[WeeklyFallback] Marking ${staleExecutions.length} stale execution(s) as timeout: ` +
+      staleExecutions.map(s => `#${s.id} (week ${s.target_week.toISOString().slice(0, 10)}, group ${s.source_group}, started ${s.started_at.toISOString()})`).join(', '));
+
     for (const stale of staleExecutions) {
       await prisma.weeklyScraperExecution.update({
         where: { id: stale.id },
@@ -174,10 +176,10 @@ async function hasRunningWeeklyExecution(weekStart: Date): Promise<boolean> {
           completed_at: new Date(),
         },
       });
-      
+
     }
   }
-  
+
   // Now check for actual running executions
   const running = await prisma.weeklyScraperExecution.findFirst({
     where: {
@@ -188,7 +190,11 @@ async function hasRunningWeeklyExecution(weekStart: Date): Promise<boolean> {
       },
     },
   });
-  
+
+  if (running) {
+    console.log(`[WeeklyFallback] Blocked: execution #${running.id} (group ${running.source_group}) still running since ${running.started_at.toISOString()} for week ${weekStart.toISOString().slice(0, 10)}`);
+  }
+
   return running !== null;
 }
 
@@ -679,7 +685,7 @@ async function executeSaturdayWeeklyScraper() {
 // ============================================================================
 
 async function executeWeeklyFallbackRetry() {
-  
+
   try {
     const weekStart = getCurrentWeekStart();
     const now = new Date();
@@ -689,25 +695,31 @@ async function executeWeeklyFallbackRetry() {
       minute: '2-digit',
       second: '2-digit'
     });
-    
-    
+
+    console.log(`[WeeklyFallback] Running at ${italyTime} (Rome) for week ${weekStart.toISOString().slice(0, 10)}`);
+
     // Guard 1: Check enabled flag
     const config = await getWeeklyScraperConfig();
     if (!config.enabled) {
+      console.log('[WeeklyFallback] Skipped: weekly scraper disabled via config (enabled=false)');
       return;
     }
-    
+
     // Guard 2: Check for running execution
     if (await hasRunningWeeklyExecution(weekStart)) {
+      // hasRunningWeeklyExecution() already logs which execution is blocking
       return;
     }
-    
+
     // Get sources that need retry: failed (enqueue error) + pending with no saved data
     const failedSourceIds = await getFailedWeeklySources(weekStart, 'all');
     const missingDataSourceIds = await getMissingDataWeeklySources(weekStart);
     const allRetryIds = [...new Set([...failedSourceIds, ...missingDataSourceIds])];
 
+    console.log(`[WeeklyFallback] failedSourceIds=[${failedSourceIds.join(', ')}] missingDataSourceIds=[${missingDataSourceIds.join(', ')}] allRetryIds=[${allRetryIds.join(', ')}]`);
+
     if (allRetryIds.length === 0) {
+      console.log('[WeeklyFallback] Skipped: no sources need retry');
       return;
     }
 
@@ -719,8 +731,9 @@ async function executeWeeklyFallbackRetry() {
       forceRescrape: true,
       triggerType: 'fallback'
     });
-    
-    
+
+    console.log(`[WeeklyFallback] Completed: enqueued=${result.stats.enqueued} skipped=${result.stats.skipped} failed=${result.stats.failed}`);
+
   } catch (error) {
     console.error('[WeeklyFallback] ✗ Error:', error);
   }
