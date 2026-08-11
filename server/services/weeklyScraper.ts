@@ -1004,6 +1004,89 @@ async function resolveWebbohUrlFromArchive(input: WeeklyScraperInput): Promise<s
 
 // ==================== END WEBBOH.IT SPECIFIC FUNCTIONS ====================
 
+// ==================== STARBENE.IT SPECIFIC FUNCTIONS ====================
+
+// Starbene's configured URL pattern (/oroscopo/{sign}/{sign}-dal-{start_day}-al-{end_day}-{month}-{year}/)
+// is correct for most signs, but not all - e.g. Vergine's real URL uses a
+// different prefix ("previsioni-per-la-settimana-vergine-dal-..." instead of
+// "vergine-dal-..."). There's also no guarantee the article is published yet
+// at scrape time. Each sign also has a stable per-sign hub page
+// (https://www.starbene.it/oroscopo/{sign}/) linking to its current article,
+// used as a fallback when the direct pattern URL doesn't resolve.
+async function resolveStarbeneUrlFromHub(input: WeeklyScraperInput): Promise<string> {
+  const signSlug = SIGN_MAP[input.signSlugIt] || input.signSlugIt.toLowerCase();
+  const hubUrl = `https://www.starbene.it/oroscopo/${signSlug}/`;
+
+  await respectDomainRateLimit(input.domain);
+
+  const html = await fetchHtml(hubUrl, input.userAgent);
+  const $ = cheerio.load(html);
+
+  const targetDate = new Date(input.weekStartDate);
+  const currentYear = targetDate.getFullYear();
+
+  const candidates: Array<{ url: string; startDate: Date; score: number }> = [];
+
+  $('a').each((_, elem) => {
+    const href = $(elem).attr('href');
+    if (!href || !href.includes(`/oroscopo/${signSlug}/`)) return;
+
+    const linkText = $(elem).text().trim();
+    // parseItalianWeekRange matches "dal-D-al-D-month(-year)" (and cross-month
+    // variants) regardless of what prefix precedes it, so it works whether the
+    // slug is "{sign}-dal-..." or "previsioni-per-la-settimana-{sign}-dal-...".
+    const dateRange = parseItalianWeekRange(href + ' ' + linkText, currentYear);
+    if (!dateRange) return;
+
+    const absoluteUrl = href.startsWith('http')
+      ? href
+      : 'https://www.starbene.it' + (href.startsWith('/') ? href : '/' + href);
+
+    const daysDiff = Math.abs(Math.floor((dateRange.startDate.getTime() - targetDate.getTime()) / (1000 * 60 * 60 * 24)));
+    const score = daysDiff === 0 ? 100 : daysDiff <= 7 ? 50 - daysDiff : 0;
+
+    if (score > 0) {
+      candidates.push({ url: absoluteUrl, startDate: dateRange.startDate, score });
+    }
+  });
+
+  if (candidates.length === 0) {
+    throw new Error(`No Starbene weekly horoscope URL found on hub ${hubUrl} for ${input.signSlugIt}, week ${input.weekStartDate}`);
+  }
+
+  candidates.sort((a, b) => b.score - a.score);
+  return candidates[0].url;
+}
+
+// Resolves the Starbene weekly URL for a sign, trying the deterministic
+// direct URL first (built from the configured pattern) and falling back to
+// scraping that sign's hub page if the direct URL doesn't resolve.
+async function resolveStarbeneUrl(input: WeeklyScraperInput): Promise<string> {
+  const directUrl = buildGenericPatternUrl(input);
+
+  try {
+    await respectDomainRateLimit(input.domain);
+    await fetchHtml(directUrl, input.userAgent);
+    console.log(`Starbene - direct URL resolved: ${directUrl}`);
+    return directUrl;
+  } catch (directError) {
+    const directMsg = directError instanceof Error ? directError.message : String(directError);
+    console.log(`Starbene - direct URL failed (${directMsg}), falling back to per-sign hub scraping`);
+
+    try {
+      return await resolveStarbeneUrlFromHub(input);
+    } catch (hubError) {
+      const hubMsg = hubError instanceof Error ? hubError.message : String(hubError);
+      throw new Error(
+        `Starbene: could not resolve URL for ${input.signSlugIt}, week ${input.weekStartDate}. ` +
+        `Direct URL attempt (${directUrl}) failed: ${directMsg}. Hub fallback also failed: ${hubMsg}`
+      );
+    }
+  }
+}
+
+// ==================== END STARBENE.IT SPECIFIC FUNCTIONS ====================
+
       async function buildWeeklyHoroscopeUrl(input: WeeklyScraperInput): Promise<string | { url: string; validFrom: string; validTo: string }> {
         // SIMON AND THE STARS SPECIFIC: URL has no dal/al, built directly from dates
         if (input.domain.includes('simonandthestars.it')) {
@@ -1446,11 +1529,25 @@ async function resolveWebbohUrlFromArchive(input: WeeklyScraperInput): Promise<s
         return await resolveWebbohUrl(input);
       }
 
+      // STARBENE: dedicated resolver - tries the deterministic direct URL first,
+      // falls back to scraping the per-sign hub page (slugs aren't uniform across
+      // signs - e.g. Vergine uses a different prefix than the configured pattern)
+      if (input.domain.includes('starbene.it') || input.baseUrl.includes('starbene.it')) {
+        return await resolveStarbeneUrl(input);
+      }
+
       // Archive strategy - resolve from archive page
       if (input.scrapeStrategy === 'archive') {
         return await resolveWeeklyUrlFromArchive(input);
       }
 
+      return buildGenericPatternUrl(input);
+    }
+
+// Generic placeholder-substitution URL builder shared by every source whose
+// weekly article URL follows a fixed template (input.urlPattern) with no
+// dedicated resolver of its own.
+function buildGenericPatternUrl(input: WeeklyScraperInput): string {
       let url = input.baseUrl + input.urlPattern;
       const signSlug = SIGN_MAP[input.signSlugIt] || input.signSlugIt.toLowerCase();
 
@@ -1568,7 +1665,7 @@ async function resolveWebbohUrlFromArchive(input: WeeklyScraperInput): Promise<s
       }
 
       return url;
-    }
+}
 
 async function respectDomainRateLimit(domain: string): Promise<void> {
   const lastRequest = domainLastRequest.get(domain) || 0;
