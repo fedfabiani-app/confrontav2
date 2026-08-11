@@ -941,7 +941,7 @@ async function resolveWebbohUrl(input: WeeklyScraperInput): Promise<string> {
 }
 
 async function resolveWebbohUrlFromArchive(input: WeeklyScraperInput): Promise<string> {
-  const hubUrl = 'https://www.webboh.it/oroscopo-settimana/';
+  const hubUrl = 'https://www.webboh.it/category/oroscopo/';
 
   await respectDomainRateLimit(input.domain);
 
