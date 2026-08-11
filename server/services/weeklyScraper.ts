@@ -879,8 +879,69 @@ const WEBBOH_SIGN_SLUGS: Record<string, string> = {
   'Sagittario': 'sagittario', 'Capricorno': 'capricorno', 'Acquario': 'aquario', 'Pesci': 'pesci',
 };
 
+// Webboh's per-sign article URLs follow a deterministic slug built from the
+// week's Monday-Sunday range, e.g.:
+//   oroscopo-pesci-settimana-10-16-agosto-2026            (same month)
+//   oroscopo-pesci-settimana-27-luglio-2-agosto-2026      (cross month)
+// This mirrors buildSimonAndTheStarsUrl/buildGazzettaWeeklyUrl above, but for
+// Webboh it's used as a first attempt (verified with a live request) rather
+// than an unconditional builder, since the hub page has proven less reliable
+// week to week than the slug pattern itself.
+function buildWebbohWeeklyUrlCandidate(input: WeeklyScraperInput): string {
+  const MONTH_NAMES: Record<number, string> = {
+    0: 'gennaio', 1: 'febbraio', 2: 'marzo', 3: 'aprile', 4: 'maggio', 5: 'giugno',
+    6: 'luglio', 7: 'agosto', 8: 'settembre', 9: 'ottobre', 10: 'novembre', 11: 'dicembre'
+  };
+
+  const weekStart = new Date(input.weekStartDate);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+
+  const signSlug = WEBBOH_SIGN_SLUGS[input.signSlugIt] || input.signSlugIt.toLowerCase();
+  const startDay = weekStart.getDate();
+  const endDay = weekEnd.getDate();
+  const startMonth = MONTH_NAMES[weekStart.getMonth()];
+  const endMonth = MONTH_NAMES[weekEnd.getMonth()];
+  const year = weekStart.getFullYear();
+  const crossMonth = weekStart.getMonth() !== weekEnd.getMonth();
+
+  const datePart = crossMonth
+    ? `${startDay}-${startMonth}-${endDay}-${endMonth}-${year}`
+    : `${startDay}-${endDay}-${startMonth}-${year}`;
+
+  return `https://www.webboh.it/oroscopo-${signSlug}-settimana-${datePart}/`;
+}
+
+// Resolves the Webboh weekly URL for a sign, trying the deterministic direct
+// URL first (fast, no dependency on the hub page markup) and falling back to
+// the hub-page scrape if the direct URL doesn't resolve (e.g. Webboh
+// published with an unexpected slug variation that week).
+async function resolveWebbohUrl(input: WeeklyScraperInput): Promise<string> {
+  const directUrl = buildWebbohWeeklyUrlCandidate(input);
+
+  try {
+    await respectDomainRateLimit(input.domain);
+    await fetchHtml(directUrl, input.userAgent);
+    console.log(`Webboh - direct URL resolved: ${directUrl}`);
+    return directUrl;
+  } catch (directError) {
+    const directMsg = directError instanceof Error ? directError.message : String(directError);
+    console.log(`Webboh - direct URL failed (${directMsg}), falling back to hub scraping`);
+
+    try {
+      return await resolveWebbohUrlFromArchive(input);
+    } catch (hubError) {
+      const hubMsg = hubError instanceof Error ? hubError.message : String(hubError);
+      throw new Error(
+        `Webboh: could not resolve URL for ${input.signSlugIt}, week ${input.weekStartDate}. ` +
+        `Direct URL attempt (${directUrl}) failed: ${directMsg}. Hub fallback also failed: ${hubMsg}`
+      );
+    }
+  }
+}
+
 async function resolveWebbohUrlFromArchive(input: WeeklyScraperInput): Promise<string> {
-  const hubUrl = 'https://www.webboh.it/oroscopo-settimana/';
+  const hubUrl = 'https://www.webboh.it/category/oroscopo/';
 
   await respectDomainRateLimit(input.domain);
 
@@ -1379,9 +1440,10 @@ async function resolveWebbohUrlFromArchive(input: WeeklyScraperInput): Promise<s
         return await resolveWeeklyUrlFromArchive(input);
       }
 
-      // WEBBOH: Dedicated resolver - one article per sign, found via the stable hub page
+      // WEBBOH: Dedicated resolver - tries the deterministic direct URL first,
+      // falls back to the hub page if that slug doesn't resolve
       if (input.domain.includes('webboh.it') || input.baseUrl.includes('webboh.it')) {
-        return await resolveWebbohUrlFromArchive(input);
+        return await resolveWebbohUrl(input);
       }
 
       // Archive strategy - resolve from archive page
