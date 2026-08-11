@@ -1008,9 +1008,9 @@ function SignDetail({ sign }: SignDetailProps) {
                   {/* SUPERQUOTE - Always visible */}
 {horoscope.superquote && (
   <>
-    <p className="text-[13px] text-amber-300/90 mb-1 pr-2">La nostra sintesi:</p>
+    <p className="text-[11px] uppercase tracking-[0.05em] font-semibold text-[#E1B64E]/85 mb-1 pr-2">La nostra sintesi:</p>
     <div className="px-4 py-2 rounded-r-md border-l-4" style={{ backgroundColor: 'var(--superquote-bg)', borderLeftColor: 'var(--header-gold)' }}>
-      <p className="text-sm font-normal text-white/90 leading-relaxed">
+      <p className="text-sm font-normal italic text-card-foreground leading-[1.6]">
         {horoscope.superquote}
       </p>
     </div>
@@ -1025,7 +1025,7 @@ function SignDetail({ sign }: SignDetailProps) {
                     }`}
                   >
                     {/* Horoscope Content */}
-                    <p className="text-card-foreground leading-relaxed mb-4">
+                    <p className="text-card-foreground text-sm font-sans leading-[1.5] mb-4">
                       {truncateAtMidWord(horoscope.summary)}
                     </p>
 
