@@ -76,6 +76,14 @@ html {
 
   /* Custom Superquote Box Variables */
   --superquote-bg: #0f0f1f;
+
+  /* Background gradient tokens (public/starry-bg.svg). The SVG is an external
+     resource loaded via background-image url(), so it can't read these CSS
+     custom properties directly — the same values are baked into the SVG's
+     <radialGradient id="baseGlow">. Kept here so the palette is documented
+     and reusable from CSS if ever needed. */
+  --bg-navy-dark: #1e1440;  /* existing dark navy already in use (SVG base fill / ≈ bg-background) */
+  --bg-navy-light: #3f2a86; /* --bg-navy-dark lightened ~18% (HSL L 16.5% → 34.5%), derived not new */
 }
 
 .dark {
