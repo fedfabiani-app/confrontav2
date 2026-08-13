@@ -91,7 +91,7 @@ export default function Account() {
       <main className="max-w-lg mx-auto px-4 py-8 space-y-6">
 
         {/* Profilo */}
-        <section className="rounded-xl p-5 space-y-3" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
+        <section className="rounded-xl p-5 space-y-3" style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border-hairline)' }}>
           <div className="flex items-center gap-4">
             <div
               className="w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold shrink-0"
@@ -109,7 +109,7 @@ export default function Account() {
         </section>
 
         {/* Piano */}
-        <section className="rounded-xl p-5 space-y-3" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
+        <section className="rounded-xl p-5 space-y-3" style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border-hairline)' }}>
           <h2 className="text-white/70 text-xs font-semibold uppercase tracking-wider">Il tuo piano</h2>
 
           {userTier === 'premium' ? (
@@ -158,7 +158,7 @@ export default function Account() {
         </section>
 
         {/* Preferiti */}
-        <section className="rounded-xl p-5 space-y-3" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
+        <section className="rounded-xl p-5 space-y-3" style={{ background: 'var(--surface-subtle)', border: '1px solid var(--border-hairline)' }}>
           <h2 className="text-white/70 text-xs font-semibold uppercase tracking-wider">Preferiti</h2>
           <div className="flex gap-6">
             <div className="flex items-center gap-2">
@@ -180,7 +180,7 @@ export default function Account() {
         <button
           onClick={handleSignOut}
           className="w-full py-2.5 rounded-xl text-sm font-medium text-white/70 hover:text-white transition-colors"
-          style={{ border: '1px solid rgba(255,255,255,0.15)' }}
+          style={{ border: '1px solid var(--border-subtle)' }}
         >
           Esci dall'account
         </button>

@@ -86,6 +86,17 @@ html {
      and reusable from CSS if ever needed. */
   --bg-navy-dark: #1e1440;  /* existing dark navy already in use (SVG base fill / ≈ bg-background) */
   --bg-navy-light: #3f2a86; /* --bg-navy-dark lightened ~18% (HSL L 16.5% → 34.5%), derived not new */
+
+  /* Subtle surface & border tokens — translucent white overlay on the dark
+     app background, used for card backgrounds, hairline dividers and
+     button/input borders in Login, Account, Pricing, Terms, Privacy,
+     Contact, Info, Editoriale. */
+  --surface-subtle: rgba(255, 255, 255, 0.05);   /* card/section background */
+  --surface-strong: rgba(255, 255, 255, 0.15);   /* emphasized badge/pill background */
+  --border-hairline: rgba(255, 255, 255, 0.1);   /* header/card border, most common */
+  --border-subtle: rgba(255, 255, 255, 0.15);    /* outline button border (e.g. logout) */
+  --border-default: rgba(255, 255, 255, 0.2);    /* input border, divider rule */
+  --border-strong: rgba(255, 255, 255, 0.3);     /* ghost/CTA button border, highlighted card */
 }
 
 .dark {
