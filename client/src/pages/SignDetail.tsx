@@ -75,21 +75,6 @@ interface ComparativeSynthesis {
   ha_divergenza: boolean;
 }
 
-const signColors = {
-  ariete: "from-red-500 to-pink-500",
-  toro: "from-green-500 to-emerald-500",
-  gemelli: "from-yellow-500 to-orange-500",
-  cancro: "from-blue-500 to-cyan-500",
-  leone: "from-orange-500 to-red-500",
-  vergine: "from-green-600 to-blue-500",
-  bilancia: "from-pink-500 to-purple-500",
-  scorpione: "from-red-600 to-black",
-  sagittario: "from-purple-500 to-indigo-500",
-  capricorno: "from-gray-600 to-gray-800",
-  acquario: "from-blue-400 to-cyan-400",
-  pesci: "from-blue-500 to-purple-500",
-};
-
 function truncateAtMidWord(text: string): string {
   const trimmed = text.trimEnd();
   const lastSpace = trimmed.lastIndexOf(' ');
@@ -478,9 +463,6 @@ function SignDetail({ sign }: SignDetailProps) {
       </div>
     );
   }
-
-  const colorClass =
-    signColors[sign as keyof typeof signColors] || "from-gray-500 to-gray-700";
 
   // Check if we're in a loading state
   const isLoading = viewType === "daily"
