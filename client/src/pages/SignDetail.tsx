@@ -1010,7 +1010,7 @@ function SignDetail({ sign }: SignDetailProps) {
                       Da {horoscope.source.name}
                     </p>
                     <p className="text-card-foreground text-sm font-sans leading-[1.5] mb-4">
-                      {truncateAtMidWord(horoscope.summary)}
+                      “{truncateAtMidWord(horoscope.summary)}”
                     </p>
 
                     {/* Read More Link */}
