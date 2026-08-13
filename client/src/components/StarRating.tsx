@@ -46,7 +46,7 @@ export function StarRating({
   size = "md",
   showValue = false,
   className,
-  color = "#E1B64E",
+  color = "var(--header-gold)",
 }: StarRatingProps) {
   const { fullStars, hasHalf } = getStarFill(rating, maxRating);
 

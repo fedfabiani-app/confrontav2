@@ -26,13 +26,13 @@ export function PremiumGateOverlay({ type, date, onClose }: PremiumGateOverlayPr
         className="bg-[#1e1440] border border-white/20 rounded-2xl p-8 max-w-sm mx-4 w-full text-center space-y-4 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <Lock className="w-12 h-12 mx-auto" style={{ color: '#E1B64E' }} />
+        <Lock className="w-12 h-12 mx-auto" style={{ color: 'var(--header-gold)' }} />
         <h2 className="text-xl font-bold text-white">
           {type === 'daily' ? 'Oroscopo Premium' : 'Settimana Premium'}
         </h2>
         <span
           className="inline-block px-3 py-1 rounded-full text-xs font-bold"
-          style={{ background: 'rgba(225,182,78,0.15)', color: '#E1B64E', border: '1px solid rgba(225,182,78,0.4)' }}
+          style={{ background: 'rgba(var(--header-gold-rgb), 0.15)', color: 'var(--header-gold)', border: '1px solid rgba(var(--header-gold-rgb), 0.4)' }}
         >
           🎁 30 giorni gratis
         </span>
@@ -43,7 +43,7 @@ export function PremiumGateOverlay({ type, date, onClose }: PremiumGateOverlayPr
           <button
             onClick={() => navigate('/pricing')}
             className="w-full py-2.5 rounded-full font-semibold text-sm transition-opacity hover:opacity-90"
-            style={{ background: '#E1B64E', color: '#1a1a1a' }}
+            style={{ background: 'var(--header-gold)', color: '#1a1a1a' }}
           >
             Prova gratis per 30 giorni
           </button>

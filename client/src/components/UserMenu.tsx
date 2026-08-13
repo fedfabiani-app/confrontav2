@@ -65,7 +65,7 @@ export function UserMenu() {
       <button
         onClick={() => setOpen((v) => !v)}
         className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0 focus:outline-none"
-        style={{ background: '#E1B64E', color: '#1a1a1a' }}
+        style={{ background: 'var(--header-gold)', color: '#1a1a1a' }}
         aria-label="Menu utente"
       >
         {avatarLetter}
@@ -89,7 +89,7 @@ export function UserMenu() {
               className="inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-bold"
               style={
                 userTier === 'premium'
-                  ? { background: '#E1B64E', color: '#1a1a1a' }
+                  ? { background: 'var(--header-gold)', color: '#1a1a1a' }
                   : { background: 'rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.6)' }
               }
             >

@@ -66,8 +66,10 @@ html {
   --header-border: 1px solid rgba(225, 182, 78, 0.2);
   --header-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   --header-gold: #E1B64E;
+  --header-gold-rgb: 225, 182, 78;
   --header-gold-glow: 0 0 20px rgba(225, 182, 78, 0.4);
   --header-purple: #C4B5E0;
+  --header-purple-rgb: 196, 181, 224;
   --header-purple-glow: 0 0 10px rgba(196, 181, 224, 0.3);
   --header-stars: radial-gradient(2px 2px at 20% 30%, white, transparent),
                    radial-gradient(1px 1px at 80% 70%, rgba(225, 182, 78, 0.8), transparent),

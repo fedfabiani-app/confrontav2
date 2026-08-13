@@ -153,7 +153,7 @@ export function CompatibilityWidget({ currentSign, viewType = 'daily', weekStart
         onClick={handleAnalyze}
         disabled={status === 'loading'}
         className="w-full py-2 rounded-lg text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
-        style={{ background: '#E1B64E', color: '#1a1a1a' }}
+        style={{ background: 'var(--header-gold)', color: '#1a1a1a' }}
       >
         {status === 'loading' ? 'Analisi in corso…' : 'Analizza Compatibilità'}
       </button>
@@ -161,7 +161,7 @@ export function CompatibilityWidget({ currentSign, viewType = 'daily', weekStart
       {/* Loading spinner */}
       {status === 'loading' && (
         <div className="flex items-center justify-center py-3">
-          <div className="w-5 h-5 border-2 border-[#E1B64E] border-t-transparent rounded-full animate-spin" />
+          <div className="w-5 h-5 border-2 border-[var(--header-gold)] border-t-transparent rounded-full animate-spin" />
         </div>
       )}
 
@@ -170,11 +170,11 @@ export function CompatibilityWidget({ currentSign, viewType = 'daily', weekStart
         <div
           className="rounded-lg p-4 text-sm leading-relaxed"
           style={{
-            background: 'rgba(225,182,78,0.08)',
-            border: '1px solid rgba(225,182,78,0.3)',
+            background: 'rgba(var(--header-gold-rgb), 0.08)',
+            border: '1px solid rgba(var(--header-gold-rgb), 0.3)',
           }}
         >
-          <p className="text-[#E1B64E] text-xs font-semibold mb-2 uppercase tracking-wide">
+          <p className="text-[var(--header-gold)] text-xs font-semibold mb-2 uppercase tracking-wide">
             {sign1Label} + {sign2Label}
           </p>
           <p className="text-white">{result}</p>
@@ -198,7 +198,7 @@ export function CompatibilityWidget({ currentSign, viewType = 'daily', weekStart
             WebkitBackdropFilter: 'blur(4px)',
           }}
         >
-          <Lock className="text-[#E1B64E]" size={28} strokeWidth={1.6} />
+          <Lock className="text-[var(--header-gold)]" size={28} strokeWidth={1.6} />
           <p className="text-white text-sm font-semibold text-center px-4">
             Affinità tra segni 
           </p>
@@ -208,7 +208,7 @@ export function CompatibilityWidget({ currentSign, viewType = 'daily', weekStart
           <button
             onClick={() => navigate('/pricing')}
             className="mt-1 px-5 py-2 rounded-full text-xs font-semibold transition-opacity hover:opacity-90"
-            style={{ background: '#E1B64E', color: '#1a1a1a' }}
+            style={{ background: 'var(--header-gold)', color: '#1a1a1a' }}
           >
             Scopri Premium
           </button>

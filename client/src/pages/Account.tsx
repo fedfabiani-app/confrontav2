@@ -37,7 +37,7 @@ export default function Account() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-[#E1B64E] border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-2 border-[var(--header-gold)] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -95,7 +95,7 @@ export default function Account() {
           <div className="flex items-center gap-4">
             <div
               className="w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold shrink-0"
-              style={{ background: '#E1B64E', color: '#1a1a1a' }}
+              style={{ background: 'var(--header-gold)', color: '#1a1a1a' }}
             >
               {avatarLetter}
             </div>
@@ -114,7 +114,7 @@ export default function Account() {
 
           {userTier === 'premium' ? (
             <div className="space-y-2">
-              <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold" style={{ background: '#E1B64E', color: '#1a1a1a' }}>
+              <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold" style={{ background: 'var(--header-gold)', color: '#1a1a1a' }}>
                 PREMIUM
               </span>
               <p className="text-white/80 text-sm">Hai accesso a tutte le funzionalità</p>
@@ -135,7 +135,7 @@ export default function Account() {
                     alert('Errore di rete. Riprova.');
                   }
                 }}
-                className="text-sm text-[#E1B64E] hover:underline"
+                className="text-sm text-[var(--header-gold)] hover:underline"
               >
                 Gestisci abbonamento
               </button>
@@ -149,7 +149,7 @@ export default function Account() {
               <button
                 onClick={() => navigate('/pricing')}
                 className="px-4 py-1.5 rounded-full text-sm font-semibold"
-                style={{ background: '#E1B64E', color: '#1a1a1a' }}
+                style={{ background: 'var(--header-gold)', color: '#1a1a1a' }}
               >
                 Passa a Premium
               </button>
@@ -162,13 +162,13 @@ export default function Account() {
           <h2 className="text-white/70 text-xs font-semibold uppercase tracking-wider">Preferiti</h2>
           <div className="flex gap-6">
             <div className="flex items-center gap-2">
-              <Star size={16} className="text-[#E1B64E]" />
+              <Star size={16} className="text-[var(--header-gold)]" />
               <span className="text-white text-sm">
                 <span className="font-semibold">{homeFavorites.size}</span> segni
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <BookmarkCheck size={16} className="text-[#E1B64E]" />
+              <BookmarkCheck size={16} className="text-[var(--header-gold)]" />
               <span className="text-white text-sm">
                 <span className="font-semibold">{favorites.length}</span> fonti
               </span>

@@ -553,8 +553,8 @@ function SignDetail({ sign }: SignDetailProps) {
               {currentAggregate?.avgLavoro !== null ? currentAggregate?.avgLavoro?.toFixed(1) : 'N/A'}
             </p>
           </div>
-          <div className="w-8 h-8 md:w-12 md:h-12 bg-[#C4B5E0]/20 rounded-full flex items-center justify-center mt-1 md:mt-0">
-            <Briefcase className="text-[#C4B5E0] w-4 h-4 md:w-6 md:h-6" />
+          <div className="w-8 h-8 md:w-12 md:h-12 bg-[var(--header-purple)]/20 rounded-full flex items-center justify-center mt-1 md:mt-0">
+            <Briefcase className="text-[var(--header-purple)] w-4 h-4 md:w-6 md:h-6" />
           </div>
         </div>
       </CardContent>
@@ -609,7 +609,7 @@ function SignDetail({ sign }: SignDetailProps) {
               {currentAggregate?.avgLavoro !== null ? currentAggregate?.avgLavoro?.toFixed(1) : 'N/A'}
             </p>
           </div>
-          <Briefcase className="text-[#C4B5E0] w-4 h-4 md:w-6 md:h-6 mt-1 md:mt-0" />
+          <Briefcase className="text-[var(--header-purple)] w-4 h-4 md:w-6 md:h-6 mt-1 md:mt-0" />
         </div>
       </CardContent>
     </Card>
@@ -636,7 +636,7 @@ function SignDetail({ sign }: SignDetailProps) {
       <CardContent className="p-2 md:p-4">
         <div className="flex items-center justify-center gap-3 md:gap-4">
           <span className="text-base md:text-xl font-bold text-card-foreground">Media Generale</span>
-          <span className="text-xl md:text-3xl font-bold text-[#E1B64E]">
+          <span className="text-xl md:text-3xl font-bold text-[var(--header-gold)]">
             {currentAggregate?.overallAverage?.toFixed(1) || 'N/A'}
           </span>
           <StarRating rating={currentAggregate?.overallAverage || 0} size="lg" />
@@ -676,9 +676,9 @@ function SignDetail({ sign }: SignDetailProps) {
               navigate(`/?date=${dateParam}`);
             }}
             data-testid="button-back"
-            className="text-white hover:bg-white/20 border border-white/30 transition-all duration-300 hover:border-[#E1B64E] hover:shadow-lg"
+            className="text-white hover:bg-white/20 border border-white/30 transition-all duration-300 hover:border-[var(--header-gold)] hover:shadow-lg"
             style={{
-              boxShadow: '0 0 15px rgba(225, 182, 78, 0.2)'
+              boxShadow: '0 0 15px rgba(var(--header-gold-rgb), 0.2)'
             }}
           >
             <ArrowLeft className="w-4 h-4" />
@@ -692,7 +692,7 @@ function SignDetail({ sign }: SignDetailProps) {
               className="w-12 h-12 object-contain transition-transform hover:scale-110 duration-300"
               draggable={false}
               style={{
-                filter: 'drop-shadow(0 0 8px rgba(225, 182, 78, 0.5))'
+                filter: 'drop-shadow(0 0 8px rgba(var(--header-gold-rgb), 0.5))'
               }}
             />
 
@@ -719,7 +719,7 @@ function SignDetail({ sign }: SignDetailProps) {
                 onClick={() => setViewType("daily")}
                 className={`flex-1 py-2 px-6 rounded-full font-medium transition-all ${
                   viewType === "daily"
-                    ? "bg-[#E1B64E] text-gray-900 shadow-md"
+                    ? "bg-[var(--header-gold)] text-gray-900 shadow-md"
                     : "text-indigo-300"
                 }`}
                 data-testid="button-daily-view"
@@ -730,7 +730,7 @@ function SignDetail({ sign }: SignDetailProps) {
                 onClick={() => setViewType("weekly")}
                 className={`flex-1 py-2 px-6 rounded-full font-medium transition-all ${
                   viewType === "weekly"
-                    ? "bg-[#E1B64E] text-gray-900 shadow-md"
+                    ? "bg-[var(--header-gold)] text-gray-900 shadow-md"
                     : "text-indigo-300"
                 }`}
                 data-testid="button-weekly-view"
@@ -762,7 +762,7 @@ function SignDetail({ sign }: SignDetailProps) {
           className="flex items-center justify-center gap-3 flex-1"
           data-testid="date-selector-daily"
         >
-          <Moon className="w-5 h-5 text-[#E1B64E]" />
+          <Moon className="w-5 h-5 text-[var(--header-gold)]" />
           <span className="text-indigo-100 font-semibold text-base">
             {isSelectedDateToday(selectedDate) ? `Oggi · ${formatDate(selectedDate)}` : formatDate(selectedDate)}
           </span>
@@ -834,7 +834,7 @@ function SignDetail({ sign }: SignDetailProps) {
             <CardContent className="p-4">
               <details className="group">
                 <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-                  <h2 className="text-base md:text-xl font-bold text-[#E1B64E] mb-2">
+                  <h2 className="text-base md:text-xl font-bold text-[var(--header-gold)] mb-2">
                     {viewType === "daily" ? "Il quadro di oggi" : "Il quadro della settimana"}
                   </h2>
                   <p className="text-sm text-card-foreground leading-relaxed italic">{currentComparativeSynthesis.consenso}</p>
@@ -847,7 +847,7 @@ function SignDetail({ sign }: SignDetailProps) {
                   </p>
                   {/* Media Generale: blocco di sintesi principale, sotto tutto il testo, sempre visibile, accordion aperto o chiuso */}
                   {mediaGeneraleBox && <div className="mt-4">{mediaGeneraleBox}</div>}
-                  <span className="block text-right text-sm text-[#E1B64E] font-semibold mt-2 hover:underline group-open:hidden">
+                  <span className="block text-right text-sm text-[var(--header-gold)] font-semibold mt-2 hover:underline group-open:hidden">
                     Leggi tutto ›
                   </span>
                 </summary>
@@ -888,7 +888,7 @@ function SignDetail({ sign }: SignDetailProps) {
             const renderPlaceholderCard = (source: HoroscopeData["source"]) => (
               <Card
                 key={`placeholder-${source.id}`}
-                className="relative border border-dashed border-[#C4B5E0]/40 bg-card/50 shadow-none"
+                className="relative border border-dashed border-[var(--header-purple)]/40 bg-card/50 shadow-none"
               >
                 <CardContent className="p-3 flex items-center justify-between gap-3">
                   <div className="flex items-center space-x-3">
@@ -1008,7 +1008,7 @@ function SignDetail({ sign }: SignDetailProps) {
                   {/* SUPERQUOTE - Always visible */}
 {horoscope.superquote && (
   <>
-    <p className="text-[11px] uppercase tracking-[0.05em] font-semibold text-[#E1B64E]/85 mb-1 pr-2">La nostra sintesi:</p>
+    <p className="text-[11px] uppercase tracking-[0.05em] font-semibold text-[var(--header-gold)]/85 mb-1 pr-2">La nostra sintesi:</p>
     <div className="px-4 py-2 rounded-r-md border-l-4" style={{ backgroundColor: 'var(--superquote-bg)', borderLeftColor: 'var(--header-gold)' }}>
       <p className="text-sm font-normal italic text-card-foreground leading-[1.6]">
         {horoscope.superquote}
@@ -1035,7 +1035,7 @@ function SignDetail({ sign }: SignDetailProps) {
                         href={horoscope.original_url}
                         target="_blank"
                         rel="noopener noreferrer"
-className="inline-flex items-center text-sm font-semibold text-[#E1B64E] hover:text-[#E1B64E]/80 transition-colors"                        data-testid={`link-read-more-${horoscope.source.id}`}
+className="inline-flex items-center text-sm font-semibold text-[var(--header-gold)] hover:text-[var(--header-gold)]/80 transition-colors"                        data-testid={`link-read-more-${horoscope.source.id}`}
                       >
                         Leggi Tutto su {horoscope.source.name}
                         <ExternalLink className="w-3 h-3 ml-1" />
@@ -1055,7 +1055,7 @@ className="inline-flex items-center text-sm font-semibold text-[#E1B64E] hover:t
                       </div>
                       <div className="text-center">
                         <div className="flex items-center justify-center space-x-2 mb-1">
-                          <Briefcase className="w-4 h-4 text-[#C4B5E0]" />
+                          <Briefcase className="w-4 h-4 text-[var(--header-purple)]" />
                           <span className="text-sm text-muted-foreground">Lavoro</span>
                         </div>
                         <div className="text-lg font-bold text-card-foreground">

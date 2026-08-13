@@ -29,15 +29,15 @@ export function UpgradeBanner({ context }: UpgradeBannerProps) {
     <div
       className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm"
       style={{
-        background: 'rgba(225, 182, 78, 0.1)',
-        border: '1px solid rgba(225, 182, 78, 0.3)',
+        background: 'rgba(var(--header-gold-rgb), 0.1)',
+        border: '1px solid rgba(var(--header-gold-rgb), 0.3)',
       }}
     >
       <span className="text-white">{config.text}</span>
       <button
         onClick={() => navigate(config.href)}
         className="ml-auto shrink-0 px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap"
-        style={{ background: '#E1B64E', color: '#1a1a1a' }}
+        style={{ background: 'var(--header-gold)', color: '#1a1a1a' }}
       >
         {config.cta}
       </button>

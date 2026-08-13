@@ -55,7 +55,7 @@ export function WeekNavigator({ weekOffset, onOffsetChange, maxWeeksBack }: Week
 
       {/* Centro: icona calendario + testo */}
       <div className="flex items-center justify-center gap-3">
-        <CalendarDays className="w-5 h-5 text-[#E1B64E] flex-shrink-0" />
+        <CalendarDays className="w-5 h-5 text-[var(--header-gold)] flex-shrink-0" />
         <span className="text-indigo-100 text-base font-semibold tabular-nums select-none">
           Settimana del {formatWeekRange(weekOffset)}
         </span>

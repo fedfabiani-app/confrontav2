@@ -34,7 +34,7 @@ const inputStyle: React.CSSProperties = {
 };
 
 const primaryBtnStyle = (disabled: boolean): React.CSSProperties => ({
-  background: '#E1B64E',
+  background: 'var(--header-gold)',
   border: 'none',
   borderRadius: 8,
   color: '#1a1a1a',
@@ -351,7 +351,7 @@ function NativeSignInForm() {
         <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 14, lineHeight: 1.5, marginBottom: 8, textAlign: 'center' }}>
           Abbiamo inviato un link di accesso a
         </p>
-        <p style={{ color: '#E1B64E', fontSize: 15, fontWeight: 600, marginBottom: 24, textAlign: 'center', wordBreak: 'break-all' }}>
+        <p style={{ color: 'var(--header-gold)', fontSize: 15, fontWeight: 600, marginBottom: 24, textAlign: 'center', wordBreak: 'break-all' }}>
           {email}
         </p>
         <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, lineHeight: 1.5, marginBottom: 24, textAlign: 'center' }}>
@@ -389,7 +389,7 @@ function NativeSignInForm() {
         <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 14, lineHeight: 1.5, marginBottom: 8, textAlign: 'center' }}>
           Abbiamo inviato un codice a
         </p>
-        <p style={{ color: '#E1B64E', fontSize: 15, fontWeight: 600, marginBottom: 24, textAlign: 'center', wordBreak: 'break-all' }}>
+        <p style={{ color: 'var(--header-gold)', fontSize: 15, fontWeight: 600, marginBottom: 24, textAlign: 'center', wordBreak: 'break-all' }}>
           {email}
         </p>
         <form onSubmit={handleOtpSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -532,7 +532,7 @@ export default function Login() {
             signUpFallbackRedirectUrl={redirectTo}
             appearance={{
               variables: {
-                colorPrimary: '#E1B64E',
+                colorPrimary: 'var(--header-gold)',
                 colorBackground: '#053c8e',
                 colorText: '#ffffff',
                 colorInputBackground: '#2d1e50',

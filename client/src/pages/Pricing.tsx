@@ -117,13 +117,13 @@ export default function Pricing() {
           {/* PREMIUM */}
           <div
             className={CARD_PREMIUM}
-            style={{ background: 'rgba(225,182,78,0.08)', border: '1.5px solid #E1B64E' }}
+            style={{ background: 'rgba(var(--header-gold-rgb), 0.08)', border: '1.5px solid var(--header-gold)' }}
           >
             <div>
               <div className="flex flex-wrap items-center gap-2 mb-3">
                 <span
                   className="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold"
-                  style={{ background: '#E1B64E', color: '#1a1a1a' }}
+                  style={{ background: 'var(--header-gold)', color: '#1a1a1a' }}
                 >
                   PREMIUM
                 </span>
@@ -144,7 +144,7 @@ export default function Pricing() {
                 <li key={f} className="flex items-start gap-2 text-sm">
                   <Check
                     size={15}
-                    className={`mt-0.5 shrink-0 ${i >= FREE_FEATURES.length ? 'text-[#E1B64E]' : 'text-white/50'}`}
+                    className={`mt-0.5 shrink-0 ${i >= FREE_FEATURES.length ? 'text-[var(--header-gold)]' : 'text-white/50'}`}
                   />
                   <span className={i >= FREE_FEATURES.length ? 'text-white font-medium' : 'text-white/80'}>
                     {f}
@@ -160,7 +160,7 @@ export default function Pricing() {
                   handleCheckout('price_1TeuFcLi2fBiRYknDybE3eul');
                 }}
                 className="w-full py-2.5 rounded-xl text-sm font-semibold"
-                style={{ background: '#E1B64E', color: '#1a1a1a' }}
+                style={{ background: 'var(--header-gold)', color: '#1a1a1a' }}
               >
                 Prova gratis 30 giorni — poi €2,99/mese
               </button>
@@ -170,7 +170,7 @@ export default function Pricing() {
                   handleCheckout('price_1TX0IyLi2fBiRYknTy3zbGVF');
                 }}
                 className="w-full py-2.5 rounded-xl text-sm font-semibold text-white/80"
-                style={{ border: '1px solid #E1B64E', background: 'transparent' }}
+                style={{ border: '1px solid var(--header-gold)', background: 'transparent' }}
               >
                 Prova gratis 30 giorni — poi €19,99/anno
               </button>
