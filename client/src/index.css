@@ -179,16 +179,6 @@ html {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-.refresh-button {
-  background: linear-gradient(135deg, #ea580c 0%, #dc2626 100%);
-  box-shadow: 0 4px 15px rgba(234, 88, 12, 0.3);
-}
-
-.refresh-button:hover {
-  box-shadow: 0 6px 20px rgba(234, 88, 12, 0.4);
-  transform: translateY(-1px);
-}
-
 .fade-in {
   animation: fadeIn 0.3s ease-in;
 }
@@ -210,15 +200,6 @@ html {
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
-}
-
-/* Star rating colors */
-.star-filled {
-  color: hsl(43, 89%, 55%);
-}
-
-.star-empty {
-  color: hsl(220, 13%, 91%);
 }
 
 /* App Header Stable Styles - Won't reset on HMR */
@@ -247,22 +228,6 @@ html {
 
 .header-logo-glow {
   filter: drop-shadow(0 0 8px rgba(225, 182, 78, 0.3));
-}
-
-/* Tone badge styles */
-.tone-positive {
-  background-color: hsl(142, 71%, 45%);
-  color: white;
-}
-
-.tone-neutral {
-  background-color: hsl(43, 89%, 55%);
-  color: white;
-}
-
-.tone-negative {
-  background-color: hsl(0, 84%, 60%);
-  color: white;
 }
 
 /* Loading spinner */

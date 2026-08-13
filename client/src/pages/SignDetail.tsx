@@ -15,7 +15,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
-  CalendarDays,
   Moon,
 } from "lucide-react";
 import { AppHeader } from "@/components/AppHeader";

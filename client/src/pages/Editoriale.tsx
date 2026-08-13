@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
 import { ExternalLink } from "lucide-react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
