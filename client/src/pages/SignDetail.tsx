@@ -1006,8 +1006,11 @@ function SignDetail({ sign }: SignDetailProps) {
                     }`}
                   >
                     {/* Horoscope Content */}
+                    <p className="text-[11px] uppercase tracking-[0.05em] font-semibold text-[var(--header-purple)]/85 mb-1.5 pr-2">
+                      Da {horoscope.source.name}
+                    </p>
                     <p className="text-card-foreground text-sm font-sans leading-[1.5] mb-4">
-                      {truncateAtMidWord(horoscope.summary)}
+                      “{truncateAtMidWord(horoscope.summary)}”
                     </p>
 
                     {/* Read More Link */}
