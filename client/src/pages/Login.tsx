@@ -23,7 +23,7 @@ const cardStyle: React.CSSProperties = {
 
 const inputStyle: React.CSSProperties = {
   background: '#2d1e50',
-  border: '1px solid rgba(255,255,255,0.2)',
+  border: '1px solid var(--border-default)',
   borderRadius: 8,
   color: '#ffffff',
   fontSize: 15,
@@ -49,7 +49,7 @@ const primaryBtnStyle = (disabled: boolean): React.CSSProperties => ({
 
 const ghostBtnStyle: React.CSSProperties = {
   background: 'transparent',
-  border: '1px solid rgba(255,255,255,0.3)',
+  border: '1px solid var(--border-strong)',
   borderRadius: 8,
   color: 'rgba(255,255,255,0.7)',
   cursor: 'pointer',
@@ -442,9 +442,9 @@ function NativeSignInForm() {
       </button>
 
       <div style={{ alignItems: 'center', display: 'flex', gap: 12, margin: '20px 0' }}>
-        <div style={{ background: 'rgba(255,255,255,0.2)', flex: 1, height: 1 }} />
+        <div style={{ background: 'var(--border-default)', flex: 1, height: 1 }} />
         <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>oppure</span>
-        <div style={{ background: 'rgba(255,255,255,0.2)', flex: 1, height: 1 }} />
+        <div style={{ background: 'var(--border-default)', flex: 1, height: 1 }} />
       </div>
 
       <form onSubmit={handleEmailSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -498,7 +498,7 @@ export default function Login() {
           background: 'rgba(30, 20, 64, 0.6)',
           backdropFilter: 'blur(8px)',
           WebkitBackdropFilter: 'blur(8px)',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+          borderBottom: '1px solid var(--border-hairline)',
         }}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

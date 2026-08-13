@@ -77,7 +77,7 @@ export default function Pricing() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
           {/* FREE */}
-          <div className={CARD_FREE} style={{ background: 'rgba(255,255,255,0.04)' }}>
+          <div className={CARD_FREE} style={{ background: 'var(--surface-subtle)' }}>
             <div>
               <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold bg-white/20 text-white/70 mb-3">
                 GRATUITO
@@ -99,7 +99,7 @@ export default function Pricing() {
               <button
                 onClick={() => navigate('/login')}
                 className="w-full py-2.5 rounded-xl text-sm font-semibold text-white transition-colors"
-                style={{ border: '1px solid rgba(255,255,255,0.3)' }}
+                style={{ border: '1px solid var(--border-strong)' }}
               >
                 Inizia gratis
               </button>
@@ -107,7 +107,7 @@ export default function Pricing() {
               <button
                 disabled
                 className="w-full py-2.5 rounded-xl text-sm font-semibold text-white/40 cursor-not-allowed"
-                style={{ border: '1px solid rgba(255,255,255,0.1)' }}
+                style={{ border: '1px solid var(--border-hairline)' }}
               >
                 Il tuo piano attuale
               </button>
@@ -129,7 +129,7 @@ export default function Pricing() {
                 </span>
                 <span
                   className="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold"
-                  style={{ background: 'rgba(255,255,255,0.15)', color: '#ffffff' }}
+                  style={{ background: 'var(--surface-strong)', color: '#ffffff' }}
                 >
                   🎁 30 giorni gratis
                 </span>
