@@ -989,7 +989,7 @@ function SignDetail({ sign }: SignDetailProps) {
                   {/* SUPERQUOTE - Always visible */}
 {horoscope.superquote && (
   <>
-    <p className="text-[11px] uppercase tracking-[0.05em] font-semibold text-[var(--header-gold)]/85 mb-1 pr-2">La nostra sintesi:</p>
+    <p className="text-[11px] uppercase tracking-[0.05em] font-semibold text-[var(--header-gold)]/85 mb-1 pr-2">La nostra sintesi</p>
     <div className="px-4 py-2 rounded-r-md border-l-4" style={{ backgroundColor: 'var(--superquote-bg)', borderLeftColor: 'var(--header-gold)' }}>
       <p className="text-sm font-normal italic text-card-foreground leading-[1.6]">
         {horoscope.superquote}
