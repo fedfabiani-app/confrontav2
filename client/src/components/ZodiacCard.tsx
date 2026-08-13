@@ -28,22 +28,7 @@ interface ZodiacCardProps {
   onToggleCollapse?: () => void;
 }
 
-const signColors = {
-  ariete: 'from-red-300 to-red-500',
-  toro: 'from-yellow-300 to-orange-500',
-  gemelli: 'from-green-400 to-green-600',
-  cancro: 'from-blue-300 to-blue-500',
-  leone: 'from-red-300 to-red-500',
-  vergine: 'from-yellow-300 to-orange-500',
-  bilancia: 'from-green-400 to-green-600',
-  scorpione: 'from-blue-300 to-blue-500',
-  sagittario: 'from-red-300 to-red-500',
-  capricorno: 'from-yellow-300 to-orange-500',
-  acquario: 'from-green-400 to-green-600',
-  pesci: 'from-blue-300 to-blue-500',
-};
-
-  export function ZodiacCard({ 
+  export function ZodiacCard({
   sign, 
   aggregate, 
   summary, 
@@ -54,9 +39,6 @@ const signColors = {
   isCollapsed = false,
   onToggleCollapse
 }: ZodiacCardProps) {
-  const signKey = sign.name_italian.toLowerCase();
-  const colorClass = signColors[signKey as keyof typeof signColors] || 'from-gray-500 to-gray-700';
-
   const handleCardClick = (e: React.MouseEvent) => {
     // Don't trigger card click if clicking on control buttons
     if ((e.target as HTMLElement).closest('button')) {
