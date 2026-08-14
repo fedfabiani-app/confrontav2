@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -180,8 +180,31 @@ function SignDetail({ sign }: SignDetailProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Shared-source deep link: ?fonte=<sourceId> (+ ?vista=weekly se la card
+  // condivisa era in vista settimanale) fa aprire/scrollare automaticamente
+  // alla card di quella fonte specifica. Letto una sola volta al mount:
+  // i navigate() successivi (cambio data, ecc.) non riportano questi
+  // parametri nell'URL, quindi non deve essere ricalcolato ad ogni render.
+  const getInitialFonteId = (): number | null => {
+    const params = new URLSearchParams(window.location.search);
+    const fonteParam = params.get('fonte');
+    if (fonteParam) {
+      const parsed = parseInt(fonteParam, 10);
+      if (!isNaN(parsed)) return parsed;
+    }
+    return null;
+  };
+
+  const getInitialViewType = (): "daily" | "weekly" => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('vista') === 'weekly' ? 'weekly' : 'daily';
+  };
+
+  const [sharedSourceId] = useState<number | null>(getInitialFonteId);
+  const hasScrolledToSharedSource = useRef(false);
+
   // Daily/Weekly view state
-  const [viewType, setViewType] = useState<"daily" | "weekly">("daily");
+  const [viewType, setViewType] = useState<"daily" | "weekly">(getInitialViewType);
   const [weekOffset, setWeekOffset] = useState(0);
   const { canAccessDateWithOverlay, canAccessWeekWithOverlay } = useAccess();
   const [premiumOverlay, setPremiumOverlay] = useState<{ type: 'daily' | 'weekly'; date: string } | null>(null);
@@ -265,9 +288,20 @@ function SignDetail({ sign }: SignDetailProps) {
   // Favorites functionality
   const { isFavorite, toggleFavorite, reorderSources, hasFavorites } = useFavorites(sign);
 
-  // Share functionality
-  const handleShare = async () => {
-    const currentUrl = window.location.href;
+  // Share functionality. Quando invocato dal pulsante di una card fonte
+  // specifica, aggiunge ?fonte=<sourceId> (e ?vista=weekly se in vista
+  // settimanale) così chi apre il link vede subito quella card aperta.
+  const handleShare = async (horoscope?: HoroscopeData) => {
+    const shareUrl = new URL(window.location.href);
+    if (horoscope) {
+      shareUrl.searchParams.set('fonte', String(horoscope.source.id));
+      if (viewType === 'weekly') {
+        shareUrl.searchParams.set('vista', 'weekly');
+      } else {
+        shareUrl.searchParams.delete('vista');
+      }
+    }
+    const currentUrl = shareUrl.toString();
     const displayDate = selectedDate.toLocaleDateString('it-IT', {
       year: 'numeric',
       month: 'long',
@@ -372,7 +406,11 @@ function SignDetail({ sign }: SignDetailProps) {
   // Collapse/expand state — in-memory only (intentionally not persisted).
   // Cards always start collapsed when the user enters the page; the state resets
   // automatically whenever the component unmounts (i.e. the user leaves the page).
-  const [collapsedCards, setCollapsedCards] = useState<Record<number, boolean>>({});
+  // Eccezione: se si arriva da un link di condivisione (?fonte=<id>), quella
+  // card specifica parte già espansa.
+  const [collapsedCards, setCollapsedCards] = useState<Record<number, boolean>>(() =>
+    sharedSourceId !== null ? { [sharedSourceId]: false } : {}
+  );
 
   const toggleCollapse = (sourceId: number) => {
     setCollapsedCards(prev => ({ ...prev, [sourceId]: !prev[sourceId] }));
@@ -418,6 +456,20 @@ function SignDetail({ sign }: SignDetailProps) {
     },
     enabled: viewType === "weekly",
   });
+
+  // Deep link da condivisione: una volta caricati i dati della vista attiva,
+  // scrolla automaticamente la card della fonte condivisa in vista (una
+  // sola volta — non deve rieseguirsi ad ogni refetch, es. cambio data).
+  useEffect(() => {
+    if (sharedSourceId === null || hasScrolledToSharedSource.current) return;
+    const stillLoading = viewType === "daily" ? horoscopesLoading : weeklyHoroscopesLoading;
+    if (stillLoading) return;
+    const cardEl = document.getElementById(`source-card-${sharedSourceId}`);
+    if (cardEl) {
+      cardEl.scrollIntoView({ behavior: "smooth", block: "start" });
+      hasScrolledToSharedSource.current = true;
+    }
+  }, [sharedSourceId, viewType, horoscopesLoading, weeklyHoroscopesLoading, horoscopes, weeklyHoroscopes]);
 
   // Fetch weekly aggregates
   const { data: weeklyAggregate } = useQuery<HoroscopeAggregate>({
@@ -869,6 +921,7 @@ function SignDetail({ sign }: SignDetailProps) {
             const renderPlaceholderCard = (source: HoroscopeData["source"]) => (
               <Card
                 key={`placeholder-${source.id}`}
+                id={`source-card-${source.id}`}
                 className="relative border border-dashed border-[var(--header-purple)]/40 bg-card/50 shadow-none"
               >
                 <CardContent className="p-3 flex items-center justify-between gap-3">
@@ -912,6 +965,7 @@ function SignDetail({ sign }: SignDetailProps) {
             return (
               <Card
                 key={horoscope.id}
+                id={`source-card-${horoscope.source.id}`}
                 className="relative cursor-pointer border-2 hover:shadow-md transition-shadow"
                 onClick={() => toggleCollapse(horoscope.source.id)}
               >
@@ -956,7 +1010,7 @@ function SignDetail({ sign }: SignDetailProps) {
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleShare();
+                          handleShare(horoscope);
                         }}
                         className="p-1 h-11 w-11 hover:bg-blue-50 dark:hover:bg-blue-900/20"
                         data-testid={`button-share-${horoscope.source.id}`}
