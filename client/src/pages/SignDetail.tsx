@@ -922,7 +922,7 @@ function SignDetail({ sign }: SignDetailProps) {
               <Card
                 key={`placeholder-${source.id}`}
                 id={`source-card-${source.id}`}
-                className="relative border border-dashed border-[var(--header-purple)]/40 bg-card/50 shadow-none"
+                className="relative scroll-mt-24 border border-dashed border-[var(--header-purple)]/40 bg-card/50 shadow-none"
               >
                 <CardContent className="p-3 flex items-center justify-between gap-3">
                   <div className="flex items-center space-x-3">
@@ -966,7 +966,7 @@ function SignDetail({ sign }: SignDetailProps) {
               <Card
                 key={horoscope.id}
                 id={`source-card-${horoscope.source.id}`}
-                className="relative cursor-pointer border-2 hover:shadow-md transition-shadow"
+                className="relative cursor-pointer scroll-mt-24 border-2 hover:shadow-md transition-shadow"
                 onClick={() => toggleCollapse(horoscope.source.id)}
               >
                 <CardContent className="p-4">
