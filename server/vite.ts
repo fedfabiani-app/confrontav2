@@ -5,6 +5,7 @@ import { createServer as createViteServer, createLogger } from "vite";
 import { type Server } from "http";
 import viteConfig from "../vite.config";
 import { nanoid } from "nanoid";
+import { injectSignMetaTags } from "./seo/signMeta";
 
 const viteLogger = createLogger();
 
@@ -59,7 +60,8 @@ export async function setupVite(app: Express, server: Server) {
         `src="/src/main.tsx?v=${nanoid()}"`,
       );
       const page = await vite.transformIndexHtml(url, template);
-      res.status(200).set({ "Content-Type": "text/html" }).end(page);
+      const finalPage = await injectSignMetaTags(page, req);
+      res.status(200).set({ "Content-Type": "text/html" }).end(finalPage);
     } catch (e) {
       vite.ssrFixStacktrace(e as Error);
       next(e);
@@ -94,8 +96,19 @@ export function serveStatic(app: Express) {
     })
   );
 
-  // fall through to index.html if the file doesn't exist
-  app.use("*", (_req, res) => {
-    res.sendFile(path.resolve(distPath, "index.html"));
+  // fall through to index.html if the file doesn't exist. The template is
+  // immutable for the life of the process (rebuilt only on redeploy), so
+  // read it once here rather than on every request.
+  const indexHtmlPath = path.resolve(distPath, "index.html");
+  const cachedIndexHtml = fs.readFileSync(indexHtmlPath, "utf-8");
+
+  app.use("*", async (req, res) => {
+    // injectSignMetaTags fails open (returns the template unchanged) on
+    // any error, so this can never throw.
+    const html = await injectSignMetaTags(cachedIndexHtml, req);
+    // The body now varies per request (query string dependent for
+    // /sign/:sign), so no downstream cache should treat this like a
+    // static file the way sendFile()'s default headers implied.
+    res.status(200).set({ "Content-Type": "text/html", "Cache-Control": "no-cache" }).end(html);
   });
 }

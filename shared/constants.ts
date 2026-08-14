@@ -18,6 +18,20 @@ export const ZODIAC_SIGNS_EN_IT = Object.fromEntries(
   Object.entries(ZODIAC_SIGNS_IT_EN).map(([it, en]) => [en, it])
 ) as Record<string, string>;
 
+// Risolve uno slug segno (italiano o inglese, case-insensitive sul ramo
+// inglese) al valore inglese canonico usato come :sign nelle URL e come
+// name_english nel DB. Ritorna null se non riconosciuto.
+export function resolveEnglishSign(raw: string): string | null {
+  if (raw in ZODIAC_SIGNS_IT_EN) {
+    return ZODIAC_SIGNS_IT_EN[raw as keyof typeof ZODIAC_SIGNS_IT_EN];
+  }
+  const lower = raw.toLowerCase();
+  if (Object.values(ZODIAC_SIGNS_IT_EN).includes(lower as any)) {
+    return lower;
+  }
+  return null;
+}
+
 // Italian weekdays without accents
 export const ITALIAN_WEEKDAYS = [
   'domenica',
